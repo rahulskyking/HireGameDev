@@ -1,5 +1,6 @@
 using HireGameDev.Application;
 using HireGameDev.Infrastructure;
+using HireGameDev.Web.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
@@ -11,6 +12,12 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // Optional git-ignored local secrets override (for Resend API key, Google/GitHub OAuth client secrets, etc.)
+    builder.Configuration.AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.local.json",
+        optional: true,
+        reloadOnChange: true);
+
     builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
@@ -18,6 +25,7 @@ try
 
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+    builder.Services.AddHireGameDevAuthorization();
 
     builder.Services.AddControllersWithViews(options =>
     {

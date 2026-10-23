@@ -1,0 +1,43 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
+@{
+    ViewData["Title"] = "Verify your email";
+    var email = ViewData["Email"] as string ?? string.Empty;
+}
+
+<section aria-labelledby="confirm-pending-heading">
+    <h1 id="confirm-pending-heading">Check your email to confirm your account</h1>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div role="status">
+            <p><strong>@statusMessage</strong></p>
+        </div>
+    }
+
+    <p>
+        We sent a verification link to <strong>@email</strong>.
+        Click the link in that email to activate your account before signing in.
+    </p>
+
+    @if (HostEnvironment.IsDevelopment())
+    {
+        <aside>
+            <p>
+                <small>
+                    <strong>Local Development Note:</strong> When <code>Email:Provider</code> is <code>Dev</code>,
+                    open <code>src/HireGameDev.Web/logs/emails/</code> in your browser to view the email and click the confirmation button.
+                </small>
+            </p>
+        </aside>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(email))
+    {
+        <form asp-controller="Account" asp-action="ResendConfirmation" method="post">
+            <input type="hidden" name="email" value="@email" />
+            <button type="submit">Resend confirmation email</button>
+        </form>
+    }
+
+    <p><a asp-controller="Account" asp-action="Login">Back to sign in</a></p>
+</section>

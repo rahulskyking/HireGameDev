@@ -1,4 +1,7 @@
 using HireGameDev.Application.Abstractions;
+using HireGameDev.Application.Abstractions.Auth;
+using HireGameDev.Application.Abstractions.Email;
+using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Persistence;
 using HireGameDev.Infrastructure.Services;
@@ -61,6 +64,7 @@ public static class DependencyInjection
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<AppDbContext>()
+            .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()
             .AddDefaultTokenProviders();
 
         services.ConfigureApplicationCookie(options =>
@@ -76,6 +80,24 @@ public static class DependencyInjection
             options.SlidingExpiration = true;
             options.ExpireTimeSpan = TimeSpan.FromDays(14);
         });
+
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+
+        var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"] ?? "Dev";
+        if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.resend.com/");
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, DevEmailSender>();
+        }
+
+        services.AddScoped<IAuthService, IdentityAuthService>();
 
         return services;
     }

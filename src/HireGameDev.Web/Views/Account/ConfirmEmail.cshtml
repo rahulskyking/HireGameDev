@@ -1,0 +1,18 @@
+@model ConfirmEmailViewModel
+@{
+    ViewData["Title"] = Model.Succeeded ? "Email verified" : "Verification failed";
+}
+
+<section aria-labelledby="confirm-result-heading">
+    <h1 id="confirm-result-heading">@(Model.Succeeded ? "Email verified" : "Could not verify email")</h1>
+    <p role="status">@Model.Message</p>
+
+    @if (Model.Succeeded)
+    {
+        <p><a asp-controller="Account" asp-action="Login">Continue to sign in</a></p>
+    }
+    else
+    {
+        <p><a asp-controller="Account" asp-action="Login">Go to sign in to request a new confirmation email</a></p>
+    }
+</section>

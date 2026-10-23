@@ -1,0 +1,71 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+<section aria-labelledby="login-heading">
+    <h1 id="login-heading">Sign in to HireGameDev</h1>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div role="status">
+            <p><strong>@statusMessage</strong></p>
+        </div>
+    }
+
+    <form asp-controller="Account" asp-action="Login" method="post" novalidate>
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+        <div>
+            <label asp-for="Email"></label><br />
+            <input asp-for="Email" type="email" autocomplete="email" />
+            <span asp-validation-for="Email"></span>
+        </div>
+
+        <div>
+            <label asp-for="Password"></label><br />
+            <input asp-for="Password" autocomplete="current-password" />
+            <span asp-validation-for="Password"></span>
+        </div>
+
+        <div>
+            <label>
+                <input asp-for="RememberMe" />
+                @Html.DisplayNameFor(m => m.RememberMe)
+            </label>
+        </div>
+
+        <div>
+            <button type="submit">Sign in</button>
+        </div>
+    </form>
+
+    @if (Model.ShowResendConfirmation && !string.IsNullOrWhiteSpace(Model.Email))
+    {
+        <section aria-label="Resend email confirmation">
+            <form asp-controller="Account" asp-action="ResendConfirmation" method="post">
+                <input type="hidden" name="email" value="@Model.Email" />
+                <button type="submit">Resend confirmation email to @Model.Email</button>
+            </form>
+        </section>
+    }
+
+    @if (Model.ShowSetPasswordPrompt && !string.IsNullOrWhiteSpace(Model.Email))
+    {
+        <section aria-label="Set a password for email sign-in">
+            <p>Want to sign in with your email and a password as well? Send yourself a secure Set-Password link:</p>
+            <form asp-controller="Account" asp-action="ForgotPassword" method="post">
+                <input type="hidden" name="Email" value="@Model.Email" />
+                <button type="submit">Email me a Set-Password link</button>
+            </form>
+        </section>
+    }
+
+    <p>
+        <a asp-controller="Account" asp-action="ForgotPassword">Forgot password or set a password?</a>
+        &middot;
+        <a asp-controller="Account" asp-action="Register">Create an account</a>
+    </p>
+</section>

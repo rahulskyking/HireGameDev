@@ -7,17 +7,35 @@
 </head>
 <body>
     <header>
-        <nav aria-label="Primary">
+        <nav aria-label="Primary" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #e2e1db;">
             <a asp-controller="Home" asp-action="Index"><strong>HireGameDev</strong></a>
+
+            <div style="display:flex;align-items:center;gap:12px;">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    var displayName = User.FindFirst(HireGameDevClaimTypes.DisplayName)?.Value ?? User.Identity.Name;
+                    var accountType = User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value ?? "user";
+
+                    <span>@displayName (<code>@accountType</code>)</span>
+                    <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
+                        <button type="submit">Sign out</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login">Sign in</a>
+                    <a asp-controller="Account" asp-action="Register">Create account</a>
+                }
+            </div>
         </nav>
     </header>
 
-    <main role="main">
+    <main role="main" style="padding:24px 0;">
         @RenderBody()
     </main>
 
-    <footer>
-        <small>&copy; @DateTime.UtcNow.Year HireGameDev · Built for game developers &amp; studios in India</small>
+    <footer style="padding:16px 0;border-top:1px solid #e2e1db;">
+        <small>&copy; @DateTime.UtcNow.Year HireGameDev &middot; Built for game developers &amp; studios in India</small>
     </footer>
 
     @await RenderSectionAsync("Scripts", required: false)

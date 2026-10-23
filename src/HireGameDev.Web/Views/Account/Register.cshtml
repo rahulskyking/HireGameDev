@@ -1,0 +1,85 @@
+@model RegisterViewModel
+@{
+    ViewData["Title"] = "Create account";
+}
+
+<section aria-labelledby="register-heading">
+    <h1 id="register-heading">Create your HireGameDev account</h1>
+    <p>Choose how you are joining HireGameDev first. Google and GitHub (Candidates) social sign-up arrive in M0.3b–c.</p>
+
+    <form asp-controller="Account" asp-action="Register" method="post" novalidate>
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+        <fieldset>
+            <legend><strong>1. I am joining as a</strong></legend>
+            <div>
+                <label>
+                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" />
+                    <strong>Game Developer (Candidate)</strong> — Find verified game studio roles in India
+                </label>
+            </div>
+            <div>
+                <label>
+                    <input type="radio" asp-for="AccountType" value="@AccountType.Studio" />
+                    <strong>Game Studio (Hiring)</strong> — Build your studio profile and hire game talent
+                </label>
+            </div>
+            <span asp-validation-for="AccountType"></span>
+            <p>
+                <small>
+                    Studios can register with any valid email (company domain, Gmail, or Outlook).
+                    After completing your studio profile, company-domain studios follow standard verification and personal-email indie studios can request manual admin review.
+                </small>
+            </p>
+        </fieldset>
+
+        <div>
+            <label asp-for="DisplayName"></label><br />
+            <input asp-for="DisplayName" autocomplete="name" placeholder="e.g. Aarav Sharma" />
+            <span asp-validation-for="DisplayName"></span>
+        </div>
+
+        <div>
+            <label asp-for="Email"></label><br />
+            <input asp-for="Email" type="email" autocomplete="email" placeholder="you@example.com" />
+            <span asp-validation-for="Email"></span>
+        </div>
+
+        <div>
+            <label asp-for="Password"></label><br />
+            <input asp-for="Password" autocomplete="new-password" />
+            <small>At least 10 characters with uppercase, lowercase, and a number.</small>
+            <span asp-validation-for="Password"></span>
+        </div>
+
+        <div>
+            <label asp-for="ConfirmPassword"></label><br />
+            <input asp-for="ConfirmPassword" autocomplete="new-password" />
+            <span asp-validation-for="ConfirmPassword"></span>
+        </div>
+
+        <div>
+            <label>
+                <input asp-for="ConfirmAge18Plus" />
+                @Html.DisplayNameFor(m => m.ConfirmAge18Plus)
+            </label>
+            <span asp-validation-for="ConfirmAge18Plus"></span>
+        </div>
+
+        <div>
+            <label>
+                <input asp-for="AcceptTermsAndPrivacy" />
+                I agree to the Terms of Use and Privacy Notice
+            </label>
+            <span asp-validation-for="AcceptTermsAndPrivacy"></span>
+        </div>
+
+        <div>
+            <button type="submit">Create account</button>
+        </div>
+    </form>
+
+    <p>Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a></p>
+</section>
