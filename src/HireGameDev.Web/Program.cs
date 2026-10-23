@@ -17,7 +17,7 @@ try
         .Enrich.FromLogContext());
 
     builder.Services.AddApplication();
-    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
     builder.Services.AddControllersWithViews(options =>
     {
@@ -50,6 +50,7 @@ try
 
     app.UseRouting();
 
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapHealthChecks("/health").AllowAnonymous();
