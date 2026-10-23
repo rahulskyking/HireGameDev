@@ -1,0 +1,23 @@
+# build output
+bin/
+obj/
+*.user
+.vs/
+artifacts/
+
+# node (dev harness: dbcheck + fixture runner)
+node_modules/
+*.tsbuildinfo
+
+# local env + secrets — never commit
+.env
+.env.*
+!.env.example
+appsettings.Development.local.json
+
+# runtime data
+App_Data/uploads/
+logs/
+TestData/
+*.db
+.pglite/
