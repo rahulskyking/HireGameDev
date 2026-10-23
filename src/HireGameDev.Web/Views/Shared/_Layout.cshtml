@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["Title"] is string pageTitle && !string.IsNullOrWhiteSpace(pageTitle) ? $"{pageTitle} · HireGameDev" : "HireGameDev")</title>
+</head>
+<body>
+    <header>
+        <nav aria-label="Primary">
+            <a asp-controller="Home" asp-action="Index"><strong>HireGameDev</strong></a>
+        </nav>
+    </header>
+
+    <main role="main">
+        @RenderBody()
+    </main>
+
+    <footer>
+        <small>&copy; @DateTime.UtcNow.Year HireGameDev · Built for game developers &amp; studios in India</small>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

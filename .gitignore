@@ -1,0 +1,32 @@
+## .NET build outputs & IDE files
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.DotSettings.user
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Secrets & local environment overrides (never commit secrets)
+appsettings.*.local.json
+appsettings.Local.json
+.env
+.env.*
+*.pfx
+*.pem
+*.key
+
+## Runtime uploads & local storage (stored outside wwwroot in production)
+App_Data/
+uploads/
+
+## OS files
+.DS_Store
+Thumbs.db
