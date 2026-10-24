@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Email;
@@ -5,6 +6,8 @@ using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Persistence;
 using HireGameDev.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -81,6 +84,43 @@ public static class DependencyInjection
             options.ExpireTimeSpan = TimeSpan.FromDays(14);
         });
 
+        services.ConfigureExternalCookie(options =>
+        {
+            options.Cookie.Name = "hgd.external";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
+        });
+
+        var externalAuth = new ExternalAuthOptions();
+        configuration.GetSection(ExternalAuthOptions.SectionName).Bind(externalAuth);
+        services.Configure<ExternalAuthOptions>(configuration.GetSection(ExternalAuthOptions.SectionName));
+
+        if (externalAuth.Google.IsConfigured)
+        {
+            services
+                .AddAuthentication()
+                .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+                {
+                    options.SignInScheme = IdentityConstants.ExternalScheme;
+                    options.ClientId = externalAuth.Google.ClientId;
+                    options.ClientSecret = externalAuth.Google.ClientSecret;
+                    options.CallbackPath = "/signin-google";
+                    options.UsePkce = true;
+                    options.ClaimActions.MapJsonKey("email_verified", "email_verified", ClaimValueTypes.Boolean);
+                    options.Events.OnRemoteFailure = context =>
+                    {
+                        var message = Uri.EscapeDataString("Google sign-in was cancelled or could not be completed.");
+                        context.Response.Redirect($"/Account/Login?remoteError={message}");
+                        context.HandleResponse();
+                        return Task.CompletedTask;
+                    };
+                });
+        }
+
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"] ?? "Dev";
@@ -98,6 +138,7 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IAuthService, IdentityAuthService>();
+        services.AddScoped<IExternalAuthChallengeProvider, IdentityExternalAuthChallengeProvider>();
 
         return services;
     }

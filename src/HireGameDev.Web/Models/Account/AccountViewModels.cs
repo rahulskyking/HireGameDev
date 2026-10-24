@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HireGameDev.Application.Features.Auth;
 using HireGameDev.Domain.Enums;
 
 namespace HireGameDev.Web.Models.Account;
@@ -39,6 +40,8 @@ public sealed class RegisterViewModel
     public bool AcceptTermsAndPrivacy { get; init; }
 
     public string? ReturnUrl { get; init; }
+
+    public IReadOnlyList<ExternalProviderDescriptor> ExternalProviders { get; set; } = [];
 }
 
 public sealed class LoginViewModel
@@ -61,6 +64,35 @@ public sealed class LoginViewModel
     public bool ShowResendConfirmation { get; set; }
 
     public bool ShowSetPasswordPrompt { get; set; }
+
+    public IReadOnlyList<ExternalProviderDescriptor> ExternalProviders { get; set; } = [];
+}
+
+public sealed class CompleteExternalRegistrationViewModel
+{
+    public string ProviderDisplayName { get; set; } = string.Empty;
+
+    public string Email { get; set; } = string.Empty;
+
+    public bool AllowedForStudios { get; set; } = true;
+
+    [Required(ErrorMessage = "Choose how you want to use HireGameDev.")]
+    public AccountType AccountType { get; set; } = AccountType.Candidate;
+
+    [Required(ErrorMessage = "Name is required.")]
+    [StringLength(80, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 80 characters.")]
+    [Display(Name = "Full name or founder name")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [Range(typeof(bool), "true", "true", ErrorMessage = "You must confirm that you are 18 years or older.")]
+    [Display(Name = "I confirm that I am 18 years of age or older")]
+    public bool ConfirmAge18Plus { get; set; }
+
+    [Range(typeof(bool), "true", "true", ErrorMessage = "You must accept the Terms of Use and Privacy Notice.")]
+    [Display(Name = "I agree to the Terms of Use and Privacy Notice")]
+    public bool AcceptTermsAndPrivacy { get; set; }
+
+    public string? ReturnUrl { get; set; }
 }
 
 public sealed class ForgotPasswordViewModel

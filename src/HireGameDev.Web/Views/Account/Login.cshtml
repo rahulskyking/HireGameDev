@@ -1,4 +1,5 @@
 @model LoginViewModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
     ViewData["Title"] = "Sign in";
 }
@@ -13,10 +14,37 @@
         </div>
     }
 
+    <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+    @if (Model.ExternalProviders.Count > 0)
+    {
+        <section aria-label="Social sign-in" style="margin-bottom:20px;">
+            <form asp-controller="Account" asp-action="ExternalLogin" method="post">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                    @foreach (var provider in Model.ExternalProviders)
+                    {
+                        <button type="submit" name="provider" value="@provider.Scheme">
+                            Continue with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates)")
+                        </button>
+                    }
+                </div>
+            </form>
+            <p><small>Or sign in with your email and password:</small></p>
+        </section>
+    }
+    else if (HostEnvironment.IsDevelopment())
+    {
+        <aside style="margin-bottom:16px;">
+            <small>
+                <strong>Local Development Note:</strong> Add <code>Authentication:Google:ClientId</code> and
+                <code>Authentication:Google:ClientSecret</code> in <code>appsettings.Development.local.json</code> to enable Google Sign-In.
+            </small>
+        </aside>
+    }
+
     <form asp-controller="Account" asp-action="Login" method="post" novalidate>
         <input type="hidden" asp-for="ReturnUrl" />
-
-        <div asp-validation-summary="ModelOnly" role="alert"></div>
 
         <div>
             <label asp-for="Email"></label><br />

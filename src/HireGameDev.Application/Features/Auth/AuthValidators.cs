@@ -83,3 +83,26 @@ public sealed class ResetPasswordCommandValidator : AbstractValidator<ResetPassw
             .Matches("[0-9]").WithMessage("Password must contain at least one number.");
     }
 }
+
+public sealed class CompleteExternalRegistrationCommandValidator : AbstractValidator<CompleteExternalRegistrationCommand>
+{
+    public CompleteExternalRegistrationCommandValidator()
+    {
+        RuleFor(x => x.AccountType)
+            .Must(type => type is AccountType.Candidate or AccountType.Studio)
+            .WithMessage("Please choose whether you are joining as a Candidate or a Studio.");
+
+        RuleFor(x => x.DisplayName)
+            .NotEmpty().WithMessage("Name is required.")
+            .MinimumLength(2).WithMessage("Name must be at least 2 characters.")
+            .MaximumLength(80).WithMessage("Name must be 80 characters or fewer.");
+
+        RuleFor(x => x.ConfirmAge18Plus)
+            .Equal(true)
+            .WithMessage("You must confirm that you are 18 years of age or older.");
+
+        RuleFor(x => x.AcceptTermsAndPrivacy)
+            .Equal(true)
+            .WithMessage("You must accept the Terms of Use and Privacy Notice.");
+    }
+}

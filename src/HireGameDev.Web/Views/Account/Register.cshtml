@@ -1,28 +1,60 @@
 @model RegisterViewModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
     ViewData["Title"] = "Create account";
 }
 
 <section aria-labelledby="register-heading">
     <h1 id="register-heading">Create your HireGameDev account</h1>
-    <p>Choose how you are joining HireGameDev first. Google and GitHub (Candidates) social sign-up arrive in M0.3b–c.</p>
+    <p>Choose whether you are joining as a Game Developer (Candidate) or a Game Studio first.</p>
+
+    <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+    @if (Model.ExternalProviders.Count > 0)
+    {
+        <section aria-label="Quick social sign-up" style="margin-bottom:20px;">
+            <form asp-controller="Account" asp-action="ExternalLogin" method="post" id="external-register-form">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <input type="hidden" name="preferredAccountType" id="external-preferred-account-type" value="@Model.AccountType" />
+                <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                    @foreach (var provider in Model.ExternalProviders)
+                    {
+                        <button type="submit"
+                                name="provider"
+                                value="@provider.Scheme"
+                                data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()">
+                            Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
+                        </button>
+                    }
+                </div>
+            </form>
+            <p><small>First-time social sign-up includes a quick confirmation step for your role and consent. Or register with email and password below:</small></p>
+        </section>
+    }
+    else if (HostEnvironment.IsDevelopment())
+    {
+        <aside style="margin-bottom:16px;">
+            <small>
+                <strong>Local Development Note:</strong> Add <code>Authentication:Google:ClientId</code> and
+                <code>Authentication:Google:ClientSecret</code> in <code>appsettings.Development.local.json</code> to enable Google Sign-Up.
+            </small>
+        </aside>
+    }
 
     <form asp-controller="Account" asp-action="Register" method="post" novalidate>
         <input type="hidden" asp-for="ReturnUrl" />
-
-        <div asp-validation-summary="ModelOnly" role="alert"></div>
 
         <fieldset>
             <legend><strong>1. I am joining as a</strong></legend>
             <div>
                 <label>
-                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" />
+                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
                     <strong>Game Developer (Candidate)</strong> — Find verified game studio roles in India
                 </label>
             </div>
             <div>
                 <label>
-                    <input type="radio" asp-for="AccountType" value="@AccountType.Studio" />
+                    <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
                     <strong>Game Studio (Hiring)</strong> — Build your studio profile and hire game talent
                 </label>
             </div>
@@ -83,3 +115,28 @@
 
     <p>Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a></p>
 </section>
+
+@section Scripts {
+    <script>
+        (() => {
+            const hiddenType = document.getElementById('external-preferred-account-type');
+            const radios = document.querySelectorAll('[data-account-type-radio]');
+            const providerButtons = document.querySelectorAll('#external-register-form button[name="provider"]');
+            if (!hiddenType || radios.length === 0) return;
+
+            const syncRole = () => {
+                const selected = Array.from(radios).find(r => r.checked);
+                if (!selected) return;
+                hiddenType.value = selected.value;
+                const isStudio = selected.value === 'Studio';
+                providerButtons.forEach(btn => {
+                    const allowedForStudios = btn.getAttribute('data-allowed-for-studios') === 'true';
+                    btn.disabled = isStudio && !allowedForStudios;
+                });
+            };
+
+            radios.forEach(r => r.addEventListener('change', syncRole));
+            syncRole();
+        })();
+    </script>
+}

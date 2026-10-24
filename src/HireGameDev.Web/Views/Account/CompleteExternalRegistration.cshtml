@@ -1,0 +1,80 @@
+@model CompleteExternalRegistrationViewModel
+@{
+    ViewData["Title"] = "Complete your account";
+}
+
+<section aria-labelledby="complete-account-heading">
+    <h1 id="complete-account-heading">Complete your HireGameDev account</h1>
+    <p>
+        Connected with <strong>@Model.ProviderDisplayName</strong> as <strong>@Model.Email</strong>.
+        Confirm how you are joining HireGameDev to finish creating your account.
+    </p>
+
+    <form asp-controller="Account" asp-action="CompleteExternalRegistration" method="post" novalidate>
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+        <fieldset>
+            <legend><strong>1. I am joining as a</strong></legend>
+            <div>
+                <label>
+                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" />
+                    <strong>Game Developer (Candidate)</strong> — Find verified game studio roles in India
+                </label>
+            </div>
+            @if (Model.AllowedForStudios)
+            {
+                <div>
+                    <label>
+                        <input type="radio" asp-for="AccountType" value="@AccountType.Studio" />
+                        <strong>Game Studio (Hiring)</strong> — Build your studio profile and hire game talent
+                    </label>
+                </div>
+                <p>
+                    <small>
+                        Studios can sign up with any verified Google account (company domain or Gmail).
+                        After completing your studio profile, company-domain studios follow standard verification and personal-email indie studios can request manual admin review.
+                    </small>
+                </p>
+            }
+            else
+            {
+                <p>
+                    <small>
+                        @Model.ProviderDisplayName sign-up is available for Candidate accounts only. To register a Studio, use Google or email/password.
+                    </small>
+                </p>
+            }
+            <span asp-validation-for="AccountType"></span>
+        </fieldset>
+
+        <div>
+            <label asp-for="DisplayName"></label><br />
+            <input asp-for="DisplayName" autocomplete="name" />
+            <span asp-validation-for="DisplayName"></span>
+        </div>
+
+        <div>
+            <label>
+                <input asp-for="ConfirmAge18Plus" />
+                @Html.DisplayNameFor(m => m.ConfirmAge18Plus)
+            </label>
+            <span asp-validation-for="ConfirmAge18Plus"></span>
+        </div>
+
+        <div>
+            <label>
+                <input asp-for="AcceptTermsAndPrivacy" />
+                I agree to the Terms of Use and Privacy Notice
+            </label>
+            <span asp-validation-for="AcceptTermsAndPrivacy"></span>
+        </div>
+
+        <div>
+            <button type="submit">Finish creating account</button>
+        </div>
+    </form>
+
+    <p><a asp-controller="Account" asp-action="Login">Cancel and return to sign in</a></p>
+</section>

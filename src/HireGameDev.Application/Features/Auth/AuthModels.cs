@@ -52,3 +52,46 @@ public sealed record ResetPasswordCommand(
     string Email,
     string Code,
     string NewPassword);
+
+public sealed record ExternalProviderDescriptor(
+    string Scheme,
+    string DisplayName,
+    bool AllowedForStudios);
+
+public enum ExternalCallbackStatus
+{
+    SignedIn = 0,
+    RequiresAccountCompletion = 1,
+    ExternalInfoMissing = 2,
+    RemoteError = 3,
+    EmailMissingOrUnverified = 4,
+    ProviderNotAllowedForAccountType = 5,
+    AccountInactive = 6,
+    LockedOut = 7
+}
+
+public sealed record ExternalLoginCallbackResult(
+    ExternalCallbackStatus Status,
+    AccountType? AccountType = null,
+    string? Email = null,
+    string? ProviderDisplayName = null,
+    string? Message = null);
+
+public sealed record PendingExternalRegistration(
+    string Provider,
+    string ProviderDisplayName,
+    string Email,
+    string SuggestedDisplayName,
+    bool AllowedForStudios);
+
+public sealed record CompleteExternalRegistrationCommand(
+    AccountType AccountType,
+    string DisplayName,
+    bool ConfirmAge18Plus,
+    bool AcceptTermsAndPrivacy,
+    string SetPasswordLinkBaseUrl);
+
+public sealed record CompleteExternalRegistrationResult(
+    Guid UserId,
+    string Email,
+    AccountType AccountType);
