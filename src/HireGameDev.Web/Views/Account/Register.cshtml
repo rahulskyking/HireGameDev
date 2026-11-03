@@ -12,39 +12,16 @@
 
     @if (Model.ExternalProviders.Count > 0)
     {
-        <section aria-label="Quick social sign-up" style="margin-bottom:20px;">
-            <form asp-controller="Account" asp-action="ExternalLogin" method="post" id="external-register-form">
-                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-                <input type="hidden" name="preferredAccountType" id="external-preferred-account-type" value="@Model.AccountType" />
-                <div style="display:flex;flex-wrap:wrap;gap:10px;">
-                    @foreach (var provider in Model.ExternalProviders)
-                    {
-                        <button type="submit"
-                                name="provider"
-                                value="@provider.Scheme"
-                                data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()">
-                            Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
-                        </button>
-                    }
-                </div>
-            </form>
-            <p><small>First-time social sign-up includes a quick confirmation step for your role and consent. Or register with email and password below:</small></p>
-        </section>
-    }
-    else if (HostEnvironment.IsDevelopment())
-    {
-        <aside style="margin-bottom:16px;">
-            <small>
-                <strong>Local Development Note:</strong> Add <code>Authentication:Google:ClientId</code> and
-                <code>Authentication:Google:ClientSecret</code> in <code>appsettings.Development.local.json</code> to enable Google Sign-Up.
-            </small>
-        </aside>
+        <form asp-controller="Account" asp-action="ExternalLogin" method="post" id="external-register-form">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <input type="hidden" name="preferredAccountType" id="external-preferred-account-type" value="@Model.AccountType" />
+        </form>
     }
 
-    <form asp-controller="Account" asp-action="Register" method="post" novalidate>
+    <form asp-controller="Account" asp-action="Register" method="post" id="email-register-form" novalidate>
         <input type="hidden" asp-for="ReturnUrl" />
 
-        <fieldset>
+        <fieldset style="margin-bottom:16px;">
             <legend><strong>1. I am joining as a</strong></legend>
             <div>
                 <label>
@@ -66,6 +43,36 @@
                 </small>
             </p>
         </fieldset>
+
+        @if (Model.ExternalProviders.Count > 0)
+        {
+            <section aria-label="Quick social sign-up" style="margin-bottom:20px;">
+                <p><strong>2. Sign up with a connected account</strong></p>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                    @foreach (var provider in Model.ExternalProviders)
+                    {
+                        <button type="submit"
+                                form="external-register-form"
+                                name="provider"
+                                value="@provider.Scheme"
+                                data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()">
+                            Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
+                        </button>
+                    }
+                </div>
+                <p><small>First-time social sign-up includes a quick confirmation step for your role and consent. Or register with email and password below:</small></p>
+            </section>
+        }
+        else if (HostEnvironment.IsDevelopment())
+        {
+            <aside style="margin-bottom:16px;">
+                <small>
+                    <strong>Local Development Note:</strong> Add <code>Authentication:Google</code> and/or
+                    <code>Authentication:GitHub</code> (<code>ClientId</code> &amp; <code>ClientSecret</code>) in
+                    <code>appsettings.Development.local.json</code> to enable Google (all users) and GitHub (Candidates) sign-up.
+                </small>
+            </aside>
+        }
 
         <div>
             <label asp-for="DisplayName"></label><br />
@@ -121,7 +128,7 @@
         (() => {
             const hiddenType = document.getElementById('external-preferred-account-type');
             const radios = document.querySelectorAll('[data-account-type-radio]');
-            const providerButtons = document.querySelectorAll('#external-register-form button[name="provider"]');
+            const providerButtons = document.querySelectorAll('button[form="external-register-form"][name="provider"]');
             if (!hiddenType || radios.length === 0) return;
 
             const syncRole = () => {

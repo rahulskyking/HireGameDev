@@ -7,6 +7,7 @@ using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Auth;
+using HireGameDev.Domain.Constants;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Infrastructure.Persistence.Converters;
 using Microsoft.AspNetCore.Authentication;
@@ -524,6 +525,7 @@ internal sealed class IdentityAuthService : IAuthService
 
                 existingEmailUser.LastLoginAt = _clock.UtcNow;
                 await _userManager.UpdateAsync(existingEmailUser);
+                await PersistExternalProfileMetadataAsync(existingEmailUser, info);
 
                 await _signInManager.SignInAsync(existingEmailUser, isPersistent: false, info.LoginProvider);
                 await ClearExternalCookieAsync();
@@ -689,6 +691,8 @@ internal sealed class IdentityAuthService : IAuthService
                 Error.Validation("Auth.ExternalLinkFailed", message));
         }
 
+        await PersistExternalProfileMetadataAsync(user, info);
+
         await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
         await ClearExternalCookieAsync();
 
@@ -772,6 +776,26 @@ internal sealed class IdentityAuthService : IAuthService
         if (_signInManager.Context is not null)
         {
             await _signInManager.Context.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    private async Task PersistExternalProfileMetadataAsync(ApplicationUser user, ExternalLoginInfo info)
+    {
+        if (!string.Equals(info.LoginProvider, GitHubProviderScheme, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var gitHubLogin = info.Principal.FindFirstValue(HireGameDevClaimTypes.GitHubLogin);
+        if (!string.IsNullOrWhiteSpace(gitHubLogin))
+        {
+            await _userManager.SetAuthenticationTokenAsync(user, GitHubProviderScheme, "login", gitHubLogin);
+        }
+
+        var gitHubProfileUrl = info.Principal.FindFirstValue(HireGameDevClaimTypes.GitHubProfileUrl);
+        if (!string.IsNullOrWhiteSpace(gitHubProfileUrl))
+        {
+            await _userManager.SetAuthenticationTokenAsync(user, GitHubProviderScheme, "profile_url", gitHubProfileUrl);
         }
     }
 

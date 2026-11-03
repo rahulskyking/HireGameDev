@@ -99,26 +99,31 @@ public static class DependencyInjection
         configuration.GetSection(ExternalAuthOptions.SectionName).Bind(externalAuth);
         services.Configure<ExternalAuthOptions>(configuration.GetSection(ExternalAuthOptions.SectionName));
 
+        var authBuilder = services.AddAuthentication();
+
         if (externalAuth.Google.IsConfigured)
         {
-            services
-                .AddAuthentication()
-                .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+            authBuilder.AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+            {
+                options.SignInScheme = IdentityConstants.ExternalScheme;
+                options.ClientId = externalAuth.Google.ClientId;
+                options.ClientSecret = externalAuth.Google.ClientSecret;
+                options.CallbackPath = "/signin-google";
+                options.UsePkce = true;
+                options.ClaimActions.MapJsonKey("email_verified", "email_verified", ClaimValueTypes.Boolean);
+                options.Events.OnRemoteFailure = context =>
                 {
-                    options.SignInScheme = IdentityConstants.ExternalScheme;
-                    options.ClientId = externalAuth.Google.ClientId;
-                    options.ClientSecret = externalAuth.Google.ClientSecret;
-                    options.CallbackPath = "/signin-google";
-                    options.UsePkce = true;
-                    options.ClaimActions.MapJsonKey("email_verified", "email_verified", ClaimValueTypes.Boolean);
-                    options.Events.OnRemoteFailure = context =>
-                    {
-                        var message = Uri.EscapeDataString("Google sign-in was cancelled or could not be completed.");
-                        context.Response.Redirect($"/Account/Login?remoteError={message}");
-                        context.HandleResponse();
-                        return Task.CompletedTask;
-                    };
-                });
+                    var message = Uri.EscapeDataString("Google sign-in was cancelled or could not be completed.");
+                    context.Response.Redirect($"/Account/Login?remoteError={message}");
+                    context.HandleResponse();
+                    return Task.CompletedTask;
+                };
+            });
+        }
+
+        if (externalAuth.GitHub.IsConfigured)
+        {
+            authBuilder.AddGitHubOAuth(externalAuth.GitHub);
         }
 
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
