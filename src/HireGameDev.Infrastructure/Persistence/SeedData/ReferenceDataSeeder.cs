@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Domain.Entities;
@@ -11,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace HireGameDev.Infrastructure.Persistence.SeedData;
 
-internal sealed partial class ReferenceDataSeeder : IReferenceDataSeeder
+internal sealed class ReferenceDataSeeder : IReferenceDataSeeder
 {
     private const string CitiesResourceSuffix = "cities.seed.json";
     private const string SkillsResourceSuffix = "skills.seed.json";
@@ -291,7 +290,7 @@ internal sealed partial class ReferenceDataSeeder : IReferenceDataSeeder
         foreach (var city in cities)
         {
             var slug = city.Slug.Trim();
-            if (!SlugRegex().IsMatch(slug))
+            if (!IsValidSlug(slug))
             {
                 throw new InvalidOperationException($"Invalid city slug '{city.Slug}'.");
             }
@@ -327,7 +326,7 @@ internal sealed partial class ReferenceDataSeeder : IReferenceDataSeeder
         foreach (var skill in skills)
         {
             var slug = skill.Slug.Trim();
-            if (!SlugRegex().IsMatch(slug))
+            if (!IsValidSlug(slug))
             {
                 throw new InvalidOperationException($"Invalid skill slug '{skill.Slug}'.");
             }
@@ -460,6 +459,21 @@ internal sealed partial class ReferenceDataSeeder : IReferenceDataSeeder
     private static string? NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)]
-    private static partial Regex SlugRegex();
+    private static bool IsValidSlug(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        foreach (var ch in value)
+        {
+            if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

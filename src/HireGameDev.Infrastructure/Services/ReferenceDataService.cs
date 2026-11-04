@@ -1,6 +1,5 @@
 using System.Collections.Frozen;
 using System.Text;
-using System.Text.RegularExpressions;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Common;
@@ -14,7 +13,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace HireGameDev.Infrastructure.Services;
 
-internal sealed partial class ReferenceDataService : IReferenceDataService
+internal sealed class ReferenceDataService : IReferenceDataService
 {
     private const string CacheKey = "hgd:reference_data:snapshot:v1";
     private const string CsvHeader = "slug,name,category,subcategory,parent_slug,aliases,is_active";
@@ -275,7 +274,7 @@ internal sealed partial class ReferenceDataService : IReferenceDataService
                 .ToArray();
             var isActive = !bool.TryParse(cols[6].Trim(), out var parsedActive) || parsedActive;
 
-            if (!SlugRegex().IsMatch(slug) || string.IsNullOrWhiteSpace(name))
+            if (!IsValidSlug(slug) || string.IsNullOrWhiteSpace(name))
             {
                 skipped++;
                 warnings.Add($"Row {i + 1}: invalid slug '{slug}' or empty skill name.");
@@ -596,8 +595,23 @@ internal sealed partial class ReferenceDataService : IReferenceDataService
         return rows;
     }
 
-    [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)]
-    private static partial Regex SlugRegex();
+    private static bool IsValidSlug(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        foreach (var ch in value)
+        {
+            if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private sealed record CachedTaxonomySnapshot(
         IReadOnlyList<CityLookupItem> Cities,
