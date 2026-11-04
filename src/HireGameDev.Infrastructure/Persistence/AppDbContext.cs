@@ -1,5 +1,6 @@
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Domain.Common;
+using HireGameDev.Domain.Entities;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -16,6 +17,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     {
         _clock = clock;
     }
+
+    public DbSet<City> Cities => Set<City>();
+
+    public DbSet<Skill> Skills => Set<Skill>();
+
+    public DbSet<SkillRelation> SkillRelations => Set<SkillRelation>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
