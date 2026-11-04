@@ -24,6 +24,228 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.City", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<string[]>("Aliases")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("aliases")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(2)")
+                        .HasColumnName("country_code")
+                        .HasDefaultValueSql("'IN'");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active")
+                        .HasDefaultValueSql("true");
+
+                    b.Property<bool>("IsHub")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_hub")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<string>("MetroGroup")
+                        .HasColumnType("text")
+                        .HasColumnName("metro_group");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("slug");
+
+                    b.Property<short>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("sort_order")
+                        .HasDefaultValueSql("100");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("state");
+
+                    b.Property<string>("StateCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("state_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cities");
+
+                    b.HasIndex(new[] { "Aliases" }, "ix_cities_aliases_gin")
+                        .HasDatabaseName("ix_cities_aliases_gin");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Aliases" }, "ix_cities_aliases_gin"), "gin");
+
+                    b.HasIndex(new[] { "IsHub", "SortOrder" }, "ix_cities_hub_sort")
+                        .HasDatabaseName("ix_cities_hub_sort")
+                        .HasFilter("is_active");
+
+                    b.HasIndex(new[] { "Name", "State" }, "ux_cities_name_state")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cities_name_state");
+
+                    b.HasIndex(new[] { "Slug" }, "ux_cities_slug")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cities_slug");
+
+                    b.ToTable("cities", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cities_country_code_len", "char_length(country_code) = 2");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<string[]>("Aliases")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("aliases")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal>("IdfWeight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(4,2)")
+                        .HasColumnName("idf_weight")
+                        .HasDefaultValueSql("1.00");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active")
+                        .HasDefaultValueSql("true");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<int?>("ParentSkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parent_skill_id");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("slug");
+
+                    b.Property<string>("Subcategory")
+                        .HasColumnType("text")
+                        .HasColumnName("subcategory");
+
+                    b.HasKey("Id")
+                        .HasName("pk_skills");
+
+                    b.HasIndex(new[] { "Aliases" }, "ix_skills_aliases_gin")
+                        .HasDatabaseName("ix_skills_aliases_gin");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Aliases" }, "ix_skills_aliases_gin"), "gin");
+
+                    b.HasIndex(new[] { "Category" }, "ix_skills_category")
+                        .HasDatabaseName("ix_skills_category")
+                        .HasFilter("is_active");
+
+                    b.HasIndex(new[] { "Name" }, "ix_skills_name_trgm")
+                        .HasDatabaseName("ix_skills_name_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Name" }, "ix_skills_name_trgm"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Name" }, "ix_skills_name_trgm"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "ParentSkillId" }, "ix_skills_parent_skill_id")
+                        .HasDatabaseName("ix_skills_parent_skill_id");
+
+                    b.HasIndex(new[] { "Name" }, "ux_skills_name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_skills_name");
+
+                    b.HasIndex(new[] { "Slug" }, "ux_skills_slug")
+                        .IsUnique()
+                        .HasDatabaseName("ux_skills_slug");
+
+                    b.ToTable("skills", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_skills_category", "category IN ('engine', 'language', 'art_tool', 'design_audio_tool', 'devops', 'genre', 'platform', 'role')");
+
+                            t.HasCheckConstraint("ck_skills_idf_weight", "idf_weight >= 0.50 AND idf_weight <= 2.00");
+
+                            t.HasCheckConstraint("ck_skills_no_self_parent", "parent_skill_id IS NULL OR parent_skill_id <> id");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.SkillRelation", b =>
+                {
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skill_id");
+
+                    b.Property<int>("RelatedSkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("related_skill_id");
+
+                    b.Property<string>("RelationType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("relation_type");
+
+                    b.Property<decimal>("Weight")
+                        .HasColumnType("numeric(3,2)")
+                        .HasColumnName("weight");
+
+                    b.HasKey("SkillId", "RelatedSkillId")
+                        .HasName("pk_skill_relations");
+
+                    b.HasIndex(new[] { "RelatedSkillId" }, "ix_skill_relations_related_skill_id")
+                        .HasDatabaseName("ix_skill_relations_related_skill_id");
+
+                    b.ToTable("skill_relations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_skill_relations_not_self", "skill_id <> related_skill_id");
+
+                            t.HasCheckConstraint("ck_skill_relations_relation_type", "relation_type IN ('implies', 'superset', 'peer_tool', 'transferable')");
+
+                            t.HasCheckConstraint("ck_skill_relations_weight", "weight > 0 AND weight <= 1");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -328,6 +550,38 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "ParentSkill")
+                        .WithMany("ChildSkills")
+                        .HasForeignKey("ParentSkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_skills_skills_parent_skill_id");
+
+                    b.Navigation("ParentSkill");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.SkillRelation", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "RelatedSkill")
+                        .WithMany("IncomingRelations")
+                        .HasForeignKey("RelatedSkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_skill_relations_skills_related_skill_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "Skill")
+                        .WithMany("OutgoingRelations")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_skill_relations_skills_skill_id");
+
+                    b.Navigation("RelatedSkill");
+
+                    b.Navigation("Skill");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationRole", null)
@@ -383,6 +637,15 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
+                {
+                    b.Navigation("ChildSkills");
+
+                    b.Navigation("IncomingRelations");
+
+                    b.Navigation("OutgoingRelations");
                 });
 #pragma warning restore 612, 618
         }
