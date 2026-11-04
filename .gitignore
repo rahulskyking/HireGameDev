@@ -30,3 +30,5 @@ uploads/
 ## OS files
 .DS_Store
 Thumbs.db
+/src/HireGameDev.Web/appsettings.Development.json
+/src/HireGameDev.Web/appsettings.Development.local.json

@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SystemClock = HireGameDev.Infrastructure.Services.SystemClock;
 
 namespace HireGameDev.Infrastructure;
 
