@@ -1,0 +1,2100 @@
+[
+  {
+    "name": "Unreal Engine",
+    "slug": "unreal-engine",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "UE",
+      "UE4",
+      "UE5",
+      "Unreal",
+      "Unreal Engine 4",
+      "Unreal Engine 5"
+    ]
+  },
+  {
+    "name": "Unity",
+    "slug": "unity",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Unity3D",
+      "Unity 3D",
+      "Unity Engine",
+      "Unity 6"
+    ]
+  },
+  {
+    "name": "Godot",
+    "slug": "godot",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Godot Engine",
+      "Godot 4"
+    ]
+  },
+  {
+    "name": "Cocos Creator",
+    "slug": "cocos-creator",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Cocos",
+      "Cocos2d",
+      "Cocos2d-x"
+    ]
+  },
+  {
+    "name": "Custom C++ Engine",
+    "slug": "custom-cpp-engine",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Proprietary Engine",
+      "Custom Game Engine",
+      "In-House Engine"
+    ]
+  },
+  {
+    "name": "CryEngine",
+    "slug": "cryengine",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "CRYENGINE",
+      "O3DE",
+      "Open 3D Engine",
+      "Lumberyard"
+    ]
+  },
+  {
+    "name": "GameMaker",
+    "slug": "gamemaker",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "GameMaker Studio",
+      "GameMaker Studio 2",
+      "GMS2"
+    ]
+  },
+  {
+    "name": "Defold",
+    "slug": "defold",
+    "category": "engine",
+    "subcategory": "core_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Defold Engine"
+    ]
+  },
+  {
+    "name": "Phaser",
+    "slug": "phaser",
+    "category": "engine",
+    "subcategory": "web_engine",
+    "parentSlug": null,
+    "aliases": [
+      "PhaserJS",
+      "Phaser 3",
+      "PixiJS"
+    ]
+  },
+  {
+    "name": "PlayCanvas",
+    "slug": "playcanvas",
+    "category": "engine",
+    "subcategory": "web_engine",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Three.js",
+    "slug": "threejs",
+    "category": "engine",
+    "subcategory": "web_engine",
+    "parentSlug": null,
+    "aliases": [
+      "ThreeJS"
+    ]
+  },
+  {
+    "name": "Babylon.js",
+    "slug": "babylonjs",
+    "category": "engine",
+    "subcategory": "web_engine",
+    "parentSlug": null,
+    "aliases": [
+      "BabylonJS"
+    ]
+  },
+  {
+    "name": "Roblox Studio",
+    "slug": "roblox-studio",
+    "category": "engine",
+    "subcategory": "ugc_platform_engine",
+    "parentSlug": null,
+    "aliases": [
+      "Roblox"
+    ]
+  },
+  {
+    "name": "Unreal Editor for Fortnite",
+    "slug": "uefn",
+    "category": "engine",
+    "subcategory": "ugc_platform_engine",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UEFN",
+      "Fortnite Creative"
+    ]
+  },
+  {
+    "name": "C++",
+    "slug": "cpp",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "CPP",
+      "Modern C++",
+      "C++17",
+      "C++20"
+    ]
+  },
+  {
+    "name": "C#",
+    "slug": "csharp",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "CSharp",
+      ".NET",
+      "DotNet"
+    ]
+  },
+  {
+    "name": "HLSL",
+    "slug": "hlsl",
+    "category": "language",
+    "subcategory": "shader_language",
+    "parentSlug": null,
+    "aliases": [
+      "High-Level Shading Language"
+    ]
+  },
+  {
+    "name": "GLSL",
+    "slug": "glsl",
+    "category": "language",
+    "subcategory": "shader_language",
+    "parentSlug": null,
+    "aliases": [
+      "OpenGL Shading Language",
+      "WGSL"
+    ]
+  },
+  {
+    "name": "ShaderLab",
+    "slug": "shaderlab",
+    "category": "language",
+    "subcategory": "shader_language",
+    "parentSlug": "unity",
+    "aliases": [
+      "Unity Shaders"
+    ]
+  },
+  {
+    "name": "Python",
+    "slug": "python",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "Py",
+      "Maya Python",
+      "Blender Python"
+    ]
+  },
+  {
+    "name": "Lua",
+    "slug": "lua",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "Luau"
+    ]
+  },
+  {
+    "name": "TypeScript",
+    "slug": "typescript",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "TS"
+    ]
+  },
+  {
+    "name": "JavaScript",
+    "slug": "javascript",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "JS",
+      "ES6",
+      "Node.js"
+    ]
+  },
+  {
+    "name": "GDScript",
+    "slug": "gdscript",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": "godot",
+    "aliases": [
+      "Godot Script"
+    ]
+  },
+  {
+    "name": "Verse",
+    "slug": "verse",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": "uefn",
+    "aliases": [
+      "Verse Language"
+    ]
+  },
+  {
+    "name": "Rust",
+    "slug": "rust",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "Bevy Rust"
+    ]
+  },
+  {
+    "name": "Go",
+    "slug": "golang",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "Golang"
+    ]
+  },
+  {
+    "name": "Java",
+    "slug": "java",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Kotlin",
+    "slug": "kotlin",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "Android Kotlin"
+    ]
+  },
+  {
+    "name": "Swift",
+    "slug": "swift",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "iOS Swift",
+      "SpriteKit"
+    ]
+  },
+  {
+    "name": "SQL",
+    "slug": "sql",
+    "category": "language",
+    "subcategory": "programming_language",
+    "parentSlug": null,
+    "aliases": [
+      "PostgreSQL",
+      "MySQL",
+      "Database Queries"
+    ]
+  },
+  {
+    "name": "Unreal C++",
+    "slug": "unreal-cpp",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UE C++",
+      "UE5 C++",
+      "UE4 C++"
+    ]
+  },
+  {
+    "name": "Unreal Blueprints",
+    "slug": "unreal-blueprints",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "Blueprints",
+      "UE Blueprints",
+      "Blueprint Visual Scripting"
+    ]
+  },
+  {
+    "name": "Gameplay Ability System (GAS)",
+    "slug": "unreal-gas",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "GAS",
+      "UE GAS",
+      "Gameplay Ability System"
+    ]
+  },
+  {
+    "name": "Unreal UMG & CommonUI",
+    "slug": "unreal-umg",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UMG",
+      "Unreal Motion Graphics",
+      "CommonUI",
+      "Slate UI"
+    ]
+  },
+  {
+    "name": "Chaos Physics",
+    "slug": "unreal-chaos",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UE Chaos",
+      "Chaos Destruction"
+    ]
+  },
+  {
+    "name": "Unreal Mass Entity",
+    "slug": "unreal-mass",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "MassGameplay",
+      "Mass ECS"
+    ]
+  },
+  {
+    "name": "Unity C#",
+    "slug": "unity-csharp",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "MonoBehaviour",
+      "ScriptableObjects"
+    ]
+  },
+  {
+    "name": "Unity DOTS & ECS",
+    "slug": "unity-dots",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "DOTS",
+      "Unity ECS",
+      "Burst Compiler",
+      "C# Job System"
+    ]
+  },
+  {
+    "name": "Unity Addressables",
+    "slug": "unity-addressables",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "Addressables",
+      "AssetBundles"
+    ]
+  },
+  {
+    "name": "Unity UI (uGUI / UI Toolkit)",
+    "slug": "unity-ui",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "uGUI",
+      "UI Toolkit",
+      "TextMeshPro"
+    ]
+  },
+  {
+    "name": "Netcode for GameObjects",
+    "slug": "unity-ngo",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "NGO",
+      "Unity Netcode"
+    ]
+  },
+  {
+    "name": "UniTask & Reactive Unity",
+    "slug": "unitask",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "UniTask",
+      "UniRx"
+    ]
+  },
+  {
+    "name": "Zenject / VContainer",
+    "slug": "zenject",
+    "category": "language",
+    "subcategory": "engine_framework",
+    "parentSlug": "unity",
+    "aliases": [
+      "Zenject",
+      "VContainer",
+      "Extenject"
+    ]
+  },
+  {
+    "name": "DirectX 12",
+    "slug": "directx-12",
+    "category": "language",
+    "subcategory": "graphics_api",
+    "parentSlug": null,
+    "aliases": [
+      "DX12",
+      "Direct3D 12",
+      "DirectX 11",
+      "DX11"
+    ]
+  },
+  {
+    "name": "Vulkan",
+    "slug": "vulkan",
+    "category": "language",
+    "subcategory": "graphics_api",
+    "parentSlug": null,
+    "aliases": [
+      "Vulkan API"
+    ]
+  },
+  {
+    "name": "OpenGL / WebGL",
+    "slug": "opengl",
+    "category": "language",
+    "subcategory": "graphics_api",
+    "parentSlug": null,
+    "aliases": [
+      "OpenGL",
+      "OpenGL ES",
+      "WebGL",
+      "WebGPU"
+    ]
+  },
+  {
+    "name": "Apple Metal",
+    "slug": "metal-api",
+    "category": "language",
+    "subcategory": "graphics_api",
+    "parentSlug": null,
+    "aliases": [
+      "Metal API",
+      "Metal Shaders"
+    ]
+  },
+  {
+    "name": "GPU Compute / CUDA",
+    "slug": "gpu-compute",
+    "category": "language",
+    "subcategory": "graphics_api",
+    "parentSlug": null,
+    "aliases": [
+      "CUDA",
+      "Compute Shaders"
+    ]
+  },
+  {
+    "name": "Photon (Fusion / Quantum)",
+    "slug": "photon",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "Photon",
+      "Photon Fusion",
+      "Photon Quantum",
+      "PUN2"
+    ]
+  },
+  {
+    "name": "Mirror / FishNet",
+    "slug": "mirror-networking",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "Mirror",
+      "Mirror Networking",
+      "FishNet"
+    ]
+  },
+  {
+    "name": "Nakama",
+    "slug": "nakama",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "Heroic Labs Nakama"
+    ]
+  },
+  {
+    "name": "Azure PlayFab",
+    "slug": "playfab",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "PlayFab"
+    ]
+  },
+  {
+    "name": "Firebase",
+    "slug": "firebase",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "Firebase Auth",
+      "Firestore"
+    ]
+  },
+  {
+    "name": "Epic Online Services (EOS)",
+    "slug": "epic-online-services",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "EOS",
+      "Epic Online Services"
+    ]
+  },
+  {
+    "name": "Steamworks SDK",
+    "slug": "steamworks-sdk",
+    "category": "language",
+    "subcategory": "networking_backend",
+    "parentSlug": null,
+    "aliases": [
+      "Steamworks"
+    ]
+  },
+  {
+    "name": "Blender",
+    "slug": "blender",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Blender 3D"
+    ]
+  },
+  {
+    "name": "Autodesk Maya",
+    "slug": "maya",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Maya",
+      "Maya 3D"
+    ]
+  },
+  {
+    "name": "Autodesk 3ds Max",
+    "slug": "3ds-max",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "3ds Max",
+      "3D Studio Max"
+    ]
+  },
+  {
+    "name": "ZBrush",
+    "slug": "zbrush",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Maxon ZBrush",
+      "Digital Sculpting"
+    ]
+  },
+  {
+    "name": "Cinema 4D",
+    "slug": "cinema-4d",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "C4D"
+    ]
+  },
+  {
+    "name": "Marvelous Designer",
+    "slug": "marvelous-designer",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "CLO3D"
+    ]
+  },
+  {
+    "name": "SpeedTree",
+    "slug": "speedtree",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Foliage Authoring"
+    ]
+  },
+  {
+    "name": "Gaea / World Machine",
+    "slug": "gaea",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Gaea",
+      "World Machine",
+      "Terrain Generation"
+    ]
+  },
+  {
+    "name": "Marmoset Toolbag",
+    "slug": "marmoset-toolbag",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "Marmoset",
+      "Texture Baking"
+    ]
+  },
+  {
+    "name": "RizomUV",
+    "slug": "rizomuv",
+    "category": "art_tool",
+    "subcategory": "3d_modeling",
+    "parentSlug": null,
+    "aliases": [
+      "UV Layout"
+    ]
+  },
+  {
+    "name": "Substance 3D Painter",
+    "slug": "substance-painter",
+    "category": "art_tool",
+    "subcategory": "texturing_procedural",
+    "parentSlug": null,
+    "aliases": [
+      "Substance Painter",
+      "PBR Texturing"
+    ]
+  },
+  {
+    "name": "Substance 3D Designer",
+    "slug": "substance-designer",
+    "category": "art_tool",
+    "subcategory": "texturing_procedural",
+    "parentSlug": null,
+    "aliases": [
+      "Substance Designer"
+    ]
+  },
+  {
+    "name": "SideFX Houdini",
+    "slug": "houdini",
+    "category": "art_tool",
+    "subcategory": "texturing_procedural",
+    "parentSlug": null,
+    "aliases": [
+      "Houdini",
+      "Houdini Engine",
+      "Procedural Generation"
+    ]
+  },
+  {
+    "name": "Foundry Mari",
+    "slug": "foundry-mari",
+    "category": "art_tool",
+    "subcategory": "texturing_procedural",
+    "parentSlug": null,
+    "aliases": [
+      "Mari"
+    ]
+  },
+  {
+    "name": "Quixel & Megascans",
+    "slug": "quixel",
+    "category": "art_tool",
+    "subcategory": "texturing_procedural",
+    "parentSlug": null,
+    "aliases": [
+      "Quixel Mixer",
+      "Megascans"
+    ]
+  },
+  {
+    "name": "Adobe Photoshop",
+    "slug": "photoshop",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "Photoshop"
+    ]
+  },
+  {
+    "name": "Adobe Illustrator",
+    "slug": "illustrator",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "Illustrator",
+      "Vector Art"
+    ]
+  },
+  {
+    "name": "Procreate",
+    "slug": "procreate",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Clip Studio Paint",
+    "slug": "clip-studio-paint",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "CSP"
+    ]
+  },
+  {
+    "name": "Aseprite",
+    "slug": "aseprite",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "Pixel Art"
+    ]
+  },
+  {
+    "name": "Krita",
+    "slug": "krita",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Figma",
+    "slug": "figma",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "Game UI Figma"
+    ]
+  },
+  {
+    "name": "Adobe After Effects",
+    "slug": "after-effects",
+    "category": "art_tool",
+    "subcategory": "2d_concept_ui",
+    "parentSlug": null,
+    "aliases": [
+      "After Effects",
+      "Motion Graphics"
+    ]
+  },
+  {
+    "name": "MotionBuilder",
+    "slug": "motionbuilder",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Autodesk MotionBuilder",
+      "MoBu",
+      "Mocap Cleanup"
+    ]
+  },
+  {
+    "name": "Cascadeur",
+    "slug": "cascadeur",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Spine 2D",
+    "slug": "spine-2d",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Spine",
+      "Esoteric Spine"
+    ]
+  },
+  {
+    "name": "DragonBones",
+    "slug": "dragonbones",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Live2D Cubism",
+    "slug": "live2d",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Live2D"
+    ]
+  },
+  {
+    "name": "Unreal Control Rig",
+    "slug": "unreal-control-rig",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "Control Rig",
+      "IK Retargeter"
+    ]
+  },
+  {
+    "name": "Unreal Sequencer",
+    "slug": "unreal-sequencer",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "Sequencer",
+      "UE Cinematics"
+    ]
+  },
+  {
+    "name": "Unity Cinemachine & Timeline",
+    "slug": "unity-cinemachine",
+    "category": "art_tool",
+    "subcategory": "rigging_animation",
+    "parentSlug": "unity",
+    "aliases": [
+      "Cinemachine",
+      "Unity Timeline"
+    ]
+  },
+  {
+    "name": "Unreal Niagara VFX",
+    "slug": "unreal-niagara",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "Niagara",
+      "UE Niagara"
+    ]
+  },
+  {
+    "name": "Unreal Nanite & Lumen",
+    "slug": "unreal-nanite-lumen",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "Nanite",
+      "Lumen"
+    ]
+  },
+  {
+    "name": "Unreal Material Editor",
+    "slug": "unreal-materials",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UE Materials",
+      "Substrate Materials"
+    ]
+  },
+  {
+    "name": "Unity URP",
+    "slug": "unity-urp",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unity",
+    "aliases": [
+      "URP",
+      "Universal Render Pipeline"
+    ]
+  },
+  {
+    "name": "Unity HDRP",
+    "slug": "unity-hdrp",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unity",
+    "aliases": [
+      "HDRP",
+      "High Definition Render Pipeline"
+    ]
+  },
+  {
+    "name": "Unity Shader Graph",
+    "slug": "unity-shader-graph",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unity",
+    "aliases": [
+      "Shader Graph"
+    ]
+  },
+  {
+    "name": "Unity VFX Graph",
+    "slug": "unity-vfx-graph",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": "unity",
+    "aliases": [
+      "VFX Graph",
+      "Shuriken Particle System"
+    ]
+  },
+  {
+    "name": "EmberGen",
+    "slug": "embergen",
+    "category": "art_tool",
+    "subcategory": "vfx_rendering",
+    "parentSlug": null,
+    "aliases": [
+      "JangaFX EmberGen"
+    ]
+  },
+  {
+    "name": "Machinations",
+    "slug": "machinations",
+    "category": "design_audio_tool",
+    "subcategory": "game_design",
+    "parentSlug": null,
+    "aliases": [
+      "Machinations.io"
+    ]
+  },
+  {
+    "name": "Excel & Economy Modeling",
+    "slug": "spreadsheets-balancing",
+    "category": "design_audio_tool",
+    "subcategory": "game_design",
+    "parentSlug": null,
+    "aliases": [
+      "Excel Balancing",
+      "Google Sheets Modeling",
+      "Economy Spreadsheets"
+    ]
+  },
+  {
+    "name": "Miro & FigJam",
+    "slug": "miro",
+    "category": "design_audio_tool",
+    "subcategory": "game_design",
+    "parentSlug": null,
+    "aliases": [
+      "Miro",
+      "FigJam"
+    ]
+  },
+  {
+    "name": "Notion & Confluence (GDD)",
+    "slug": "gdd-documentation",
+    "category": "design_audio_tool",
+    "subcategory": "game_design",
+    "parentSlug": null,
+    "aliases": [
+      "Confluence",
+      "Game Design Documentation",
+      "GDD"
+    ]
+  },
+  {
+    "name": "Tiled / LDtk",
+    "slug": "tiled-editor",
+    "category": "design_audio_tool",
+    "subcategory": "level_design",
+    "parentSlug": null,
+    "aliases": [
+      "Tiled",
+      "LDtk"
+    ]
+  },
+  {
+    "name": "Blockmesh & Greyboxing",
+    "slug": "greyboxing",
+    "category": "design_audio_tool",
+    "subcategory": "level_design",
+    "parentSlug": null,
+    "aliases": [
+      "Greyboxing",
+      "Whiteboxing",
+      "ProBuilder",
+      "Blockout"
+    ]
+  },
+  {
+    "name": "articy:draft",
+    "slug": "articy-draft",
+    "category": "design_audio_tool",
+    "subcategory": "narrative",
+    "parentSlug": null,
+    "aliases": [
+      "Articy",
+      "Articy Draft"
+    ]
+  },
+  {
+    "name": "Ink (Inkle)",
+    "slug": "ink-narrative",
+    "category": "design_audio_tool",
+    "subcategory": "narrative",
+    "parentSlug": null,
+    "aliases": [
+      "Ink Scripting",
+      "Inkle"
+    ]
+  },
+  {
+    "name": "Twine",
+    "slug": "twine",
+    "category": "design_audio_tool",
+    "subcategory": "narrative",
+    "parentSlug": null,
+    "aliases": [
+      "Twine Interactive Fiction"
+    ]
+  },
+  {
+    "name": "Yarn Spinner",
+    "slug": "yarn-spinner",
+    "category": "design_audio_tool",
+    "subcategory": "narrative",
+    "parentSlug": null,
+    "aliases": [
+      "Dialogue Trees"
+    ]
+  },
+  {
+    "name": "FMOD Studio",
+    "slug": "fmod",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "FMOD"
+    ]
+  },
+  {
+    "name": "Audiokinetic Wwise",
+    "slug": "wwise",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Wwise"
+    ]
+  },
+  {
+    "name": "Unreal MetaSounds",
+    "slug": "unreal-metasounds",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "MetaSounds",
+      "UE Audio"
+    ]
+  },
+  {
+    "name": "Reaper",
+    "slug": "reaper",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Cockos Reaper"
+    ]
+  },
+  {
+    "name": "Ableton Live",
+    "slug": "ableton-live",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Ableton"
+    ]
+  },
+  {
+    "name": "Avid Pro Tools",
+    "slug": "pro-tools",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Pro Tools"
+    ]
+  },
+  {
+    "name": "Logic Pro",
+    "slug": "logic-pro",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Logic Pro X"
+    ]
+  },
+  {
+    "name": "FL Studio",
+    "slug": "fl-studio",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Steinberg Nuendo / Cubase",
+    "slug": "nuendo",
+    "category": "design_audio_tool",
+    "subcategory": "audio",
+    "parentSlug": null,
+    "aliases": [
+      "Nuendo",
+      "Cubase"
+    ]
+  },
+  {
+    "name": "Git & Git LFS",
+    "slug": "git",
+    "category": "devops",
+    "subcategory": "version_control",
+    "parentSlug": null,
+    "aliases": [
+      "Git",
+      "Git LFS",
+      "GitHub",
+      "GitLab"
+    ]
+  },
+  {
+    "name": "Perforce (Helix Core)",
+    "slug": "perforce",
+    "category": "devops",
+    "subcategory": "version_control",
+    "parentSlug": null,
+    "aliases": [
+      "Perforce",
+      "Helix Core",
+      "P4V"
+    ]
+  },
+  {
+    "name": "Unity Version Control (Plastic SCM)",
+    "slug": "plastic-scm",
+    "category": "devops",
+    "subcategory": "version_control",
+    "parentSlug": "unity",
+    "aliases": [
+      "Plastic SCM",
+      "UVCS"
+    ]
+  },
+  {
+    "name": "Subversion (SVN)",
+    "slug": "svn",
+    "category": "devops",
+    "subcategory": "version_control",
+    "parentSlug": null,
+    "aliases": [
+      "SVN",
+      "TortoiseSVN"
+    ]
+  },
+  {
+    "name": "Jenkins",
+    "slug": "jenkins",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "Jenkins CI"
+    ]
+  },
+  {
+    "name": "GitHub Actions / GitLab CI",
+    "slug": "github-actions",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "GitHub Actions",
+      "GitLab CI"
+    ]
+  },
+  {
+    "name": "JetBrains TeamCity",
+    "slug": "teamcity",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "TeamCity"
+    ]
+  },
+  {
+    "name": "Unity Cloud Build",
+    "slug": "unity-cloud-build",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": "unity",
+    "aliases": [
+      "Unity DevOps"
+    ]
+  },
+  {
+    "name": "Unreal Build & Automation Tool",
+    "slug": "unreal-build-tool",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UBT",
+      "UAT",
+      "Unreal Horde"
+    ]
+  },
+  {
+    "name": "Docker",
+    "slug": "docker",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "Containers"
+    ]
+  },
+  {
+    "name": "Kubernetes & Agones",
+    "slug": "kubernetes",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "Kubernetes",
+      "K8s",
+      "Agones"
+    ]
+  },
+  {
+    "name": "AWS & GameLift",
+    "slug": "aws",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "AWS",
+      "Amazon GameLift",
+      "AWS GameLift"
+    ]
+  },
+  {
+    "name": "Google Cloud (GCP)",
+    "slug": "gcp",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "GCP"
+    ]
+  },
+  {
+    "name": "Microsoft Azure",
+    "slug": "azure",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "Azure"
+    ]
+  },
+  {
+    "name": "Linux Server Administration",
+    "slug": "linux",
+    "category": "devops",
+    "subcategory": "cicd_cloud",
+    "parentSlug": null,
+    "aliases": [
+      "Linux",
+      "Bash Scripting"
+    ]
+  },
+  {
+    "name": "RenderDoc",
+    "slug": "renderdoc",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "GPU Debugging"
+    ]
+  },
+  {
+    "name": "PIX & NVIDIA Nsight",
+    "slug": "pix-nsight",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "PIX",
+      "PIX on Windows",
+      "NVIDIA Nsight"
+    ]
+  },
+  {
+    "name": "Unreal Insights",
+    "slug": "unreal-insights",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": "unreal-engine",
+    "aliases": [
+      "UE Profiling"
+    ]
+  },
+  {
+    "name": "Unity Profiler",
+    "slug": "unity-profiler",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": "unity",
+    "aliases": [
+      "Unity Memory Profiler",
+      "Frame Debugger"
+    ]
+  },
+  {
+    "name": "Xcode Instruments & AGI",
+    "slug": "mobile-profilers",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "Xcode Instruments",
+      "Android GPU Inspector"
+    ]
+  },
+  {
+    "name": "Jira & TestRail",
+    "slug": "jira-testrail",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "Jira",
+      "TestRail",
+      "Bug Tracking"
+    ]
+  },
+  {
+    "name": "Crashlytics & Sentry",
+    "slug": "crashlytics",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "Firebase Crashlytics",
+      "Sentry",
+      "Backtrace"
+    ]
+  },
+  {
+    "name": "Game Analytics & Attribution",
+    "slug": "game-analytics",
+    "category": "devops",
+    "subcategory": "profiling_qa",
+    "parentSlug": null,
+    "aliases": [
+      "GameAnalytics",
+      "AppsFlyer",
+      "Adjust",
+      "Amplitude",
+      "Mixpanel"
+    ]
+  },
+  {
+    "name": "Action & Adventure",
+    "slug": "genre-action",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Action",
+      "Action-Adventure",
+      "Hack and Slash"
+    ]
+  },
+  {
+    "name": "Shooter (FPS / TPS)",
+    "slug": "genre-shooter",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "FPS",
+      "TPS",
+      "First-Person Shooter",
+      "Third-Person Shooter",
+      "Battle Royale"
+    ]
+  },
+  {
+    "name": "RPG",
+    "slug": "genre-rpg",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Role-Playing Game",
+      "ARPG",
+      "JRPG",
+      "CRPG"
+    ]
+  },
+  {
+    "name": "MMO & Live Service",
+    "slug": "genre-mmo",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "MMORPG",
+      "LiveOps Multiplayer"
+    ]
+  },
+  {
+    "name": "Strategy (RTS / 4X / Turn-Based)",
+    "slug": "genre-strategy",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "RTS",
+      "4X",
+      "Turn-Based Strategy",
+      "Tower Defense"
+    ]
+  },
+  {
+    "name": "Simulation & Tycoon",
+    "slug": "genre-simulation",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Management Sim",
+      "Tycoon",
+      "Life Sim"
+    ]
+  },
+  {
+    "name": "Puzzle & Match-3",
+    "slug": "genre-puzzle",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Puzzle",
+      "Match-3",
+      "Merge Games"
+    ]
+  },
+  {
+    "name": "Casual & Hybrid-Casual",
+    "slug": "genre-casual",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Casual",
+      "Hypercasual",
+      "Hybrid-Casual"
+    ]
+  },
+  {
+    "name": "Midcore Mobile",
+    "slug": "genre-midcore",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Midcore",
+      "Gacha"
+    ]
+  },
+  {
+    "name": "Platformer & Metroidvania",
+    "slug": "genre-platformer",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Platformer",
+      "Metroidvania"
+    ]
+  },
+  {
+    "name": "Roguelike & Deckbuilder",
+    "slug": "genre-roguelike",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Roguelike",
+      "Roguelite",
+      "Deckbuilder"
+    ]
+  },
+  {
+    "name": "Sports & Racing",
+    "slug": "genre-sports-racing",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Sports Games",
+      "Cricket Games",
+      "Racing"
+    ]
+  },
+  {
+    "name": "Fighting & Brawler",
+    "slug": "genre-fighting",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Fighting Games",
+      "Brawler"
+    ]
+  },
+  {
+    "name": "Horror",
+    "slug": "genre-horror",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Survival Horror",
+      "Psychological Horror"
+    ]
+  },
+  {
+    "name": "Survival & Crafting",
+    "slug": "genre-survival",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Open World Survival"
+    ]
+  },
+  {
+    "name": "Card & Board Games",
+    "slug": "genre-card-board",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Board Games",
+      "CCG",
+      "TCG",
+      "Tabletop Digital"
+    ]
+  },
+  {
+    "name": "Narrative & Visual Novel",
+    "slug": "genre-narrative",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Visual Novel",
+      "Interactive Fiction"
+    ]
+  },
+  {
+    "name": "XR & Serious Games",
+    "slug": "genre-xr-serious",
+    "category": "genre",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "EdTech Games",
+      "Simulation Training",
+      "Gamification"
+    ]
+  },
+  {
+    "name": "PC (Windows)",
+    "slug": "platform-pc",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "PC",
+      "Windows",
+      "Steam",
+      "Epic Games Store"
+    ]
+  },
+  {
+    "name": "Android",
+    "slug": "platform-android",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Google Play",
+      "Android Mobile"
+    ]
+  },
+  {
+    "name": "iOS",
+    "slug": "platform-ios",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "iPhone",
+      "iPad",
+      "Apple App Store"
+    ]
+  },
+  {
+    "name": "PlayStation (PS5 / PS4)",
+    "slug": "platform-playstation",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "PS5",
+      "PS4",
+      "PlayStation"
+    ]
+  },
+  {
+    "name": "Xbox Series X|S",
+    "slug": "platform-xbox",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Xbox",
+      "Xbox One",
+      "Game Pass"
+    ]
+  },
+  {
+    "name": "Nintendo Switch",
+    "slug": "platform-switch",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Switch",
+      "Switch 2"
+    ]
+  },
+  {
+    "name": "Web / HTML5",
+    "slug": "platform-web",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "HTML5",
+      "Browser Games",
+      "Instant Games",
+      "Discord Activities"
+    ]
+  },
+  {
+    "name": "VR / AR / XR",
+    "slug": "platform-vr-xr",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "VR",
+      "AR",
+      "XR",
+      "Meta Quest",
+      "Apple Vision Pro",
+      "PSVR2",
+      "OpenXR"
+    ]
+  },
+  {
+    "name": "macOS",
+    "slug": "platform-macos",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Mac"
+    ]
+  },
+  {
+    "name": "Linux & Steam Deck",
+    "slug": "platform-linux-deck",
+    "category": "platform",
+    "subcategory": null,
+    "parentSlug": null,
+    "aliases": [
+      "Steam Deck",
+      "SteamOS"
+    ]
+  },
+  {
+    "name": "Gameplay Programmer",
+    "slug": "role-gameplay-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Gameplay Engineer"
+    ]
+  },
+  {
+    "name": "Engine / Systems Programmer",
+    "slug": "role-engine-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Systems Programmer",
+      "Core Engine Engineer"
+    ]
+  },
+  {
+    "name": "Graphics / Rendering Programmer",
+    "slug": "role-graphics-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Rendering Engineer",
+      "Shader Programmer"
+    ]
+  },
+  {
+    "name": "Multiplayer / Network Programmer",
+    "slug": "role-network-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Network Engineer",
+      "Online Gameplay Programmer"
+    ]
+  },
+  {
+    "name": "Backend / LiveOps Engineer",
+    "slug": "role-backend-engineer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Game Server Engineer",
+      "Backend Developer Games"
+    ]
+  },
+  {
+    "name": "Game AI Programmer",
+    "slug": "role-ai-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "AI Engineer Games",
+      "NPC AI Programmer"
+    ]
+  },
+  {
+    "name": "Tools & Pipeline Programmer",
+    "slug": "role-tools-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "Tools Engineer",
+      "Build Engineer"
+    ]
+  },
+  {
+    "name": "Game UI Programmer",
+    "slug": "role-ui-programmer",
+    "category": "role",
+    "subcategory": "engineering",
+    "parentSlug": null,
+    "aliases": [
+      "UI Engineer"
+    ]
+  },
+  {
+    "name": "3D Character Artist",
+    "slug": "role-character-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Character Modeler"
+    ]
+  },
+  {
+    "name": "3D Environment / Prop Artist",
+    "slug": "role-environment-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Environment Artist",
+      "Prop Artist",
+      "Hard Surface Artist"
+    ]
+  },
+  {
+    "name": "Technical Artist",
+    "slug": "role-technical-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Tech Artist"
+    ]
+  },
+  {
+    "name": "2D / Concept Artist",
+    "slug": "role-concept-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Concept Artist",
+      "2D Game Artist"
+    ]
+  },
+  {
+    "name": "Game UI / UX Designer",
+    "slug": "role-ui-ux-designer",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "UI Artist",
+      "Game UX Designer"
+    ]
+  },
+  {
+    "name": "3D Game Animator",
+    "slug": "role-3d-animator",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Gameplay Animator",
+      "3D Animator"
+    ]
+  },
+  {
+    "name": "2D / Spine Animator",
+    "slug": "role-2d-animator",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "2D Animator",
+      "Spine Animator"
+    ]
+  },
+  {
+    "name": "Rigger / Technical Animator",
+    "slug": "role-technical-animator",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "Technical Animator",
+      "Character TD",
+      "Rigging Artist"
+    ]
+  },
+  {
+    "name": "Real-Time VFX Artist",
+    "slug": "role-vfx-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": [
+      "VFX Artist",
+      "FX Artist"
+    ]
+  },
+  {
+    "name": "Lighting Artist",
+    "slug": "role-lighting-artist",
+    "category": "role",
+    "subcategory": "art_animation",
+    "parentSlug": null,
+    "aliases": []
+  },
+  {
+    "name": "Game Designer",
+    "slug": "role-game-designer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "Core Game Designer",
+      "Combat Designer"
+    ]
+  },
+  {
+    "name": "Systems & Economy Designer",
+    "slug": "role-economy-designer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "Economy Designer",
+      "Monetization Designer",
+      "LiveOps Designer"
+    ]
+  },
+  {
+    "name": "Level Designer",
+    "slug": "role-level-designer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "World Builder"
+    ]
+  },
+  {
+    "name": "Narrative Designer / Game Writer",
+    "slug": "role-narrative-designer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "Narrative Designer",
+      "Game Writer"
+    ]
+  },
+  {
+    "name": "Sound Designer / Composer",
+    "slug": "role-sound-designer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "Sound Designer",
+      "Technical Sound Designer",
+      "Game Composer"
+    ]
+  },
+  {
+    "name": "Game QA / Tester",
+    "slug": "role-game-qa",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "QA Analyst",
+      "Game Tester",
+      "QA Automation"
+    ]
+  },
+  {
+    "name": "Game Producer / Product Manager",
+    "slug": "role-game-producer",
+    "category": "role",
+    "subcategory": "design_production",
+    "parentSlug": null,
+    "aliases": [
+      "Game Producer",
+      "Associate Producer",
+      "Product Manager Games"
+    ]
+  }
+]

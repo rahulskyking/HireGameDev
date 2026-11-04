@@ -1,0 +1,584 @@
+[
+  {
+    "name": "Bengaluru",
+    "slug": "bengaluru-ka",
+    "state": "Karnataka",
+    "stateCode": "IN-KA",
+    "metroGroup": null,
+    "aliases": [
+      "Bangalore",
+      "BLR",
+      "Bengalooru"
+    ],
+    "isHub": true,
+    "sortOrder": 1
+  },
+  {
+    "name": "Pune",
+    "slug": "pune-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": null,
+    "aliases": [
+      "PNQ",
+      "Poona",
+      "Pimpri-Chinchwad"
+    ],
+    "isHub": true,
+    "sortOrder": 2
+  },
+  {
+    "name": "Hyderabad",
+    "slug": "hyderabad-tg",
+    "state": "Telangana",
+    "stateCode": "IN-TG",
+    "metroGroup": null,
+    "aliases": [
+      "HYD",
+      "Cyberabad",
+      "Secunderabad"
+    ],
+    "isHub": true,
+    "sortOrder": 3
+  },
+  {
+    "name": "Mumbai",
+    "slug": "mumbai-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": "mumbai_mmr",
+    "aliases": [
+      "Bombay",
+      "BOM"
+    ],
+    "isHub": true,
+    "sortOrder": 4
+  },
+  {
+    "name": "Chennai",
+    "slug": "chennai-tn",
+    "state": "Tamil Nadu",
+    "stateCode": "IN-TN",
+    "metroGroup": null,
+    "aliases": [
+      "Madras",
+      "MAA"
+    ],
+    "isHub": true,
+    "sortOrder": 5
+  },
+  {
+    "name": "Noida",
+    "slug": "noida-up",
+    "state": "Uttar Pradesh",
+    "stateCode": "IN-UP",
+    "metroGroup": "delhi_ncr",
+    "aliases": [
+      "Greater Noida",
+      "Gautam Buddha Nagar"
+    ],
+    "isHub": true,
+    "sortOrder": 6
+  },
+  {
+    "name": "Gurugram",
+    "slug": "gurugram-hr",
+    "state": "Haryana",
+    "stateCode": "IN-HR",
+    "metroGroup": "delhi_ncr",
+    "aliases": [
+      "Gurgaon",
+      "GGN"
+    ],
+    "isHub": true,
+    "sortOrder": 7
+  },
+  {
+    "name": "Kochi",
+    "slug": "kochi-kl",
+    "state": "Kerala",
+    "stateCode": "IN-KL",
+    "metroGroup": null,
+    "aliases": [
+      "Cochin",
+      "Ernakulam",
+      "COK"
+    ],
+    "isHub": true,
+    "sortOrder": 8
+  },
+  {
+    "name": "Ahmedabad",
+    "slug": "ahmedabad-gj",
+    "state": "Gujarat",
+    "stateCode": "IN-GJ",
+    "metroGroup": "ahmedabad_gandhinagar",
+    "aliases": [
+      "AMD",
+      "Amdavad"
+    ],
+    "isHub": true,
+    "sortOrder": 9
+  },
+  {
+    "name": "Kolkata",
+    "slug": "kolkata-wb",
+    "state": "West Bengal",
+    "stateCode": "IN-WB",
+    "metroGroup": null,
+    "aliases": [
+      "Calcutta",
+      "CCU",
+      "Salt Lake",
+      "New Town Kolkata"
+    ],
+    "isHub": true,
+    "sortOrder": 10
+  },
+  {
+    "name": "New Delhi",
+    "slug": "new-delhi-dl",
+    "state": "Delhi",
+    "stateCode": "IN-DL",
+    "metroGroup": "delhi_ncr",
+    "aliases": [
+      "Delhi",
+      "DEL",
+      "Delhi NCR"
+    ],
+    "isHub": false,
+    "sortOrder": 20
+  },
+  {
+    "name": "Ghaziabad",
+    "slug": "ghaziabad-up",
+    "state": "Uttar Pradesh",
+    "stateCode": "IN-UP",
+    "metroGroup": "delhi_ncr",
+    "aliases": [
+      "Indirapuram"
+    ],
+    "isHub": false,
+    "sortOrder": 25
+  },
+  {
+    "name": "Faridabad",
+    "slug": "faridabad-hr",
+    "state": "Haryana",
+    "stateCode": "IN-HR",
+    "metroGroup": "delhi_ncr",
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 26
+  },
+  {
+    "name": "Navi Mumbai",
+    "slug": "navi-mumbai-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": "mumbai_mmr",
+    "aliases": [
+      "Vashi",
+      "Belapur"
+    ],
+    "isHub": false,
+    "sortOrder": 27
+  },
+  {
+    "name": "Thane",
+    "slug": "thane-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": "mumbai_mmr",
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 28
+  },
+  {
+    "name": "Gandhinagar",
+    "slug": "gandhinagar-gj",
+    "state": "Gujarat",
+    "stateCode": "IN-GJ",
+    "metroGroup": "ahmedabad_gandhinagar",
+    "aliases": [
+      "GIFT City"
+    ],
+    "isHub": false,
+    "sortOrder": 29
+  },
+  {
+    "name": "Thiruvananthapuram",
+    "slug": "thiruvananthapuram-kl",
+    "state": "Kerala",
+    "stateCode": "IN-KL",
+    "metroGroup": null,
+    "aliases": [
+      "Trivandrum",
+      "TRV",
+      "Technopark"
+    ],
+    "isHub": false,
+    "sortOrder": 30
+  },
+  {
+    "name": "Coimbatore",
+    "slug": "coimbatore-tn",
+    "state": "Tamil Nadu",
+    "stateCode": "IN-TN",
+    "metroGroup": null,
+    "aliases": [
+      "Kovai",
+      "CJB"
+    ],
+    "isHub": false,
+    "sortOrder": 32
+  },
+  {
+    "name": "Chandigarh",
+    "slug": "chandigarh-ch",
+    "state": "Chandigarh",
+    "stateCode": "IN-CH",
+    "metroGroup": "chandigarh_tricity",
+    "aliases": [
+      "IXC",
+      "Tricity"
+    ],
+    "isHub": false,
+    "sortOrder": 34
+  },
+  {
+    "name": "Mohali",
+    "slug": "mohali-pb",
+    "state": "Punjab",
+    "stateCode": "IN-PB",
+    "metroGroup": "chandigarh_tricity",
+    "aliases": [
+      "SAS Nagar"
+    ],
+    "isHub": false,
+    "sortOrder": 35
+  },
+  {
+    "name": "Panchkula",
+    "slug": "panchkula-hr",
+    "state": "Haryana",
+    "stateCode": "IN-HR",
+    "metroGroup": "chandigarh_tricity",
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 36
+  },
+  {
+    "name": "Jaipur",
+    "slug": "jaipur-rj",
+    "state": "Rajasthan",
+    "stateCode": "IN-RJ",
+    "metroGroup": null,
+    "aliases": [
+      "JAI"
+    ],
+    "isHub": false,
+    "sortOrder": 38
+  },
+  {
+    "name": "Indore",
+    "slug": "indore-mp",
+    "state": "Madhya Pradesh",
+    "stateCode": "IN-MP",
+    "metroGroup": null,
+    "aliases": [
+      "IDR"
+    ],
+    "isHub": false,
+    "sortOrder": 40
+  },
+  {
+    "name": "Surat",
+    "slug": "surat-gj",
+    "state": "Gujarat",
+    "stateCode": "IN-GJ",
+    "metroGroup": null,
+    "aliases": [
+      "STV"
+    ],
+    "isHub": false,
+    "sortOrder": 42
+  },
+  {
+    "name": "Vadodara",
+    "slug": "vadodara-gj",
+    "state": "Gujarat",
+    "stateCode": "IN-GJ",
+    "metroGroup": null,
+    "aliases": [
+      "Baroda",
+      "BDQ"
+    ],
+    "isHub": false,
+    "sortOrder": 44
+  },
+  {
+    "name": "Rajkot",
+    "slug": "rajkot-gj",
+    "state": "Gujarat",
+    "stateCode": "IN-GJ",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 46
+  },
+  {
+    "name": "Mysuru",
+    "slug": "mysuru-ka",
+    "state": "Karnataka",
+    "stateCode": "IN-KA",
+    "metroGroup": null,
+    "aliases": [
+      "Mysore"
+    ],
+    "isHub": false,
+    "sortOrder": 48
+  },
+  {
+    "name": "Mangaluru",
+    "slug": "mangaluru-ka",
+    "state": "Karnataka",
+    "stateCode": "IN-KA",
+    "metroGroup": null,
+    "aliases": [
+      "Mangalore",
+      "IXE"
+    ],
+    "isHub": false,
+    "sortOrder": 50
+  },
+  {
+    "name": "Hubballi",
+    "slug": "hubballi-ka",
+    "state": "Karnataka",
+    "stateCode": "IN-KA",
+    "metroGroup": null,
+    "aliases": [
+      "Hubli",
+      "Hubli-Dharwad"
+    ],
+    "isHub": false,
+    "sortOrder": 52
+  },
+  {
+    "name": "Visakhapatnam",
+    "slug": "visakhapatnam-ap",
+    "state": "Andhra Pradesh",
+    "stateCode": "IN-AP",
+    "metroGroup": null,
+    "aliases": [
+      "Vizag",
+      "VTZ"
+    ],
+    "isHub": false,
+    "sortOrder": 54
+  },
+  {
+    "name": "Vijayawada",
+    "slug": "vijayawada-ap",
+    "state": "Andhra Pradesh",
+    "stateCode": "IN-AP",
+    "metroGroup": null,
+    "aliases": [
+      "Amaravati"
+    ],
+    "isHub": false,
+    "sortOrder": 56
+  },
+  {
+    "name": "Nagpur",
+    "slug": "nagpur-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": null,
+    "aliases": [
+      "NAG"
+    ],
+    "isHub": false,
+    "sortOrder": 58
+  },
+  {
+    "name": "Nashik",
+    "slug": "nashik-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": null,
+    "aliases": [
+      "Nasik"
+    ],
+    "isHub": false,
+    "sortOrder": 60
+  },
+  {
+    "name": "Chhatrapati Sambhajinagar",
+    "slug": "chhatrapati-sambhajinagar-mh",
+    "state": "Maharashtra",
+    "stateCode": "IN-MH",
+    "metroGroup": null,
+    "aliases": [
+      "Aurangabad"
+    ],
+    "isHub": false,
+    "sortOrder": 62
+  },
+  {
+    "name": "Lucknow",
+    "slug": "lucknow-up",
+    "state": "Uttar Pradesh",
+    "stateCode": "IN-UP",
+    "metroGroup": null,
+    "aliases": [
+      "LKO"
+    ],
+    "isHub": false,
+    "sortOrder": 64
+  },
+  {
+    "name": "Kanpur",
+    "slug": "kanpur-up",
+    "state": "Uttar Pradesh",
+    "stateCode": "IN-UP",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 66
+  },
+  {
+    "name": "Varanasi",
+    "slug": "varanasi-up",
+    "state": "Uttar Pradesh",
+    "stateCode": "IN-UP",
+    "metroGroup": null,
+    "aliases": [
+      "Banaras",
+      "Benares"
+    ],
+    "isHub": false,
+    "sortOrder": 68
+  },
+  {
+    "name": "Bhubaneswar",
+    "slug": "bhubaneswar-od",
+    "state": "Odisha",
+    "stateCode": "IN-OD",
+    "metroGroup": null,
+    "aliases": [
+      "BBI"
+    ],
+    "isHub": false,
+    "sortOrder": 70
+  },
+  {
+    "name": "Panaji",
+    "slug": "panaji-ga",
+    "state": "Goa",
+    "stateCode": "IN-GA",
+    "metroGroup": null,
+    "aliases": [
+      "Goa",
+      "Panjim",
+      "Margao"
+    ],
+    "isHub": false,
+    "sortOrder": 72
+  },
+  {
+    "name": "Bhopal",
+    "slug": "bhopal-mp",
+    "state": "Madhya Pradesh",
+    "stateCode": "IN-MP",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 74
+  },
+  {
+    "name": "Udaipur",
+    "slug": "udaipur-rj",
+    "state": "Rajasthan",
+    "stateCode": "IN-RJ",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 76
+  },
+  {
+    "name": "Kozhikode",
+    "slug": "kozhikode-kl",
+    "state": "Kerala",
+    "stateCode": "IN-KL",
+    "metroGroup": null,
+    "aliases": [
+      "Calicut"
+    ],
+    "isHub": false,
+    "sortOrder": 78
+  },
+  {
+    "name": "Madurai",
+    "slug": "madurai-tn",
+    "state": "Tamil Nadu",
+    "stateCode": "IN-TN",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 80
+  },
+  {
+    "name": "Dehradun",
+    "slug": "dehradun-uk",
+    "state": "Uttarakhand",
+    "stateCode": "IN-UK",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 82
+  },
+  {
+    "name": "Guwahati",
+    "slug": "guwahati-as",
+    "state": "Assam",
+    "stateCode": "IN-AS",
+    "metroGroup": null,
+    "aliases": [
+      "GAU"
+    ],
+    "isHub": false,
+    "sortOrder": 84
+  },
+  {
+    "name": "Patna",
+    "slug": "patna-br",
+    "state": "Bihar",
+    "stateCode": "IN-BR",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 86
+  },
+  {
+    "name": "Ranchi",
+    "slug": "ranchi-jh",
+    "state": "Jharkhand",
+    "stateCode": "IN-JH",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 88
+  },
+  {
+    "name": "Raipur",
+    "slug": "raipur-cg",
+    "state": "Chhattisgarh",
+    "stateCode": "IN-CG",
+    "metroGroup": null,
+    "aliases": [],
+    "isHub": false,
+    "sortOrder": 90
+  }
+]

@@ -1,0 +1,848 @@
+[
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-cpp",
+    "relationType": "implies",
+    "weight": 0.95
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-blueprints",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-gas",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-umg",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-niagara",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-nanite-lumen",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-materials",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-control-rig",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-sequencer",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-metasounds",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-chaos",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unreal-mass",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "uefn",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "cpp",
+    "relatedSkillSlug": "unreal-cpp",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "cpp",
+    "relatedSkillSlug": "custom-cpp-engine",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-csharp",
+    "relationType": "implies",
+    "weight": 0.95
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-dots",
+    "relationType": "implies",
+    "weight": 0.95
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-addressables",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-ui",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-ngo",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-urp",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-hdrp",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-shader-graph",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-vfx-graph",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unity-cinemachine",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "csharp",
+    "relatedSkillSlug": "unity-csharp",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "csharp",
+    "relatedSkillSlug": "unity-dots",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "csharp",
+    "relatedSkillSlug": "zenject",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "csharp",
+    "relatedSkillSlug": "unitask",
+    "relationType": "implies",
+    "weight": 0.85
+  },
+  {
+    "skillSlug": "godot",
+    "relatedSkillSlug": "gdscript",
+    "relationType": "implies",
+    "weight": 0.95
+  },
+  {
+    "skillSlug": "uefn",
+    "relatedSkillSlug": "verse",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "javascript",
+    "relatedSkillSlug": "typescript",
+    "relationType": "implies",
+    "weight": 0.9
+  },
+  {
+    "skillSlug": "unreal-blueprints",
+    "relatedSkillSlug": "unreal-cpp",
+    "relationType": "superset",
+    "weight": 0.8
+  },
+  {
+    "skillSlug": "unreal-cpp",
+    "relatedSkillSlug": "unreal-gas",
+    "relationType": "superset",
+    "weight": 0.8
+  },
+  {
+    "skillSlug": "unity-csharp",
+    "relatedSkillSlug": "unity-dots",
+    "relationType": "superset",
+    "weight": 0.8
+  },
+  {
+    "skillSlug": "unity-shader-graph",
+    "relatedSkillSlug": "hlsl",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "unity-shader-graph",
+    "relatedSkillSlug": "shaderlab",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "shaderlab",
+    "relatedSkillSlug": "hlsl",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "unreal-materials",
+    "relatedSkillSlug": "hlsl",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "opengl",
+    "relatedSkillSlug": "vulkan",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "opengl",
+    "relatedSkillSlug": "directx-12",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "typescript",
+    "relatedSkillSlug": "javascript",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "custom-cpp-engine",
+    "relatedSkillSlug": "unreal-cpp",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "unreal-cpp",
+    "relatedSkillSlug": "custom-cpp-engine",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "docker",
+    "relatedSkillSlug": "kubernetes",
+    "relationType": "superset",
+    "weight": 0.8
+  },
+  {
+    "skillSlug": "role-gameplay-programmer",
+    "relatedSkillSlug": "role-engine-programmer",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "role-game-designer",
+    "relatedSkillSlug": "role-economy-designer",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "role-game-designer",
+    "relatedSkillSlug": "role-level-designer",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "role-3d-animator",
+    "relatedSkillSlug": "role-technical-animator",
+    "relationType": "superset",
+    "weight": 0.75
+  },
+  {
+    "skillSlug": "role-environment-artist",
+    "relatedSkillSlug": "role-technical-artist",
+    "relationType": "superset",
+    "weight": 0.7
+  },
+  {
+    "skillSlug": "maya",
+    "relatedSkillSlug": "blender",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "blender",
+    "relatedSkillSlug": "maya",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "maya",
+    "relatedSkillSlug": "3ds-max",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "3ds-max",
+    "relatedSkillSlug": "maya",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "3ds-max",
+    "relatedSkillSlug": "blender",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "blender",
+    "relatedSkillSlug": "3ds-max",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "substance-painter",
+    "relatedSkillSlug": "substance-designer",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "substance-designer",
+    "relatedSkillSlug": "substance-painter",
+    "relationType": "peer_tool",
+    "weight": 0.5
+  },
+  {
+    "skillSlug": "substance-painter",
+    "relatedSkillSlug": "quixel",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "quixel",
+    "relatedSkillSlug": "substance-painter",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "substance-painter",
+    "relatedSkillSlug": "foundry-mari",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "foundry-mari",
+    "relatedSkillSlug": "substance-painter",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "photoshop",
+    "relatedSkillSlug": "clip-studio-paint",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "clip-studio-paint",
+    "relatedSkillSlug": "photoshop",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "photoshop",
+    "relatedSkillSlug": "krita",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "krita",
+    "relatedSkillSlug": "photoshop",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "photoshop",
+    "relatedSkillSlug": "procreate",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "procreate",
+    "relatedSkillSlug": "photoshop",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "spine-2d",
+    "relatedSkillSlug": "dragonbones",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "dragonbones",
+    "relatedSkillSlug": "spine-2d",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "spine-2d",
+    "relatedSkillSlug": "live2d",
+    "relationType": "peer_tool",
+    "weight": 0.5
+  },
+  {
+    "skillSlug": "live2d",
+    "relatedSkillSlug": "spine-2d",
+    "relationType": "peer_tool",
+    "weight": 0.5
+  },
+  {
+    "skillSlug": "motionbuilder",
+    "relatedSkillSlug": "cascadeur",
+    "relationType": "peer_tool",
+    "weight": 0.5
+  },
+  {
+    "skillSlug": "unity-urp",
+    "relatedSkillSlug": "unity-hdrp",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "unity-hdrp",
+    "relatedSkillSlug": "unity-urp",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "unreal-niagara",
+    "relatedSkillSlug": "unity-vfx-graph",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unity-vfx-graph",
+    "relatedSkillSlug": "unreal-niagara",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unreal-sequencer",
+    "relatedSkillSlug": "unity-cinemachine",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unity-cinemachine",
+    "relatedSkillSlug": "unreal-sequencer",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "fmod",
+    "relatedSkillSlug": "wwise",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "wwise",
+    "relatedSkillSlug": "fmod",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "unreal-metasounds",
+    "relatedSkillSlug": "wwise",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unreal-metasounds",
+    "relatedSkillSlug": "fmod",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "reaper",
+    "relatedSkillSlug": "pro-tools",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "pro-tools",
+    "relatedSkillSlug": "reaper",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "ableton-live",
+    "relatedSkillSlug": "logic-pro",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "logic-pro",
+    "relatedSkillSlug": "ableton-live",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "nuendo",
+    "relatedSkillSlug": "pro-tools",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "pro-tools",
+    "relatedSkillSlug": "nuendo",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "hlsl",
+    "relatedSkillSlug": "glsl",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "glsl",
+    "relatedSkillSlug": "hlsl",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "directx-12",
+    "relatedSkillSlug": "vulkan",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "vulkan",
+    "relatedSkillSlug": "directx-12",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "metal-api",
+    "relatedSkillSlug": "vulkan",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "metal-api",
+    "relatedSkillSlug": "directx-12",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "photon",
+    "relatedSkillSlug": "mirror-networking",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "mirror-networking",
+    "relatedSkillSlug": "photon",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unity-ngo",
+    "relatedSkillSlug": "mirror-networking",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "mirror-networking",
+    "relatedSkillSlug": "unity-ngo",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "unity-ngo",
+    "relatedSkillSlug": "photon",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "playfab",
+    "relatedSkillSlug": "nakama",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "nakama",
+    "relatedSkillSlug": "playfab",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "playfab",
+    "relatedSkillSlug": "firebase",
+    "relationType": "peer_tool",
+    "weight": 0.5
+  },
+  {
+    "skillSlug": "perforce",
+    "relatedSkillSlug": "plastic-scm",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "plastic-scm",
+    "relatedSkillSlug": "perforce",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "jenkins",
+    "relatedSkillSlug": "github-actions",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "github-actions",
+    "relatedSkillSlug": "jenkins",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "teamcity",
+    "relatedSkillSlug": "jenkins",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "aws",
+    "relatedSkillSlug": "gcp",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "gcp",
+    "relatedSkillSlug": "aws",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "aws",
+    "relatedSkillSlug": "azure",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "azure",
+    "relatedSkillSlug": "aws",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "renderdoc",
+    "relatedSkillSlug": "pix-nsight",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "pix-nsight",
+    "relatedSkillSlug": "renderdoc",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "ink-narrative",
+    "relatedSkillSlug": "yarn-spinner",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "yarn-spinner",
+    "relatedSkillSlug": "ink-narrative",
+    "relationType": "peer_tool",
+    "weight": 0.6
+  },
+  {
+    "skillSlug": "twine",
+    "relatedSkillSlug": "ink-narrative",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "threejs",
+    "relatedSkillSlug": "babylonjs",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "babylonjs",
+    "relatedSkillSlug": "threejs",
+    "relationType": "peer_tool",
+    "weight": 0.65
+  },
+  {
+    "skillSlug": "playcanvas",
+    "relatedSkillSlug": "threejs",
+    "relationType": "peer_tool",
+    "weight": 0.55
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "godot",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "godot",
+    "relatedSkillSlug": "unity",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "unity",
+    "relationType": "transferable",
+    "weight": 0.3
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "unreal-engine",
+    "relationType": "transferable",
+    "weight": 0.3
+  },
+  {
+    "skillSlug": "unreal-engine",
+    "relatedSkillSlug": "cryengine",
+    "relationType": "transferable",
+    "weight": 0.45
+  },
+  {
+    "skillSlug": "cryengine",
+    "relatedSkillSlug": "unreal-engine",
+    "relationType": "transferable",
+    "weight": 0.45
+  },
+  {
+    "skillSlug": "cocos-creator",
+    "relatedSkillSlug": "unity",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "unity",
+    "relatedSkillSlug": "cocos-creator",
+    "relationType": "transferable",
+    "weight": 0.35
+  },
+  {
+    "skillSlug": "gamemaker",
+    "relatedSkillSlug": "godot",
+    "relationType": "transferable",
+    "weight": 0.35
+  },
+  {
+    "skillSlug": "godot",
+    "relatedSkillSlug": "gamemaker",
+    "relationType": "transferable",
+    "weight": 0.35
+  },
+  {
+    "skillSlug": "defold",
+    "relatedSkillSlug": "godot",
+    "relationType": "transferable",
+    "weight": 0.35
+  },
+  {
+    "skillSlug": "unreal-cpp",
+    "relatedSkillSlug": "unreal-blueprints",
+    "relationType": "transferable",
+    "weight": 0.3
+  },
+  {
+    "skillSlug": "csharp",
+    "relatedSkillSlug": "cpp",
+    "relationType": "transferable",
+    "weight": 0.45
+  },
+  {
+    "skillSlug": "cpp",
+    "relatedSkillSlug": "csharp",
+    "relationType": "transferable",
+    "weight": 0.35
+  },
+  {
+    "skillSlug": "gdscript",
+    "relatedSkillSlug": "python",
+    "relationType": "transferable",
+    "weight": 0.45
+  },
+  {
+    "skillSlug": "python",
+    "relatedSkillSlug": "gdscript",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "lua",
+    "relatedSkillSlug": "python",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "rust",
+    "relatedSkillSlug": "cpp",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "cpp",
+    "relatedSkillSlug": "rust",
+    "relationType": "transferable",
+    "weight": 0.4
+  },
+  {
+    "skillSlug": "kotlin",
+    "relatedSkillSlug": "java",
+    "relationType": "transferable",
+    "weight": 0.45
+  },
+  {
+    "skillSlug": "java",
+    "relatedSkillSlug": "kotlin",
+    "relationType": "transferable",
+    "weight": 0.45
+  }
+]
