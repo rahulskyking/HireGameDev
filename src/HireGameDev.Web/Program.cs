@@ -1,4 +1,5 @@
 using HireGameDev.Application;
+using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Infrastructure;
 using HireGameDev.Web.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,12 @@ try
 
     var app = builder.Build();
 
+    await using (var scope = app.Services.CreateAsyncScope())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<IReferenceDataSeeder>();
+        await seeder.SeedAsync();
+    }
+
     if (!app.Environment.IsDevelopment())
     {
         app.UseExceptionHandler("/Home/Error");
@@ -67,7 +74,7 @@ try
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}");
 
-    app.Run();
+    await app.RunAsync();
 }
 catch (Exception ex) when (ex is not HostAbortedException)
 {
@@ -76,5 +83,5 @@ catch (Exception ex) when (ex is not HostAbortedException)
 }
 finally
 {
-    Log.CloseAndFlush();
+    await Log.CloseAndFlushAsync();
 }

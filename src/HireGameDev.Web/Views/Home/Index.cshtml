@@ -1,3 +1,5 @@
+@model HireGameDev.Application.Features.ReferenceData.ReferenceDataSummary?
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
     ViewData["Title"] = "Home";
 }
@@ -5,5 +7,17 @@
 <section>
     <h1>HireGameDev</h1>
     <p>Evidence-backed hiring for game developers and studios in India.</p>
-    <p><small>Foundation skeleton active (Module M0.1). Design system &amp; components arrive in M0.6.</small></p>
+    <p><small>Foundation modules M0.1–M0.4 active. Design system &amp; components arrive in M0.6.</small></p>
+
+    @if (HostEnvironment.IsDevelopment() && Model is not null)
+    {
+        <aside style="margin-top:16px;padding:12px;border:1px solid #e2e1db;">
+            <small>
+                <strong>Local Dev Status (M0.4 Reference Taxonomy):</strong>
+                @Model.ActiveCityCount Indian cities (@Model.HubCityCount gaming hubs) &middot;
+                @Model.ActiveSkillCount game-dev skills &middot;
+                @Model.SkillRelationCount directional skill relations cached and ready.
+            </small>
+        </aside>
+    }
 </section>

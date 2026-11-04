@@ -2,9 +2,11 @@ using System.Security.Claims;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Email;
+using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Persistence;
+using HireGameDev.Infrastructure.Persistence.SeedData;
 using HireGameDev.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -30,6 +32,7 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(environment);
 
         services.AddSingleton<IClock, SystemClock>();
+        services.AddMemoryCache();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -145,6 +148,8 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthService, IdentityAuthService>();
         services.AddScoped<IExternalAuthChallengeProvider, IdentityExternalAuthChallengeProvider>();
+        services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.AddScoped<IReferenceDataSeeder, ReferenceDataSeeder>();
 
         return services;
     }

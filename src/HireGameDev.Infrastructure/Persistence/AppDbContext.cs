@@ -24,6 +24,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<SkillRelation> SkillRelations => Set<SkillRelation>();
 
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
