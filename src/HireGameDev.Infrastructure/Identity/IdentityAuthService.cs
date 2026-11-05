@@ -7,9 +7,11 @@ using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
+using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Auth;
+using HireGameDev.Application.Features.Settings;
 using HireGameDev.Domain.Constants;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Infrastructure.Persistence.Converters;
@@ -24,14 +26,21 @@ internal sealed class IdentityAuthService : IAuthService
 {
     private const string EmailVerifiedClaimType = "email_verified";
     private const string GitHubProviderScheme = "GitHub";
+    private static readonly TimeSpan SensitiveActionReauthWindow = TimeSpan.FromMinutes(10);
 
-    private static readonly string[] CoreRoleNames = ["candidate", "studio", "admin"];
+    private static readonly string[] CoreRoleNames =
+    [
+        HireGameDevRoleNames.Candidate,
+        HireGameDevRoleNames.Studio,
+        HireGameDevRoleNames.Admin
+    ];
 
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IEmailSender _emailSender;
     private readonly IConsentService _consentService;
+    private readonly ISettingsService _settingsService;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
     private readonly ILogger<IdentityAuthService> _logger;
@@ -40,6 +49,8 @@ internal sealed class IdentityAuthService : IAuthService
     private readonly IValidator<ForgotPasswordCommand> _forgotPasswordValidator;
     private readonly IValidator<ResetPasswordCommand> _resetPasswordValidator;
     private readonly IValidator<CompleteExternalRegistrationCommand> _completeExternalValidator;
+    private readonly IValidator<UpdateDisplayNameCommand> _updateDisplayNameValidator;
+    private readonly IValidator<ChangePasswordCommand> _changePasswordValidator;
 
     public IdentityAuthService(
         UserManager<ApplicationUser> userManager,
@@ -47,6 +58,7 @@ internal sealed class IdentityAuthService : IAuthService
         RoleManager<ApplicationRole> roleManager,
         IEmailSender emailSender,
         IConsentService consentService,
+        ISettingsService settingsService,
         IAuditLogger auditLogger,
         IClock clock,
         ILogger<IdentityAuthService> logger,
@@ -54,13 +66,16 @@ internal sealed class IdentityAuthService : IAuthService
         IValidator<LoginCommand> loginValidator,
         IValidator<ForgotPasswordCommand> forgotPasswordValidator,
         IValidator<ResetPasswordCommand> resetPasswordValidator,
-        IValidator<CompleteExternalRegistrationCommand> completeExternalValidator)
+        IValidator<CompleteExternalRegistrationCommand> completeExternalValidator,
+        IValidator<UpdateDisplayNameCommand> updateDisplayNameValidator,
+        IValidator<ChangePasswordCommand> changePasswordValidator)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
         _emailSender = emailSender;
         _consentService = consentService;
+        _settingsService = settingsService;
         _auditLogger = auditLogger;
         _clock = clock;
         _logger = logger;
@@ -69,6 +84,8 @@ internal sealed class IdentityAuthService : IAuthService
         _forgotPasswordValidator = forgotPasswordValidator;
         _resetPasswordValidator = resetPasswordValidator;
         _completeExternalValidator = completeExternalValidator;
+        _updateDisplayNameValidator = updateDisplayNameValidator;
+        _changePasswordValidator = changePasswordValidator;
     }
 
     public async Task<Result<RegisterResult>> RegisterAsync(
@@ -91,7 +108,7 @@ internal sealed class IdentityAuthService : IAuthService
             return Result.Failure<RegisterResult>(
                 Error.Conflict(
                     "Auth.EmailAlreadyExists",
-                    "An account with this email address already exists. Please sign in instead."));
+                    "An account with this email address already exists. Sign in instead—one HireGameDev account can enable both Candidate and Studio workspaces."));
         }
 
         await EnsureCoreRolesExistAsync();
@@ -204,7 +221,6 @@ internal sealed class IdentityAuthService : IAuthService
         var email = command.Email.Trim();
         var user = await _userManager.FindByEmailAsync(email);
 
-        // Do not reveal whether an email exists or is already confirmed.
         if (user is null || user.EmailConfirmed || !user.IsActive || user.DeletedAt is not null)
         {
             return Result.Success();
@@ -250,7 +266,6 @@ internal sealed class IdentityAuthService : IAuthService
                 "Please confirm your email address before signing in."));
         }
 
-        // ADR-006 Smart Login Prompt: guide SSO-only accounts cleanly when no password has been set yet.
         if (string.IsNullOrEmpty(user.PasswordHash))
         {
             return Result.Success(new LoginResult(
@@ -292,7 +307,8 @@ internal sealed class IdentityAuthService : IAuthService
         user.LastLoginAt = _clock.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        return Result.Success(new LoginResult(LoginStatus.Succeeded, user.AccountType));
+        var roles = await GetEffectiveUserRolesAsync(user);
+        return Result.Success(new LoginResult(LoginStatus.Succeeded, user.AccountType, Roles: roles));
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -314,7 +330,6 @@ internal sealed class IdentityAuthService : IAuthService
         var email = command.Email.Trim();
         var user = await _userManager.FindByEmailAsync(email);
 
-        // Prevent account enumeration: silently succeed when user does not exist or is inactive.
         if (user is null || !user.EmailConfirmed || !user.IsActive || user.DeletedAt is not null)
         {
             return Result.Success();
@@ -437,6 +452,7 @@ internal sealed class IdentityAuthService : IAuthService
 
     public async Task<ExternalLoginCallbackResult> HandleExternalLoginCallbackAsync(
         string? remoteError,
+        AccountType? targetPortalRole = null,
         CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(remoteError))
@@ -457,6 +473,16 @@ internal sealed class IdentityAuthService : IAuthService
 
         var providerDisplayName = info.ProviderDisplayName ?? info.LoginProvider;
 
+        if (targetPortalRole == AccountType.Studio && !IsProviderAllowedForStudios(info.LoginProvider))
+        {
+            await ClearExternalCookieAsync();
+            return new ExternalLoginCallbackResult(
+                ExternalCallbackStatus.ProviderNotAllowedForAccountType,
+                AccountType.Studio,
+                ProviderDisplayName: providerDisplayName,
+                Message: $"{providerDisplayName} sign-in is available on the Candidate portal only. Use Google or email/password on the Studio portal.");
+        }
+
         // 1. Check whether this external login is already linked to a HireGameDev user in user_logins.
         var linkedUser = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
         if (linkedUser is not null)
@@ -470,7 +496,8 @@ internal sealed class IdentityAuthService : IAuthService
                     Message: "This account is inactive or scheduled for deletion.");
             }
 
-            if (!IsProviderAllowedForAccountType(info.LoginProvider, linkedUser.AccountType))
+            var linkedRoles = await GetEffectiveUserRolesAsync(linkedUser);
+            if (!IsProviderAllowedForRoles(info.LoginProvider, linkedRoles))
             {
                 await ClearExternalCookieAsync();
                 return new ExternalLoginCallbackResult(
@@ -478,7 +505,8 @@ internal sealed class IdentityAuthService : IAuthService
                     linkedUser.AccountType,
                     linkedUser.Email,
                     providerDisplayName,
-                    $"{providerDisplayName} sign-in is available for Candidate accounts only.");
+                    $"{providerDisplayName} sign-in requires Candidate access on your account.",
+                    linkedRoles);
             }
 
             var signInResult = await _signInManager.ExternalLoginSignInAsync(
@@ -496,7 +524,8 @@ internal sealed class IdentityAuthService : IAuthService
                     linkedUser.AccountType,
                     linkedUser.Email,
                     providerDisplayName,
-                    "Too many failed sign-in attempts. Your account is temporarily locked for 15 minutes.");
+                    "Too many failed sign-in attempts. Your account is temporarily locked for 15 minutes.",
+                    linkedRoles);
             }
 
             if (!signInResult.Succeeded)
@@ -506,7 +535,8 @@ internal sealed class IdentityAuthService : IAuthService
                     linkedUser.AccountType,
                     linkedUser.Email,
                     providerDisplayName,
-                    $"Could not sign in with {providerDisplayName}.");
+                    $"Could not sign in with {providerDisplayName}.",
+                    linkedRoles);
             }
 
             linkedUser.LastLoginAt = _clock.UtcNow;
@@ -516,7 +546,8 @@ internal sealed class IdentityAuthService : IAuthService
                 ExternalCallbackStatus.SignedIn,
                 linkedUser.AccountType,
                 linkedUser.Email,
-                providerDisplayName);
+                providerDisplayName,
+                Roles: linkedRoles);
         }
 
         // 2. Not linked yet: verify that the external provider returned a verified email address.
@@ -546,7 +577,8 @@ internal sealed class IdentityAuthService : IAuthService
 
             if (existingEmailUser.EmailConfirmed)
             {
-                if (!IsProviderAllowedForAccountType(info.LoginProvider, existingEmailUser.AccountType))
+                var existingRoles = await GetEffectiveUserRolesAsync(existingEmailUser);
+                if (!IsProviderAllowedForRoles(info.LoginProvider, existingRoles))
                 {
                     await ClearExternalCookieAsync();
                     return new ExternalLoginCallbackResult(
@@ -554,10 +586,10 @@ internal sealed class IdentityAuthService : IAuthService
                         existingEmailUser.AccountType,
                         email,
                         providerDisplayName,
-                        $"{providerDisplayName} sign-in is available for Candidate accounts only. Please sign in to your Studio account with Google or email/password.");
+                        $"{providerDisplayName} sign-in is available for Candidate accounts only. Sign in with Google or email/password first to enable Candidate access.",
+                        existingRoles);
                 }
 
-                // Both HireGameDev email and external provider email are verified: link user_logins and sign in.
                 var addLoginResult = await _userManager.AddLoginAsync(existingEmailUser, info);
                 if (!addLoginResult.Succeeded)
                 {
@@ -568,7 +600,8 @@ internal sealed class IdentityAuthService : IAuthService
                         existingEmailUser.AccountType,
                         email,
                         providerDisplayName,
-                        message);
+                        message,
+                        existingRoles);
                 }
 
                 existingEmailUser.LastLoginAt = _clock.UtcNow;
@@ -585,6 +618,13 @@ internal sealed class IdentityAuthService : IAuthService
                         AfterData: new { provider = info.LoginProvider }),
                     cancellationToken);
 
+                await TrySendSecurityNoticeEmailAsync(
+                    existingEmailUser,
+                    subject: $"{providerDisplayName} connected to your HireGameDev account",
+                    summaryLine: $"{providerDisplayName} was linked as a sign-in method on your HireGameDev account.",
+                    tag: "security_external_linked",
+                    cancellationToken);
+
                 await _signInManager.SignInAsync(existingEmailUser, isPersistent: false, info.LoginProvider);
                 await ClearExternalCookieAsync();
 
@@ -592,19 +632,17 @@ internal sealed class IdentityAuthService : IAuthService
                     ExternalCallbackStatus.SignedIn,
                     existingEmailUser.AccountType,
                     email,
-                    providerDisplayName);
+                    providerDisplayName,
+                    Roles: existingRoles);
             }
 
-            // Prevent Pre-Account Takeover & Pre-Registration DoS:
-            // An unconfirmed user who has never signed in cannot hold profile data; discard the stale unconfirmed row
-            // so the verified email owner can complete fresh account registration safely.
             if (!existingEmailUser.EmailConfirmed && existingEmailUser.LastLoginAt is null)
             {
                 await _userManager.DeleteAsync(existingEmailUser);
             }
         }
 
-        // 4. Brand-new external user: keep hgd.external cookie active and proceed to "Complete Your Account" step (ADR-006).
+        // 4. Brand-new external user: keep hgd.external cookie active and proceed to "Complete Your Account".
         return new ExternalLoginCallbackResult(
             ExternalCallbackStatus.RequiresAccountCompletion,
             Email: email,
@@ -688,10 +726,12 @@ internal sealed class IdentityAuthService : IAuthService
         {
             await _signInManager.SignInAsync(existingByLogin, isPersistent: false, info.LoginProvider);
             await ClearExternalCookieAsync();
+            var existingRoles = await GetEffectiveUserRolesAsync(existingByLogin);
             return Result.Success(new CompleteExternalRegistrationResult(
                 existingByLogin.Id,
                 existingByLogin.Email ?? email,
-                existingByLogin.AccountType));
+                existingByLogin.AccountType,
+                existingRoles));
         }
 
         var existingByEmail = await _userManager.FindByEmailAsync(email);
@@ -728,7 +768,6 @@ internal sealed class IdentityAuthService : IAuthService
             LastLoginAt = now
         };
 
-        // Create SSO user with PasswordHash == null (ADR-006 Improvement A: never generate or email plaintext passwords).
         var createResult = await _userManager.CreateAsync(user);
         if (!createResult.Succeeded)
         {
@@ -766,7 +805,6 @@ internal sealed class IdentityAuthService : IAuthService
         await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
         await ClearExternalCookieAsync();
 
-        // Send Welcome + optional signed "Set a Password" link email (non-blocking if email delivery has a transient failure).
         if (!string.IsNullOrWhiteSpace(command.SetPasswordLinkBaseUrl))
         {
             try
@@ -788,7 +826,8 @@ internal sealed class IdentityAuthService : IAuthService
             }
         }
 
-        return Result.Success(new CompleteExternalRegistrationResult(user.Id, email, user.AccountType));
+        var roles = await GetEffectiveUserRolesAsync(user);
+        return Result.Success(new CompleteExternalRegistrationResult(user.Id, email, user.AccountType, roles));
     }
 
     public async Task<Result> UpdateThemePreferenceAsync(
@@ -826,9 +865,520 @@ internal sealed class IdentityAuthService : IAuthService
         return Result.Success();
     }
 
+    public async Task<Result<IReadOnlyList<string>>> EnablePortalRoleAsync(
+        Guid userId,
+        AccountType targetRole,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            return Result.Failure<IReadOnlyList<string>>(
+                Error.Validation("Auth.InvalidUserId", "User ID cannot be empty."));
+        }
+
+        if (targetRole is not (AccountType.Candidate or AccountType.Studio))
+        {
+            return Result.Failure<IReadOnlyList<string>>(
+                Error.Validation("Auth.InvalidPortalRole", "Only Candidate or Studio workspaces can be self-enabled."));
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure<IReadOnlyList<string>>(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        await EnsureCoreRolesExistAsync();
+
+        var primaryRoleName = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
+        if (!await _userManager.IsInRoleAsync(user, primaryRoleName))
+        {
+            await _userManager.AddToRoleAsync(user, primaryRoleName);
+        }
+
+        var targetRoleName = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(targetRole);
+        if (!await _userManager.IsInRoleAsync(user, targetRoleName))
+        {
+            var addRoleResult = await _userManager.AddToRoleAsync(user, targetRoleName);
+            if (!addRoleResult.Succeeded)
+            {
+                var message = string.Join(" ", addRoleResult.Errors.Select(e => e.Description));
+                return Result.Failure<IReadOnlyList<string>>(
+                    Error.Failure("Auth.EnableRoleFailed", message));
+            }
+
+            await _auditLogger.LogAsync(
+                new AuditLogEntry(
+                    Action: "auth.role_enabled",
+                    EntityType: "user",
+                    EntityId: user.Id.ToString(),
+                    ActorType: AuditActorType.User,
+                    ActorUserId: user.Id,
+                    AfterData: new { enabledRole = targetRoleName }),
+                cancellationToken);
+        }
+
+        await _signInManager.RefreshSignInAsync(user);
+
+        var updatedRoles = await GetEffectiveUserRolesAsync(user);
+        return Result.Success(updatedRoles);
+    }
+
+    public async Task<Result<AccountManageState>> GetAccountManageStateAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            return Result.Failure<AccountManageState>(
+                Error.Validation("Auth.InvalidUserId", "User ID cannot be empty."));
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure<AccountManageState>(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        var roles = await GetEffectiveUserRolesAsync(user);
+        var logins = await _userManager.GetLoginsAsync(user);
+        var availableProviders = await GetConfiguredExternalProvidersAsync(cancellationToken);
+        var consents = await _consentService.GetUserConsentsAsync(user.Id, cancellationToken);
+
+        var currentTermsVersion = await _settingsService.GetStringAsync(
+            AppSettingKeys.LegalTermsVersion,
+            AppSettingKeys.DefaultLegalVersion,
+            cancellationToken);
+        var currentPrivacyVersion = await _settingsService.GetStringAsync(
+            AppSettingKeys.LegalPrivacyVersion,
+            AppSettingKeys.DefaultLegalVersion,
+            cancellationToken);
+
+        var hasAcceptedTerms = await _consentService.HasAcceptedVersionAsync(
+            user.Id,
+            ConsentType.Terms,
+            currentTermsVersion,
+            cancellationToken);
+        var hasAcceptedPrivacy = await _consentService.HasAcceptedVersionAsync(
+            user.Id,
+            ConsentType.Privacy,
+            currentPrivacyVersion,
+            cancellationToken);
+
+        var linkedItems = logins
+            .Select(l => new LinkedExternalLoginItem(
+                LoginProvider: l.LoginProvider,
+                ProviderDisplayName: string.IsNullOrWhiteSpace(l.ProviderDisplayName) ? l.LoginProvider : l.ProviderDisplayName,
+                ProviderKey: l.ProviderKey))
+            .ToArray();
+
+        return Result.Success(new AccountManageState(
+            UserId: user.Id,
+            Email: user.Email ?? string.Empty,
+            DisplayName: user.DisplayName,
+            PrimaryAccountType: user.AccountType,
+            Roles: roles,
+            ThemePreference: user.ThemePreference,
+            HasPassword: !string.IsNullOrEmpty(user.PasswordHash),
+            IsRecentlyAuthenticated: IsWithinRecentAuthWindow(user),
+            LastLoginAt: user.LastLoginAt,
+            LinkedLogins: linkedItems,
+            AvailableProviders: availableProviders,
+            Consents: consents,
+            CurrentTermsVersion: currentTermsVersion,
+            CurrentPrivacyVersion: currentPrivacyVersion,
+            HasAcceptedCurrentTerms: hasAcceptedTerms,
+            HasAcceptedCurrentPrivacy: hasAcceptedPrivacy));
+    }
+
+    public async Task<Result> UpdateDisplayNameAsync(
+        UpdateDisplayNameCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await _updateDisplayNameValidator.ValidateAsync(command, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Result.Failure(
+                Error.Validation("Auth.ValidationFailed", validation.Errors[0].ErrorMessage));
+        }
+
+        var user = await _userManager.FindByIdAsync(command.UserId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        var newDisplayName = command.DisplayName.Trim();
+        if (string.Equals(user.DisplayName, newDisplayName, StringComparison.Ordinal))
+        {
+            return Result.Success();
+        }
+
+        var previousName = user.DisplayName;
+        user.DisplayName = newDisplayName;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            var message = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+            return Result.Failure(Error.Failure("Auth.ProfileUpdateFailed", message));
+        }
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.display_name_updated",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id,
+                BeforeData: new { displayName = previousName },
+                AfterData: new { displayName = newDisplayName }),
+            cancellationToken);
+
+        await _signInManager.RefreshSignInAsync(user);
+        return Result.Success();
+    }
+
+    public async Task<Result> ChangePasswordAsync(
+        ChangePasswordCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await _changePasswordValidator.ValidateAsync(command, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Result.Failure(
+                Error.Validation("Auth.ValidationFailed", validation.Errors[0].ErrorMessage));
+        }
+
+        var user = await _userManager.FindByIdAsync(command.UserId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        if (string.IsNullOrEmpty(user.PasswordHash))
+        {
+            return Result.Failure(
+                Error.Validation(
+                    "Auth.PasswordNotSet",
+                    "Your account does not have a password yet. Request a signed Set-Password link instead."));
+        }
+
+        var changeResult = await _userManager.ChangePasswordAsync(user, command.CurrentPassword, command.NewPassword);
+        if (!changeResult.Succeeded)
+        {
+            var message = string.Join(" ", changeResult.Errors.Select(e => e.Description));
+            return Result.Failure(Error.Validation("Auth.PasswordChangeFailed", message));
+        }
+
+        user.LastLoginAt = _clock.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.password_changed",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id),
+            cancellationToken);
+
+        await TrySendSecurityNoticeEmailAsync(
+            user,
+            subject: "Your HireGameDev password was changed",
+            summaryLine: "Your HireGameDev account password was updated.",
+            tag: "security_password_changed",
+            cancellationToken);
+
+        await _signInManager.RefreshSignInAsync(user);
+        return Result.Success();
+    }
+
+    public async Task<Result> AuthorizeExternalLinkAsync(
+        Guid userId,
+        string provider,
+        string? currentPassword = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(provider))
+        {
+            return Result.Failure(
+                Error.Validation("Auth.ProviderRequired", "Select a social sign-in provider."));
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        var reauthCheck = await VerifySensitiveActionAuthAsync(user, currentPassword);
+        if (reauthCheck.IsFailure)
+        {
+            return reauthCheck;
+        }
+
+        var providers = await GetConfiguredExternalProvidersAsync(cancellationToken);
+        var match = providers.FirstOrDefault(p =>
+            string.Equals(p.Scheme, provider, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return Result.Failure(
+                Error.Validation("Auth.ProviderNotConfigured", $"Sign-in with {provider} is not configured."));
+        }
+
+        var roles = await GetEffectiveUserRolesAsync(user);
+        if (!IsProviderAllowedForRoles(match.Scheme, roles))
+        {
+            return Result.Failure(
+                Error.Validation(
+                    "Auth.ProviderCandidatesOnly",
+                    $"{match.DisplayName} can only be linked when Candidate access is enabled on your account."));
+        }
+
+        return Result.Success();
+    }
+
+    public async Task<Result> CompleteExternalLinkAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            await ClearExternalCookieAsync();
+            return Result.Failure(Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        var info = await _signInManager.GetExternalLoginInfoAsync(userId.ToString());
+        if (info is null)
+        {
+            await ClearExternalCookieAsync();
+            return Result.Failure(
+                Error.Validation("Auth.ExternalSessionExpired", "The external account link session expired. Please try again."));
+        }
+
+        var providerDisplayName = info.ProviderDisplayName ?? info.LoginProvider;
+        var roles = await GetEffectiveUserRolesAsync(user);
+        if (!IsProviderAllowedForRoles(info.LoginProvider, roles))
+        {
+            await ClearExternalCookieAsync();
+            return Result.Failure(
+                Error.Validation(
+                    "Auth.ProviderCandidatesOnly",
+                    $"{providerDisplayName} is restricted to accounts with Candidate access enabled."));
+        }
+
+        if (!IsExternalEmailVerified(info))
+        {
+            await ClearExternalCookieAsync();
+            return Result.Failure(
+                Error.Validation(
+                    "Auth.UnverifiedExternalEmail",
+                    $"Your {providerDisplayName} account did not supply a verified email address."));
+        }
+
+        var alreadyLinkedOwner = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+        if (alreadyLinkedOwner is not null)
+        {
+            await ClearExternalCookieAsync();
+            if (alreadyLinkedOwner.Id == user.Id)
+            {
+                return Result.Success();
+            }
+
+            return Result.Failure(
+                Error.Conflict(
+                    "Auth.ExternalAlreadyLinked",
+                    $"This {providerDisplayName} account is already linked to another HireGameDev account."));
+        }
+
+        var addResult = await _userManager.AddLoginAsync(user, info);
+        await ClearExternalCookieAsync();
+
+        if (!addResult.Succeeded)
+        {
+            var message = string.Join(" ", addResult.Errors.Select(e => e.Description));
+            return Result.Failure(Error.Validation("Auth.ExternalLinkFailed", message));
+        }
+
+        await PersistExternalProfileMetadataAsync(user, info);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.external_link",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id,
+                AfterData: new { provider = info.LoginProvider }),
+            cancellationToken);
+
+        await TrySendSecurityNoticeEmailAsync(
+            user,
+            subject: $"{providerDisplayName} connected to your HireGameDev account",
+            summaryLine: $"{providerDisplayName} was linked as a sign-in method on your HireGameDev account.",
+            tag: "security_external_linked",
+            cancellationToken);
+
+        await _signInManager.RefreshSignInAsync(user);
+        return Result.Success();
+    }
+
+    public async Task<Result> UnlinkExternalLoginAsync(
+        UnlinkExternalLoginCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        if (command.UserId == Guid.Empty ||
+            string.IsNullOrWhiteSpace(command.LoginProvider) ||
+            string.IsNullOrWhiteSpace(command.ProviderKey))
+        {
+            return Result.Failure(
+                Error.Validation("Auth.InvalidUnlinkRequest", "Provider details are required to unlink a sign-in method."));
+        }
+
+        var user = await _userManager.FindByIdAsync(command.UserId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        var reauthCheck = await VerifySensitiveActionAuthAsync(user, command.CurrentPassword);
+        if (reauthCheck.IsFailure)
+        {
+            return reauthCheck;
+        }
+
+        var logins = await _userManager.GetLoginsAsync(user);
+        var hasPassword = !string.IsNullOrEmpty(user.PasswordHash);
+        var totalMethods = (hasPassword ? 1 : 0) + logins.Count;
+        if (totalMethods <= 1)
+        {
+            return Result.Failure(
+                Error.Validation(
+                    "Auth.LastSignInMethod",
+                    "You cannot remove your only remaining sign-in method. Set a password or connect another provider first."));
+        }
+
+        var removeResult = await _userManager.RemoveLoginAsync(user, command.LoginProvider, command.ProviderKey);
+        if (!removeResult.Succeeded)
+        {
+            var message = string.Join(" ", removeResult.Errors.Select(e => e.Description));
+            return Result.Failure(Error.Failure("Auth.ExternalUnlinkFailed", message));
+        }
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.external_unlink",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id,
+                BeforeData: new { provider = command.LoginProvider }),
+            cancellationToken);
+
+        await TrySendSecurityNoticeEmailAsync(
+            user,
+            subject: $"{command.LoginProvider} removed from your HireGameDev account",
+            summaryLine: $"{command.LoginProvider} was unlinked from your HireGameDev sign-in methods.",
+            tag: "security_external_unlinked",
+            cancellationToken);
+
+        await _signInManager.RefreshSignInAsync(user);
+        return Result.Success();
+    }
+
+    public async Task<Result> AcceptCurrentLegalConsentsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            return Result.Failure(Error.Validation("Auth.InvalidUserId", "User ID cannot be empty."));
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        await _consentService.RecordRegistrationConsentsAsync(user.Id, cancellationToken: cancellationToken);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "consent.reaccepted",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id),
+            cancellationToken);
+
+        return Result.Success();
+    }
+
+    private async Task<IReadOnlyList<string>> GetEffectiveUserRolesAsync(ApplicationUser user)
+    {
+        var dbRoles = await _userManager.GetRolesAsync(user);
+        var primaryRole = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
+
+        var set = new HashSet<string>(dbRoles, StringComparer.OrdinalIgnoreCase)
+        {
+            primaryRole
+        };
+
+        return set
+            .Select(r => r.ToLowerInvariant())
+            .OrderBy(r => r, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private bool IsWithinRecentAuthWindow(ApplicationUser user)
+    {
+        if (!user.LastLoginAt.HasValue)
+        {
+            return false;
+        }
+
+        var elapsed = _clock.UtcNow - user.LastLoginAt.Value;
+        return elapsed >= TimeSpan.Zero && elapsed <= SensitiveActionReauthWindow;
+    }
+
+    private async Task<Result> VerifySensitiveActionAuthAsync(ApplicationUser user, string? currentPassword)
+    {
+        if (IsWithinRecentAuthWindow(user))
+        {
+            return Result.Success();
+        }
+
+        if (!string.IsNullOrEmpty(user.PasswordHash) && !string.IsNullOrWhiteSpace(currentPassword))
+        {
+            var passwordValid = await _userManager.CheckPasswordAsync(user, currentPassword);
+            if (!passwordValid)
+            {
+                return Result.Failure(
+                    Error.Validation("Auth.InvalidPassword", "Current password is incorrect."));
+            }
+
+            user.LastLoginAt = _clock.UtcNow;
+            await _userManager.UpdateAsync(user);
+            return Result.Success();
+        }
+
+        return Result.Failure(
+            Error.Validation(
+                "Auth.ReauthenticationRequired",
+                !string.IsNullOrEmpty(user.PasswordHash)
+                    ? "For security, confirm your current password (or sign in again within the last 10 minutes) before changing sign-in methods."
+                    : "For security, please sign out and sign back in within the last 10 minutes before changing connected sign-in methods."));
+    }
+
     private static bool IsProviderAllowedForStudios(string providerScheme)
     {
-        // ADR-006: GitHub Sign-In is restricted to Candidates only; Google is available to both Candidates and Studios.
         return !string.Equals(providerScheme, GitHubProviderScheme, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -840,6 +1390,18 @@ internal sealed class IdentityAuthService : IAuthService
         }
 
         return true;
+    }
+
+    private static bool IsProviderAllowedForRoles(string providerScheme, IReadOnlyList<string> roles)
+    {
+        if (IsProviderAllowedForStudios(providerScheme))
+        {
+            return true;
+        }
+
+        return roles.Any(r =>
+            string.Equals(r, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(r, HireGameDevRoleNames.Admin, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? ExtractEmail(ExternalLoginInfo info)
@@ -901,6 +1463,46 @@ internal sealed class IdentityAuthService : IAuthService
         if (!string.IsNullOrWhiteSpace(gitHubProfileUrl))
         {
             await _userManager.SetAuthenticationTokenAsync(user, GitHubProviderScheme, "profile_url", gitHubProfileUrl);
+        }
+    }
+
+    private async Task TrySendSecurityNoticeEmailAsync(
+        ApplicationUser user,
+        string subject,
+        string summaryLine,
+        string tag,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            return;
+        }
+
+        try
+        {
+            var encodedName = WebUtility.HtmlEncode(user.DisplayName);
+            var encodedSummary = WebUtility.HtmlEncode(summaryLine);
+            var htmlBody = $"""
+                <h2>Security notice for your HireGameDev account</h2>
+                <p>Hi {encodedName},</p>
+                <p>{encodedSummary}</p>
+                <p>If you made this change, no further action is required. If you did not authorize this change, reset your password immediately and contact us.</p>
+                """;
+            var textBody =
+                $"Hi {user.DisplayName},\n\n{summaryLine}\n\nIf you did not authorize this change, reset your password immediately.\n";
+
+            await _emailSender.SendAsync(
+                new EmailMessage(
+                    To: user.Email,
+                    Subject: subject,
+                    HtmlBody: htmlBody,
+                    TextBody: textBody,
+                    Tag: tag),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Security notification email ({Tag}) failed for user {UserId}.", tag, user.Id);
         }
     }
 

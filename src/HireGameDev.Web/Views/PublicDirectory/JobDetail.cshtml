@@ -1,0 +1,15 @@
+@{
+    var slug = ViewData["JobSlug"] as string ?? "role";
+    ViewData["Title"] = $"Job · {slug}";
+}
+
+<section class="l-auth l-auth--wide" aria-labelledby="public-job-heading">
+    <div class="c-empty">
+        <span class="c-badge c-badge--info">Public Job Listing &middot; jobs.hiregamedev.com/jobs/@slug</span>
+        <h1 id="public-job-heading" class="c-empty__title">Job listing not found or expired</h1>
+        <p class="c-empty__desc">
+            Structured job detail pages with Google Jobs <code>JobPosting</code> JSON-LD and hard-filter match breakdowns populate in Phase 2 (`M2.4` / `M2.7`).
+        </p>
+        <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--primary">Browse Open Roles</a>
+    </div>
+</section>

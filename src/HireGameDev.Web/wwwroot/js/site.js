@@ -13,6 +13,10 @@
     for (var i = 0; i < buttons.length; i++) {
       var isSelected = buttons[i].getAttribute('data-theme-value') === theme;
       buttons[i].setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      if (buttons[i].classList.contains('c-btn')) {
+        buttons[i].classList.toggle('c-btn--primary', isSelected);
+        buttons[i].classList.toggle('c-btn--secondary', !isSelected);
+      }
     }
   }
 

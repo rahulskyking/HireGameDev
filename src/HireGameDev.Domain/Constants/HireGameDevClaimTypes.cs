@@ -9,3 +9,10 @@ public static class HireGameDevClaimTypes
     public const string GitHubLogin = "urn:github:login";
     public const string GitHubProfileUrl = "urn:github:url";
 }
+
+public static class HireGameDevRoleNames
+{
+    public const string Candidate = "candidate";
+    public const string Studio = "studio";
+    public const string Admin = "admin";
+}

@@ -3,6 +3,7 @@ using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Infrastructure;
 using HireGameDev.Web.Authorization;
+using HireGameDev.Web.Portals;
 using HireGameDev.Web.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -28,6 +29,7 @@ try
 
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+    builder.Services.AddHireGameDevPortalsAndCookieSecurity(builder.Configuration, builder.Environment);
     builder.Services.AddHireGameDevAuthorization();
     builder.Services.AddHireGameDevNetworkingAndRateLimiting(builder.Configuration);
 
@@ -50,8 +52,7 @@ try
         await appSettingsSeeder.SeedAsync();
     }
 
-    // Must run first so RemoteIpAddress and Request.Scheme reflect trusted reverse proxies (loopback Nginx by default)
-    // before HTTPS redirection, logging, rate limiting, and audit/consent IP capture run.
+    // Must run first so RemoteIpAddress, Request.Scheme, and allowlisted Request.Host reflect trusted reverse proxies.
     app.UseForwardedHeaders();
 
     if (!app.Environment.IsDevelopment())
@@ -69,6 +70,7 @@ try
     });
 
     app.UseHttpsRedirection();
+    app.UseHireGameDevPortalRoutingGuard();
     app.UseStaticFiles();
 
     app.UseSerilogRequestLogging();

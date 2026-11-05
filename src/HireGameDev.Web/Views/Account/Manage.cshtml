@@ -1,0 +1,345 @@
+@model AccountManageViewModel
+@{
+    ViewData["Title"] = "Account settings";
+    var state = Model.State;
+    var hasCandidate = state.Roles.Any(r => string.Equals(r, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase));
+    var hasStudio = state.Roles.Any(r => string.Equals(r, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
+    var hasAdmin = state.Roles.Any(r => string.Equals(r, HireGameDevRoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+    var totalAuthMethods = (state.HasPassword ? 1 : 0) + state.LinkedLogins.Count;
+    var currentPath = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var activeTheme = state.ThemePreference switch
+    {
+        ThemePreference.Light => "light",
+        ThemePreference.Dark => "dark",
+        _ => "system"
+    };
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Account &amp; Security</span>
+        </div>
+        <h1>Account settings</h1>
+        <p class="u-muted">
+            Manage your profile identity, active Candidate/Studio workspaces, connected sign-in methods, theme preference, and DPDP consent records.
+        </p>
+
+        @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="c-alert c-alert--success" role="status">
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+                <div class="c-alert__content"><p>@statusMessage</p></div>
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="c-alert c-alert--danger" role="alert">
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="7" y1="7" x2="13" y2="13" /><line x1="13" y1="7" x2="7" y2="13" /></svg>
+                <div class="c-alert__content"><p>@errorMessage</p></div>
+            </div>
+        }
+    </header>
+
+    <div class="p-sg-grid-2">
+        <!-- 1. Identity & Theme -->
+        <section class="c-card" aria-labelledby="manage-identity-heading">
+            <h2 id="manage-identity-heading" style="font-size: 20px;">Profile &amp; Appearance</h2>
+
+            <div class="c-field">
+                <span class="c-label">Verified Email</span>
+                <input class="c-input" type="email" value="@state.Email" readonly />
+                <p class="c-hint">Your single verified email works across all enabled HireGameDev portals.</p>
+            </div>
+
+            <form asp-controller="Account" asp-action="UpdateProfile" method="post" class="c-form">
+                <div class="c-field">
+                    <label asp-for="ProfileInput.DisplayName" class="c-label"></label>
+                    <input asp-for="ProfileInput.DisplayName" class="c-input" autocomplete="name" />
+                    <span asp-validation-for="ProfileInput.DisplayName"></span>
+                </div>
+                <div>
+                    <button type="submit" class="c-btn c-btn--primary">Save display name</button>
+                </div>
+            </form>
+
+            <hr />
+
+            <div class="c-field">
+                <span class="c-label">Theme Preference</span>
+                <p class="c-hint">Synced across devices (`users.theme_preference`) and subdomains (`hgd-theme`).</p>
+                <form asp-controller="Preferences" asp-action="Theme" method="post" class="c-btn-group" data-theme-form>
+                    <input type="hidden" name="returnUrl" value="@currentPath" />
+                    <button type="submit" name="theme" value="system" data-theme-value="system" aria-pressed="@(activeTheme == "system" ? "true" : "false")" class="c-btn c-btn--sm @(activeTheme == "system" ? "c-btn--primary" : "c-btn--secondary")">System</button>
+                    <button type="submit" name="theme" value="light" data-theme-value="light" aria-pressed="@(activeTheme == "light" ? "true" : "false")" class="c-btn c-btn--sm @(activeTheme == "light" ? "c-btn--primary" : "c-btn--secondary")">Light</button>
+                    <button type="submit" name="theme" value="dark" data-theme-value="dark" aria-pressed="@(activeTheme == "dark" ? "true" : "false")" class="c-btn c-btn--sm @(activeTheme == "dark" ? "c-btn--primary" : "c-btn--secondary")">Dark</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2. Portal Workspaces (Single-Email Dual-Role) -->
+        <section class="c-card" aria-labelledby="manage-roles-heading">
+            <h2 id="manage-roles-heading" style="font-size: 20px;">Portal Workspaces</h2>
+            <p class="c-hint">Use one HireGameDev identity for both Candidate job search and Studio hiring without duplicate accounts.</p>
+
+            <div class="c-badge-row">
+                @if (hasCandidate)
+                {
+                    <span class="c-badge c-badge--success">
+                        <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                        Candidate Active
+                    </span>
+                }
+                @if (hasStudio)
+                {
+                    <span class="c-badge c-badge--accent">
+                        <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                        Studio Active
+                    </span>
+                }
+                @if (hasAdmin)
+                {
+                    <span class="c-badge c-badge--info">Admin</span>
+                }
+            </div>
+
+            <div class="c-form" style="margin-top: 8px;">
+                <div class="c-notification">
+                    <div class="c-notification__body">
+                        <strong>Candidate Job Portal</strong>
+                        <p class="c-hint">Browse verified roles, track applications, and manage shipped credits.</p>
+                    </div>
+                    @if (hasCandidate)
+                    {
+                        <a href="@Model.JobsPortalUrl" class="c-btn c-btn--secondary c-btn--sm">Open Jobs</a>
+                    }
+                    else
+                    {
+                        <form asp-controller="Account" asp-action="EnableRole" method="post">
+                            <input type="hidden" name="targetRole" value="@AccountType.Candidate" />
+                            <input type="hidden" name="returnUrl" value="@currentPath" />
+                            <button type="submit" class="c-btn c-btn--primary c-btn--sm">Enable Candidate</button>
+                        </form>
+                    }
+                </div>
+
+                <div class="c-notification">
+                    <div class="c-notification__body">
+                        <strong>Studio Hiring Workspace</strong>
+                        <p class="c-hint">Verify your studio, publish roles, and manage applicants.</p>
+                    </div>
+                    @if (hasStudio)
+                    {
+                        <a href="@Model.StudioPortalUrl" class="c-btn c-btn--secondary c-btn--sm">Open Studio</a>
+                    }
+                    else
+                    {
+                        <form asp-controller="Account" asp-action="EnableRole" method="post">
+                            <input type="hidden" name="targetRole" value="@AccountType.Studio" />
+                            <input type="hidden" name="returnUrl" value="@currentPath" />
+                            <button type="submit" class="c-btn c-btn--primary c-btn--sm">Enable Studio</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 3. Sign-In Methods & Password Security -->
+    <div class="p-sg-grid-2">
+        <section class="c-card" aria-labelledby="manage-password-heading">
+            <h2 id="manage-password-heading" style="font-size: 20px;">Password Security</h2>
+
+            @if (state.HasPassword)
+            {
+                <form asp-controller="Account" asp-action="ChangePassword" method="post" class="c-form" novalidate>
+                    <div class="c-field">
+                        <label asp-for="PasswordInput.CurrentPassword" class="c-label"></label>
+                        <input asp-for="PasswordInput.CurrentPassword" class="c-input" autocomplete="current-password" />
+                        <span asp-validation-for="PasswordInput.CurrentPassword"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="PasswordInput.NewPassword" class="c-label"></label>
+                        <input asp-for="PasswordInput.NewPassword" class="c-input" autocomplete="new-password" />
+                        <p class="c-hint">At least 10 characters with uppercase, lowercase, and a number.</p>
+                        <span asp-validation-for="PasswordInput.NewPassword"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="PasswordInput.ConfirmPassword" class="c-label"></label>
+                        <input asp-for="PasswordInput.ConfirmPassword" class="c-input" autocomplete="new-password" />
+                        <span asp-validation-for="PasswordInput.ConfirmPassword"></span>
+                    </div>
+
+                    <div>
+                        <button type="submit" class="c-btn c-btn--primary">Update password</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <p class="c-hint">
+                    Your account currently signs in via connected social provider(s) with no password set.
+                    You can optionally add a password via a signed email link.
+                </p>
+                <form asp-controller="Account" asp-action="SendSetPasswordLink" method="post">
+                    <button type="submit" class="c-btn c-btn--secondary">Email me a Set-Password link</button>
+                </form>
+            }
+        </section>
+
+        <section class="c-card" aria-labelledby="manage-logins-heading">
+            <h2 id="manage-logins-heading" style="font-size: 20px;">Connected Sign-In Methods</h2>
+            <p class="c-hint">
+                Linking or unlinking sends a security email and writes an audit entry. The last remaining sign-in method cannot be removed.
+            </p>
+
+            @if (!state.IsRecentlyAuthenticated)
+            {
+                <div class="c-alert c-alert--warning" role="note">
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">10-minute security window</span>
+                        <p>
+                            @(state.HasPassword
+                                ? "Enter your current password when linking or unlinking a provider below."
+                                : "Sign out and sign back in within the last 10 minutes before linking or unlinking a provider.")
+                        </p>
+                    </div>
+                </div>
+            }
+
+            <div class="c-form">
+                @foreach (var linked in state.LinkedLogins)
+                {
+                    var canUnlink = totalAuthMethods > 1;
+                    <div class="c-notification">
+                        <div class="c-notification__body">
+                            <strong>@linked.ProviderDisplayName</strong>
+                            <span class="c-badge c-badge--success">Connected</span>
+                        </div>
+                        <form asp-controller="Account" asp-action="UnlinkExternal" method="post" class="c-btn-group">
+                            <input type="hidden" name="loginProvider" value="@linked.LoginProvider" />
+                            <input type="hidden" name="providerKey" value="@linked.ProviderKey" />
+                            @if (!state.IsRecentlyAuthenticated && state.HasPassword && canUnlink)
+                            {
+                                <input type="password"
+                                       name="currentPassword"
+                                       class="c-input"
+                                       style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 13px;"
+                                       placeholder="Current password"
+                                       aria-label="Current password to unlink @linked.ProviderDisplayName"
+                                       required />
+                            }
+                            <button type="submit"
+                                    class="c-btn c-btn--danger-outline c-btn--sm"
+                                    disabled="@(!canUnlink ? "disabled" : null)">
+                                @(canUnlink ? "Unlink" : "Only method")
+                            </button>
+                        </form>
+                    </div>
+                }
+
+                @foreach (var available in state.AvailableProviders)
+                {
+                    var alreadyConnected = state.LinkedLogins.Any(l =>
+                        string.Equals(l.LoginProvider, available.Scheme, StringComparison.OrdinalIgnoreCase));
+                    if (alreadyConnected)
+                    {
+                        continue;
+                    }
+
+                    var eligibleForRoles = available.AllowedForStudios || hasCandidate || hasAdmin;
+                    <div class="c-notification">
+                        <div class="c-notification__body">
+                            <strong>@available.DisplayName</strong>
+                            @if (!eligibleForRoles)
+                            {
+                                <p class="c-hint">Enable Candidate access above to link @available.DisplayName.</p>
+                            }
+                        </div>
+                        <form asp-controller="Account" asp-action="LinkExternal" method="post" class="c-btn-group">
+                            <input type="hidden" name="provider" value="@available.Scheme" />
+                            @if (!state.IsRecentlyAuthenticated && state.HasPassword && eligibleForRoles)
+                            {
+                                <input type="password"
+                                       name="currentPassword"
+                                       class="c-input"
+                                       style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 13px;"
+                                       placeholder="Current password"
+                                       aria-label="Current password to link @available.DisplayName"
+                                       required />
+                            }
+                            <button type="submit"
+                                    class="c-btn c-btn--secondary c-btn--sm"
+                                    disabled="@(!eligibleForRoles ? "disabled" : null)">
+                                Connect @available.DisplayName
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <!-- 4. DPDP Consents & Data Principal Rights -->
+    <section class="c-card" aria-labelledby="manage-dpdp-heading">
+        <div class="c-card__header">
+            <div>
+                <h2 id="manage-dpdp-heading" style="font-size: 20px;">DPDP Consents &amp; Data Rights</h2>
+                <p class="c-hint">Active versions: Terms v@state.CurrentTermsVersion &middot; Privacy v@state.CurrentPrivacyVersion</p>
+            </div>
+            @if (!state.HasAcceptedCurrentTerms || !state.HasAcceptedCurrentPrivacy)
+            {
+                <form asp-controller="Account" asp-action="AcceptLegal" method="post">
+                    <button type="submit" class="c-btn c-btn--primary c-btn--sm">Accept updated Terms &amp; Privacy</button>
+                </form>
+            }
+            else
+            {
+                <span class="c-badge c-badge--success">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                    Up to date
+                </span>
+            }
+        </div>
+
+        @if (state.Consents.Count > 0)
+        {
+            <div class="c-table-wrap">
+                <table class="c-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Consent Type</th>
+                            <th scope="col">Version</th>
+                            <th scope="col">Accepted At (UTC)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in state.Consents)
+                        {
+                            <tr>
+                                <td><code>@item.ConsentType.ToString().ToLowerInvariant()</code></td>
+                                <td class="u-mono">v@item.Version</td>
+                                <td class="u-mono">@item.AcceptedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss") UTC</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="c-card__footer">
+            <span class="c-hint">
+                Self-serve JSON data export and 30-day account erasure/anonymization ship in Phase 4 (`M4.6`). For immediate DPDP requests, contact our <a href="/Legal/Grievance">Grievance Officer</a>.
+            </span>
+            <div class="c-btn-group">
+                <a href="/Legal/Terms" class="c-btn c-btn--ghost c-btn--sm">Terms</a>
+                <a href="/Legal/Privacy" class="c-btn c-btn--ghost c-btn--sm">Privacy</a>
+                <a href="/Legal/Grievance" class="c-btn c-btn--ghost c-btn--sm">Grievance</a>
+            </div>
+        </div>
+    </section>
+</div>

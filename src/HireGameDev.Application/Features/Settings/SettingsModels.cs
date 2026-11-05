@@ -19,6 +19,9 @@ public static class AppSettingKeys
 
     public const string LegalTermsVersion = "legal.terms_version";
     public const string LegalPrivacyVersion = "legal.privacy_version";
+    public const string LegalGrievanceOfficerName = "legal.grievance_officer_name";
+    public const string LegalGrievanceOfficerEmail = "legal.grievance_officer_email";
+    public const string LegalGrievanceResponseDays = "legal.grievance_response_days";
     public const string DefaultLegalVersion = "1.0";
 
     public const string FeatureInvites = "features.invites";

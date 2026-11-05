@@ -1,0 +1,73 @@
+name: CI Build & EF Migrations Bundle
+
+on:
+  push:
+    branches:
+      - main
+      - 'arena/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+jobs:
+  build-and-bundle:
+    name: Build (.NET 8) & Build EF Bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore local .NET tools (dotnet-ef)
+        run: dotnet tool restore
+
+      - name: Restore NuGet packages
+        run: dotnet restore HireGameDev.sln
+
+      - name: Build solution (Release)
+        run: dotnet build HireGameDev.sln --configuration Release --no-restore
+
+      - name: Publish Web application
+        run: >-
+          dotnet publish src/HireGameDev.Web/HireGameDev.Web.csproj
+          --configuration Release
+          --no-build
+          --output "${RUNNER_TEMP}/artifacts/web"
+
+      - name: Generate EF Core self-contained migrations bundle (linux-x64)
+        run: >-
+          dotnet ef migrations bundle
+          --project src/HireGameDev.Infrastructure/HireGameDev.Infrastructure.csproj
+          --startup-project src/HireGameDev.Web/HireGameDev.Web.csproj
+          --configuration Release
+          --self-contained
+          --runtime linux-x64
+          --force
+          --output "${RUNNER_TEMP}/artifacts/efbundle"
+
+      - name: Validate deployment shell scripts syntax
+        run: |
+          bash -n scripts/backup-db.sh
+          bash -n scripts/restore-test.sh
+          bash -n scripts/deploy-release.sh
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hiregamedev-release-${{ github.sha }}
+          path: ${{ runner.temp }}/artifacts/
+          retention-days: 14

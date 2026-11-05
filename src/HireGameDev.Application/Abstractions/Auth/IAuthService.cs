@@ -42,6 +42,7 @@ public interface IAuthService
 
     Task<ExternalLoginCallbackResult> HandleExternalLoginCallbackAsync(
         string? remoteError,
+        AccountType? targetPortalRole = null,
         CancellationToken cancellationToken = default);
 
     Task<Result<PendingExternalRegistration>> GetPendingExternalRegistrationAsync(
@@ -54,5 +55,40 @@ public interface IAuthService
     Task<Result> UpdateThemePreferenceAsync(
         Guid userId,
         ThemePreference themePreference,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<string>>> EnablePortalRoleAsync(
+        Guid userId,
+        AccountType targetRole,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<AccountManageState>> GetAccountManageStateAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> UpdateDisplayNameAsync(
+        UpdateDisplayNameCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> ChangePasswordAsync(
+        ChangePasswordCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> AuthorizeExternalLinkAsync(
+        Guid userId,
+        string provider,
+        string? currentPassword = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> CompleteExternalLinkAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> UnlinkExternalLoginAsync(
+        UnlinkExternalLoginCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> AcceptCurrentLegalConsentsAsync(
+        Guid userId,
         CancellationToken cancellationToken = default);
 }

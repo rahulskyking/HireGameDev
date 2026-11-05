@@ -1,0 +1,54 @@
+@model GrievanceViewModel
+@{
+    ViewData["Title"] = "DPDP Grievance Redressal";
+}
+@section Styles {
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+}
+
+<article class="p-sg-stack" aria-labelledby="grievance-heading">
+    <header class="p-sg-section">
+        <div class="c-badge-row">
+            <span class="c-badge c-badge--info">DPDP Act 2023 &amp; IT Rules Compliance</span>
+            <span class="c-badge c-badge--success">@Model.ResponseSlaDays-Day Resolution SLA</span>
+        </div>
+        <h1 id="grievance-heading">Grievance Officer &amp; Data Protection Redressal</h1>
+        <p class="u-muted">
+            Dedicated contact channel for Data Principal rights requests, privacy concerns, and platform safety or fee-demand reports.
+        </p>
+    </header>
+
+    <div class="p-sg-grid-2">
+        <section class="c-card" aria-labelledby="officer-card-heading">
+            <h2 id="officer-card-heading" style="font-size: 20px;">Designated Grievance Officer</h2>
+            <dl class="c-form" style="margin: 0;">
+                <div>
+                    <dt class="c-label">Designation / Name</dt>
+                    <dd style="margin: 4px 0 0 0;">@Model.OfficerName</dd>
+                </div>
+                <div>
+                    <dt class="c-label">Email</dt>
+                    <dd style="margin: 4px 0 0 0;"><a href="mailto:@Model.OfficerEmail" class="u-mono">@Model.OfficerEmail</a></dd>
+                </div>
+                <div>
+                    <dt class="c-label">Response Commitment</dt>
+                    <dd class="u-muted" style="margin: 4px 0 0 0;">
+                        Acknowledgement within 72 hours and substantive resolution within <strong>@Model.ResponseSlaDays calendar days</strong> of receipt.
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="c-card" aria-labelledby="how-to-submit-heading">
+            <h2 id="how-to-submit-heading" style="font-size: 20px;">What to Include in Your Request</h2>
+            <ul class="u-muted" style="margin: 0; padding-left: 18px;">
+                <li>The verified email address associated with your HireGameDev account.</li>
+                <li>Type of request: <strong>Data Export</strong>, <strong>Correction</strong>, <strong>Consent Withdrawal</strong>, <strong>Account Erasure</strong>, or <strong>Listing/Abuse Report</strong>.</li>
+                <li>Relevant URLs (for example a job or studio slug on <code>jobs.hiregamedev.com</code>) if reporting a misleading listing or fee request.</li>
+            </ul>
+            <p class="c-hint">
+                If you remain unsatisfied after our Grievance Officer&rsquo;s resolution (or if @Model.ResponseSlaDays days elapse without resolution), you may escalate to the Data Protection Board of India as provided under the DPDP Act, 2023.
+            </p>
+        </section>
+    </div>
+</article>

@@ -1,0 +1,24 @@
+@{
+    ViewData["Title"] = "Admin Console";
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="c-badge-row">
+            <span class="c-badge c-badge--accent">Admin Console &middot; hiregamedev.com/Admin</span>
+            <span class="c-badge c-badge--success">Audit-Reason Enforced</span>
+        </div>
+        <h1>Platform Administration</h1>
+        <p class="u-muted">
+            Restricted to verified <code>admin</code> role holders on the apex domain. Studio verification queue (`M1.9`), job moderation (`M2.5`), and live settings/reports management (`M4.5`) mount here.
+        </p>
+    </header>
+
+    <div class="c-empty">
+        <h2 class="c-empty__title">Admin foundation active</h2>
+        <p class="c-empty__desc">
+            Every administrative mutation requires a mandatory reason logged to <code>audit_logs</code> (`ADR-010`).
+        </p>
+        <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--secondary">Return to Landing</a>
+    </div>
+</div>

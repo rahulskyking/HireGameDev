@@ -1,0 +1,52 @@
+@model HireGameDev.Application.Features.ReferenceData.ReferenceDataSummary?
+@{
+    ViewData["Title"] = "Game Developer Jobs in India";
+    var studioUrl = ViewData["StudioUrl"] as string ?? "/";
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+}
+
+<div class="p-sg-stack">
+    <section class="p-hero" style="padding-bottom: 0;">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Candidate &amp; Public Job Board &middot; jobs.hiregamedev.com</span>
+        </div>
+
+        <h1>Verified game studio roles across India.</h1>
+        <p class="p-hero__lead">
+            Every role lists transparent &#8377;&nbsp;LPA bands, engine &amp; discipline requirements, work mode, and studio responsiveness.
+        </p>
+
+        <div class="c-chip-list" aria-label="Indian gaming hubs">
+            <span class="c-chip c-chip--accent">Bengaluru</span>
+            <span class="c-chip">Pune</span>
+            <span class="c-chip">Hyderabad</span>
+            <span class="c-chip">Mumbai MMR</span>
+            <span class="c-chip">Delhi NCR</span>
+            <span class="c-chip">Chennai</span>
+            <span class="c-chip">Remote (India)</span>
+        </div>
+    </section>
+
+    <section class="c-empty" aria-labelledby="jobs-board-status">
+        <div class="c-empty__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>
+        </div>
+        <h2 id="jobs-board-status" class="c-empty__title">Structured Job Feed &amp; Candidate Onboarding Ready for Phase 1–2</h2>
+        <p class="c-empty__desc">
+            Create your developer account now so your verified identity is ready for 5-step portfolio &amp; shipped-credit onboarding (`M1.1`–`M1.4`) and full-text job search (`M2.4`).
+        </p>
+        <div class="c-btn-group">
+            @if (isAuthenticated)
+            {
+                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--primary">Account &amp; Role Settings</a>
+            }
+            else
+            {
+                <a asp-controller="Account" asp-action="Register" class="c-btn c-btn--primary">Create Developer Account</a>
+                <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary">Sign In</a>
+            }
+            <a href="@studioUrl" class="c-btn c-btn--ghost">Hiring for a studio? &rarr;</a>
+        </div>
+    </section>
+</div>

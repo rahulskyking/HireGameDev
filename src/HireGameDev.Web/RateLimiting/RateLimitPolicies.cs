@@ -28,9 +28,24 @@ public static class RateLimitPolicies
 
         services.Configure<ForwardedHeadersOptions>(options =>
         {
-            // Process X-Forwarded-For and X-Forwarded-Proto ONLY from trusted reverse proxies (loopback Nginx by default).
-            // Never enable X-Forwarded-Host without an explicit AllowedHosts allowlist to prevent host-header link spoofing.
-            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            var rawAllowedHosts = configuration["AllowedHosts"]?.Trim();
+            var explicitHosts = string.IsNullOrWhiteSpace(rawAllowedHosts) || rawAllowedHosts == "*"
+                ? []
+                : rawAllowedHosts.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // Process X-Forwarded-Host ONLY when an explicit AllowedHosts allowlist is configured (e.g. Production subdomains).
+            options.ForwardedHeaders = explicitHosts.Length > 0
+                ? (ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost)
+                : (ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+
+            if (explicitHosts.Length > 0)
+            {
+                options.AllowedHosts.Clear();
+                foreach (var host in explicitHosts)
+                {
+                    options.AllowedHosts.Add(host);
+                }
+            }
 
             var forwardLimit = configuration.GetValue<int?>("Networking:ForwardLimit") ?? 1;
             options.ForwardLimit = Math.Clamp(forwardLimit, 1, 10);

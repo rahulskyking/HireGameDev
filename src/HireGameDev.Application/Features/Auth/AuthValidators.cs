@@ -106,3 +106,37 @@ public sealed class CompleteExternalRegistrationCommandValidator : AbstractValid
             .WithMessage("You must accept the Terms of Use and Privacy Notice.");
     }
 }
+
+public sealed class UpdateDisplayNameCommandValidator : AbstractValidator<UpdateDisplayNameCommand>
+{
+    public UpdateDisplayNameCommandValidator()
+    {
+        RuleFor(x => x.UserId)
+            .NotEmpty().WithMessage("User ID is required.");
+
+        RuleFor(x => x.DisplayName)
+            .NotEmpty().WithMessage("Display name is required.")
+            .MinimumLength(2).WithMessage("Display name must be at least 2 characters.")
+            .MaximumLength(80).WithMessage("Display name must be 80 characters or fewer.");
+    }
+}
+
+public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
+{
+    public ChangePasswordCommandValidator()
+    {
+        RuleFor(x => x.UserId)
+            .NotEmpty().WithMessage("User ID is required.");
+
+        RuleFor(x => x.CurrentPassword)
+            .NotEmpty().WithMessage("Current password is required.");
+
+        RuleFor(x => x.NewPassword)
+            .NotEmpty().WithMessage("New password is required.")
+            .MinimumLength(10).WithMessage("New password must be at least 10 characters.")
+            .MaximumLength(128)
+            .Matches("[a-z]").WithMessage("New password must contain at least one lowercase letter.")
+            .Matches("[A-Z]").WithMessage("New password must contain at least one uppercase letter.")
+            .Matches("[0-9]").WithMessage("New password must contain at least one number.");
+    }
+}

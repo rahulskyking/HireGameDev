@@ -1,0 +1,82 @@
+@model LegalDocumentViewModel
+@{
+    ViewData["Title"] = "Privacy Notice (DPDP Act 2023)";
+}
+@section Styles {
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+}
+
+<article class="p-sg-stack" aria-labelledby="privacy-heading">
+    <header class="p-sg-section">
+        <div class="c-badge-row">
+            <span class="c-badge c-badge--accent">Privacy Version v@Model.Version</span>
+            <span class="c-badge c-badge--warning">Pre-launch engineering draft &middot; Counsel review pending</span>
+        </div>
+        <h1 id="privacy-heading">Privacy Notice (DPDP Act 2023)</h1>
+        <p class="u-muted">
+            How HireGameDev acts as a Data Fiduciary under India&rsquo;s Digital Personal Data Protection Act, 2023 across <code>hiregamedev.com</code>, <code>jobs.hiregamedev.com</code>, and <code>studio.hiregamedev.com</code>.
+        </p>
+    </header>
+
+    <div class="c-card">
+        <h3>1. Personal Data We Process &amp; Purpose</h3>
+        <p class="u-muted">
+            We collect only data necessary to match game developers and verified studios: account identity (name, verified email, OAuth provider identifiers), Candidate profile data (skills, shipped credits, portfolio links, work/education history, expected &#8377;&nbsp;LPA, optional phone for OTP verification), Studio profile/verification records, application status history, security audit logs, and versioned consent records.
+        </p>
+
+        <h3>2. Privacy-by-Default Protections</h3>
+        <ul class="u-muted">
+            <li><strong>Gated contact details:</strong> Your email and phone number are hidden from Studios until your application reaches <code>shortlisted</code> or you accept an interview invite.</li>
+            <li><strong>Current CTC hidden by default:</strong> Studios see your expected compensation band (<code>expected_ctc_lpa</code>); current compensation is never exposed unless you explicitly opt in.</li>
+            <li><strong>No raw resume storage &amp; no-training AI:</strong> When optional AI resume import is used (Phase 1, subject to explicit <code>ai_processing</code> consent), direct PII is redacted prior to extraction, only paid zero-training API tiers are used, and raw resume text is discarded immediately after draft population.</li>
+        </ul>
+
+        <h3>3. Sub-Processors &amp; Cross-Border Processing Disclosure</h3>
+        <p class="u-muted">
+            To operate the service, HireGameDev engages infrastructure and API processors—some of which process data on servers outside India under contractual confidentiality and security safeguards:
+        </p>
+        <div class="c-table-wrap">
+            <table class="c-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Category</th>
+                        <th scope="col">Provider / Mechanism</th>
+                        <th scope="col">Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Transactional Email</td>
+                        <td>Resend API</td>
+                        <td>Account verification, password links, application &amp; security alerts</td>
+                    </tr>
+                    <tr>
+                        <td>OAuth Identity (Optional)</td>
+                        <td>Google &amp; GitHub</td>
+                        <td>Verified-email social sign-in initiated by the user</td>
+                    </tr>
+                    <tr>
+                        <td>Hosting &amp; Backups</td>
+                        <td>Linux VPS + Encrypted Object Storage (R2/B2)</td>
+                        <td>PostgreSQL 16 database, web hosting, and encrypted 30-day off-site backups</td>
+                    </tr>
+                    <tr>
+                        <td>OTP &amp; Paid AI Extraction (Phase 1+)</td>
+                        <td>Configured SMS &amp; No-Training LLM API</td>
+                        <td>Phone verification &amp; opt-in PII-redacted resume parsing</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>4. Cookies &amp; Subdomain Session</h3>
+        <p class="u-muted">
+            We use strictly necessary first-party cookies (<code>hgd.auth</code>, <code>hgd.external</code>, <code>hgd.csrf</code>, <code>hgd-theme</code>, <code>hgd-cookies</code>) to maintain authenticated sessions across our three subdomains, prevent CSRF attacks, and remember your theme choice. No third-party ad-network trackers are loaded.
+        </p>
+
+        <h3>5. Retention, Data Export &amp; 30-Day Erasure</h3>
+        <p class="u-muted" style="margin-bottom: 0;">
+            As a Data Principal under the DPDP Act 2023, you have the right to access/export your data in machine-readable JSON, correct inaccurate profile fields, withdraw optional consents, and request account erasure (30-day grace window followed by personal-field anonymization and file deletion while preserving aggregate non-personal application counts, or statutory retention where required for tax/invoice records). Submit requests via Account Settings or our <a href="/Legal/Grievance">Grievance Officer</a>.
+        </p>
+    </div>
+</article>

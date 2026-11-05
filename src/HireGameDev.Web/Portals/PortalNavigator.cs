@@ -1,0 +1,257 @@
+using System.Net;
+using Microsoft.Extensions.Options;
+
+namespace HireGameDev.Web.Portals;
+
+public sealed class PortalNavigator : IPortalNavigator
+{
+    private readonly PortalOptions _options;
+    private readonly IWebHostEnvironment _environment;
+
+    public PortalNavigator(
+        IOptions<PortalOptions> options,
+        IWebHostEnvironment environment)
+    {
+        _options = options.Value;
+        _environment = environment;
+    }
+
+    public PortalDeploymentMode DeploymentMode => _options.DeploymentMode;
+
+    public PortalSite ResolvePortal(HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
+        return _options.DeploymentMode switch
+        {
+            PortalDeploymentMode.Landing => PortalSite.Landing,
+            PortalDeploymentMode.Jobs => PortalSite.Jobs,
+            PortalDeploymentMode.Studio => PortalSite.Studio,
+            _ => ResolvePortalFromHost(httpContext.Request.Host.Host)
+        };
+    }
+
+    public bool IsPortalServedByThisDeployment(PortalSite site)
+    {
+        return _options.DeploymentMode switch
+        {
+            PortalDeploymentMode.All => true,
+            PortalDeploymentMode.Landing => site == PortalSite.Landing,
+            PortalDeploymentMode.Jobs => site == PortalSite.Jobs,
+            PortalDeploymentMode.Studio => site == PortalSite.Studio,
+            _ => true
+        };
+    }
+
+    public string GetPortalBaseUrl(PortalSite target, HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
+        var requestHost = httpContext.Request.Host.Host;
+        if (TryResolveLocalDevBaseUrl(target, httpContext.Request.Scheme, requestHost, httpContext.Request.Host.Port, out var devBaseUrl))
+        {
+            return devBaseUrl;
+        }
+
+        var configured = target switch
+        {
+            PortalSite.Jobs => _options.JobsBaseUrl,
+            PortalSite.Studio => _options.StudioBaseUrl,
+            _ => _options.LandingBaseUrl
+        };
+
+        return configured.TrimEnd('/');
+    }
+
+    public string BuildPortalUrl(PortalSite target, HttpContext httpContext, string pathAndQuery = "/")
+    {
+        var baseUrl = GetPortalBaseUrl(target, httpContext);
+        if (string.IsNullOrWhiteSpace(pathAndQuery) || pathAndQuery == "/")
+        {
+            return $"{baseUrl}/";
+        }
+
+        var normalizedPath = pathAndQuery.StartsWith('/') ? pathAndQuery : $"/{pathAndQuery}";
+        return $"{baseUrl}{normalizedPath}";
+    }
+
+    public bool IsSafeReturnUrl(string? returnUrl, HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return false;
+        }
+
+        foreach (var ch in returnUrl)
+        {
+            if (ch < 0x20)
+            {
+                return false;
+            }
+        }
+
+        // 1. Strict relative path check (starts with single '/', not '//' or '/\').
+        if (returnUrl.StartsWith('/') &&
+            !returnUrl.StartsWith("//", StringComparison.Ordinal) &&
+            !returnUrl.StartsWith("/\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // 2. Allowlisted absolute cross-portal URL check.
+        if (!Uri.TryCreate(returnUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return false;
+        }
+
+        var isHttps = string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        var isDevHttp = _environment.IsDevelopment() &&
+                        string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase);
+        if (!isHttps && !isDevHttp)
+        {
+            return false;
+        }
+
+        foreach (var site in new[] { PortalSite.Landing, PortalSite.Jobs, PortalSite.Studio })
+        {
+            var portalBase = GetPortalBaseUrl(site, httpContext);
+            if (Uri.TryCreate(portalBase, UriKind.Absolute, out var allowedUri) &&
+                string.Equals(uri.Authority, allowedUri.Authority, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public string? ResolveSharedCookieDomain(HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        return ResolveCookieDomainStatic(httpContext.Request.Host.Host, _options.SharedCookieDomain);
+    }
+
+    public bool TryBuildWwwCanonicalRedirect(HttpContext httpContext, out string redirectUrl)
+    {
+        redirectUrl = string.Empty;
+        if (!_options.RedirectWwwToApex)
+        {
+            return false;
+        }
+
+        var method = httpContext.Request.Method;
+        if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))
+        {
+            return false;
+        }
+
+        var host = httpContext.Request.Host.Host;
+        if (!host.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var pathAndQuery = $"{httpContext.Request.PathBase}{httpContext.Request.Path}{httpContext.Request.QueryString}";
+        redirectUrl = BuildPortalUrl(PortalSite.Landing, httpContext, pathAndQuery);
+        return true;
+    }
+
+    internal static string? ResolveCookieDomainStatic(string? requestHost, string? configuredSharedDomain)
+    {
+        if (string.IsNullOrWhiteSpace(requestHost) || string.IsNullOrWhiteSpace(configuredSharedDomain))
+        {
+            return null;
+        }
+
+        var bareDomain = configuredSharedDomain.Trim().TrimStart('.');
+        if (string.IsNullOrWhiteSpace(bareDomain) ||
+            string.Equals(bareDomain, "localhost", StringComparison.OrdinalIgnoreCase) ||
+            IPAddress.TryParse(requestHost, out _))
+        {
+            return null;
+        }
+
+        if (string.Equals(requestHost, bareDomain, StringComparison.OrdinalIgnoreCase) ||
+            requestHost.EndsWith($".{bareDomain}", StringComparison.OrdinalIgnoreCase))
+        {
+            return $".{bareDomain}";
+        }
+
+        return null;
+    }
+
+    private static PortalSite ResolvePortalFromHost(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return PortalSite.Landing;
+        }
+
+        if (host.StartsWith("jobs.", StringComparison.OrdinalIgnoreCase))
+        {
+            return PortalSite.Jobs;
+        }
+
+        if (host.StartsWith("studio.", StringComparison.OrdinalIgnoreCase))
+        {
+            return PortalSite.Studio;
+        }
+
+        return PortalSite.Landing;
+    }
+
+    private static bool TryResolveLocalDevBaseUrl(
+        PortalSite target,
+        string scheme,
+        string? requestHost,
+        int? port,
+        out string baseUrl)
+    {
+        baseUrl = string.Empty;
+        if (string.IsNullOrWhiteSpace(requestHost))
+        {
+            return false;
+        }
+
+        string? rootDevHost = null;
+        if (string.Equals(requestHost, "localhost", StringComparison.OrdinalIgnoreCase) ||
+            requestHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(requestHost, "127.0.0.1", StringComparison.Ordinal) ||
+            string.Equals(requestHost, "::1", StringComparison.Ordinal))
+        {
+            rootDevHost = "localhost";
+        }
+        else if (string.Equals(requestHost, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
+                 requestHost.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase))
+        {
+            rootDevHost = "lvh.me";
+        }
+
+        if (rootDevHost is null)
+        {
+            return false;
+        }
+
+        var targetHost = target switch
+        {
+            PortalSite.Jobs => $"jobs.{rootDevHost}",
+            PortalSite.Studio => $"studio.{rootDevHost}",
+            _ => rootDevHost
+        };
+
+        var isDefaultPort = !port.HasValue ||
+                            (string.Equals(scheme, "http", StringComparison.OrdinalIgnoreCase) && port == 80) ||
+                            (string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase) && port == 443);
+
+        var portPart = isDefaultPort ? string.Empty : $":{port}";
+        baseUrl = $"{scheme}://{targetHost}{portPart}";
+        return true;
+    }
+}

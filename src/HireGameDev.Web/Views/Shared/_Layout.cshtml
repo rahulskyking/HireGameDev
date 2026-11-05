@@ -1,12 +1,47 @@
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
+@inject HireGameDev.Web.Portals.IPortalNavigator PortalNavigator
 @{
+    var currentPortal = PortalNavigator.ResolvePortal(Context);
+    var landingUrl = PortalNavigator.BuildPortalUrl(PortalSite.Landing, Context, "/");
+    var jobsUrl = PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/");
+    var studioUrl = PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/");
+
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var displayName = isAuthenticated
         ? (User.FindFirst(HireGameDevClaimTypes.DisplayName)?.Value ?? User.Identity?.Name ?? "Account")
         : string.Empty;
-    var accountType = isAuthenticated
-        ? (User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value ?? "candidate")
-        : string.Empty;
+
+    var hasCandidateRole = isAuthenticated &&
+        (User.IsInRole(HireGameDevRoleNames.Candidate) ||
+         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase));
+    var hasStudioRole = isAuthenticated &&
+        (User.IsInRole(HireGameDevRoleNames.Studio) ||
+         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
+    var hasAdminRole = isAuthenticated &&
+        (User.IsInRole(HireGameDevRoleNames.Admin) ||
+         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+    var rolePillLabel = hasAdminRole
+        ? "admin"
+        : (hasCandidateRole && hasStudioRole)
+            ? "dev+studio"
+            : hasStudioRole
+                ? "studio"
+                : "candidate";
+
+    var brandTag = currentPortal switch
+    {
+        PortalSite.Jobs => "JOBS",
+        PortalSite.Studio => "STUDIO",
+        _ => "IN"
+    };
+
+    var brandHref = currentPortal switch
+    {
+        PortalSite.Jobs => jobsUrl,
+        PortalSite.Studio => studioUrl,
+        _ => landingUrl
+    };
 
     var rawTheme = isAuthenticated
         ? (User.FindFirst(HireGameDevClaimTypes.ThemePreference)?.Value
@@ -16,7 +51,8 @@
 
     var activeTheme = rawTheme is "light" or "dark" ? rawTheme : "system";
     string? htmlDataTheme = activeTheme is "light" or "dark" ? activeTheme : null;
-    var hasCandidateBottomNav = isAuthenticated && string.Equals(accountType, "candidate", StringComparison.OrdinalIgnoreCase);
+
+    var hasCandidateBottomNav = hasCandidateRole && currentPortal != PortalSite.Studio;
     var hasCookieDecision = !string.IsNullOrWhiteSpace(
         Context.Request.Cookies[HireGameDev.Web.Controllers.PreferencesController.CookieConsentCookieName]);
 
@@ -47,7 +83,7 @@
 
     <header class="c-navbar">
         <div class="l-container c-navbar__inner">
-            <a class="c-brand" asp-controller="Home" asp-action="Index">
+            <a class="c-brand" href="@brandHref">
                 <svg class="c-brand__mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
                     <rect width="32" height="32" rx="7" fill="#0b0b0c" />
                     <path d="M7.5 8.5h4.25v5.6h5.5V8.5h4.25v15h-4.25v-5.8h-5.5v5.8H7.5v-15z" fill="#f4f3ee" />
@@ -55,31 +91,41 @@
                     <rect x="22.5" y="19.5" width="3" height="4" rx="0.8" fill="#ffe600" />
                 </svg>
                 <span>HireGameDev</span>
-                <span class="c-brand__tag">IN</span>
+                <span class="c-brand__tag">@brandTag</span>
             </a>
 
             <nav class="c-navbar__links" aria-label="Primary">
+                @if (currentPortal != PortalSite.Landing)
+                {
+                    <a class="c-nav-link" href="@landingUrl">Home</a>
+                }
                 <a class="c-nav-link"
-                   asp-controller="Home"
-                   asp-action="Index"
-                   aria-current="@(Context.Request.Path == "/" ? "page" : null)">Jobs</a>
+                   href="@jobsUrl"
+                   aria-current="@(currentPortal == PortalSite.Jobs && Context.Request.Path == "/" ? "page" : null)">Jobs</a>
+                <a class="c-nav-link"
+                   href="@studioUrl"
+                   aria-current="@(currentPortal == PortalSite.Studio && Context.Request.Path == "/" ? "page" : null)">For Studios</a>
 
-                @if (isAuthenticated && accountType == "studio")
+                @if (isAuthenticated)
                 {
-                    <a class="c-nav-link" asp-controller="Home" asp-action="Index">Studio Workspace</a>
+                    <a class="c-nav-link"
+                       asp-controller="Account"
+                       asp-action="Manage"
+                       aria-current="@(Context.Request.Path.StartsWithSegments("/Account/Manage") ? "page" : null)">Account</a>
                 }
-                else if (isAuthenticated && accountType == "admin")
+
+                @if (hasAdminRole && currentPortal == PortalSite.Landing)
                 {
-                    <a class="c-nav-link" asp-controller="Home" asp-action="Index">Admin Console</a>
-                }
-                else
-                {
-                    <a class="c-nav-link" asp-controller="Account" asp-action="Register" asp-route-type="studio">For Studios</a>
+                    <a class="c-nav-link"
+                       href="/Admin"
+                       aria-current="@(Context.Request.Path.StartsWithSegments("/Admin") ? "page" : null)">Admin</a>
                 }
 
                 @if (HostEnvironment.IsDevelopment())
                 {
-                    <a class="c-nav-link" href="/Dev/Styleguide">Styleguide</a>
+                    <a class="c-nav-link"
+                       href="/Dev/Styleguide"
+                       aria-current="@(Context.Request.Path.StartsWithSegments("/Dev/Styleguide") ? "page" : null)">Styleguide</a>
                 }
             </nav>
 
@@ -88,48 +134,45 @@
                       asp-action="Theme"
                       method="post"
                       class="c-theme-switch"
-                      data-theme-form
                       role="group"
-                      aria-label="Color theme">
+                      aria-label="Color theme"
+                      data-theme-form>
                     <input type="hidden" name="returnUrl" value="@currentPath" />
-
                     <button type="submit"
                             name="theme"
                             value="system"
                             data-theme-value="system"
-                            class="c-theme-switch__btn"
                             aria-pressed="@(activeTheme == "system" ? "true" : "false")"
-                            title="System theme"
-                            aria-label="System theme">
+                            title="Match system theme"
+                            class="c-theme-switch__btn">
+                        <span class="u-sr-only">System theme</span>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="2" y="3" width="20" height="14" rx="2" />
                             <line x1="8" y1="21" x2="16" y2="21" />
                             <line x1="12" y1="17" x2="12" y2="21" />
                         </svg>
                     </button>
-
                     <button type="submit"
                             name="theme"
                             value="light"
                             data-theme-value="light"
-                            class="c-theme-switch__btn"
                             aria-pressed="@(activeTheme == "light" ? "true" : "false")"
                             title="Light theme"
-                            aria-label="Light theme">
+                            class="c-theme-switch__btn">
+                        <span class="u-sr-only">Light theme</span>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <circle cx="12" cy="12" r="4" />
                             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
                         </svg>
                     </button>
-
                     <button type="submit"
                             name="theme"
                             value="dark"
                             data-theme-value="dark"
-                            class="c-theme-switch__btn"
                             aria-pressed="@(activeTheme == "dark" ? "true" : "false")"
                             title="Dark theme"
-                            aria-label="Dark theme">
+                            class="c-theme-switch__btn">
+                        <span class="u-sr-only">Dark theme</span>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                         </svg>
@@ -138,32 +181,33 @@
 
                 @if (isAuthenticated)
                 {
-                    <div class="c-user-pill" title="@displayName (@accountType)">
+                    <a class="c-user-pill" asp-controller="Account" asp-action="Manage" style="text-decoration: none;">
                         <span class="c-user-pill__avatar" aria-hidden="true">@avatarInitial</span>
                         <span class="c-user-pill__name">@displayName</span>
-                        <span class="c-user-pill__role">@accountType</span>
-                    </div>
-
+                        <span class="c-user-pill__role">@rolePillLabel</span>
+                    </a>
                     <form asp-controller="Account" asp-action="Logout" method="post" class="u-inline-form">
-                        <button type="submit" class="c-shell-btn">Sign out</button>
+                        <button type="submit" class="c-shell-btn c-shell-btn--ghost">Sign out</button>
                     </form>
                 }
                 else
                 {
                     <a class="c-shell-btn c-shell-btn--ghost" asp-controller="Account" asp-action="Login">Sign in</a>
-                    <a class="c-shell-btn c-shell-btn--primary" asp-controller="Account" asp-action="Register">Create account</a>
+                    <a class="c-shell-btn c-shell-btn--primary" asp-controller="Account" asp-action="Register">
+                        @(currentPortal == PortalSite.Studio ? "Hire Talent" : "Get started")
+                    </a>
                 }
 
                 <button type="button"
                         class="c-icon-btn c-mobile-toggle"
-                        data-mobile-menu-toggle
                         aria-expanded="false"
                         aria-controls="hgd-mobile-drawer"
-                        aria-label="Toggle navigation menu">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                        <line x1="4" y1="7" x2="20" y2="7" />
-                        <line x1="4" y1="12" x2="20" y2="12" />
-                        <line x1="4" y1="17" x2="20" y2="17" />
+                        aria-label="Toggle navigation menu"
+                        data-mobile-menu-toggle>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
                     </svg>
                 </button>
             </div>
@@ -171,17 +215,19 @@
 
         <div id="hgd-mobile-drawer" class="c-mobile-drawer">
             <div class="l-container">
-                <nav class="c-mobile-drawer__nav" aria-label="Mobile navigation">
-                    <a class="c-nav-link" asp-controller="Home" asp-action="Index">Jobs</a>
-                    @if (!isAuthenticated)
+                <nav class="c-mobile-drawer__links" aria-label="Mobile navigation">
+                    <a class="c-nav-link" href="@landingUrl">Brand Home</a>
+                    <a class="c-nav-link" href="@jobsUrl">Candidate Jobs Portal</a>
+                    <a class="c-nav-link" href="@studioUrl">Studio Hiring Workspace</a>
+
+                    @if (isAuthenticated)
                     {
-                        <a class="c-nav-link" asp-controller="Account" asp-action="Register" asp-route-type="studio">For Studios</a>
-                        <a class="c-nav-link" asp-controller="Account" asp-action="Login">Sign in</a>
-                        <a class="c-nav-link" asp-controller="Account" asp-action="Register">Create account</a>
+                        <a class="c-nav-link" asp-controller="Account" asp-action="Manage">Account (@displayName)</a>
                     }
-                    else
+
+                    @if (hasAdminRole)
                     {
-                        <span class="c-nav-link">@displayName (@accountType)</span>
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Landing, Context, "/Admin"))">Admin Console</a>
                     }
 
                     @if (HostEnvironment.IsDevelopment())
@@ -217,9 +263,8 @@
     {
         <nav class="c-bottom-nav" aria-label="Candidate quick navigation">
             <a class="c-bottom-nav__item"
-               asp-controller="Home"
-               asp-action="Index"
-               aria-current="@(Context.Request.Path == "/" ? "page" : null)">
+               href="@jobsUrl"
+               aria-current="@(currentPortal == PortalSite.Jobs && Context.Request.Path == "/" ? "page" : null)">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="2" y="7" width="20" height="14" rx="2" />
                     <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
@@ -227,7 +272,7 @@
                 <span>Jobs</span>
             </a>
 
-            <a class="c-bottom-nav__item" href="/Candidate/Applications">
+            <a class="c-bottom-nav__item" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Applications"))">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
@@ -235,7 +280,7 @@
                 <span>Applications</span>
             </a>
 
-            <a class="c-bottom-nav__item" href="/Candidate/Alerts">
+            <a class="c-bottom-nav__item" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Alerts"))">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -243,7 +288,10 @@
                 <span>Alerts</span>
             </a>
 
-            <a class="c-bottom-nav__item" href="/Account/Manage">
+            <a class="c-bottom-nav__item"
+               asp-controller="Account"
+               asp-action="Manage"
+               aria-current="@(Context.Request.Path.StartsWithSegments("/Account/Manage") ? "page" : null)">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
@@ -263,7 +311,7 @@
                   data-cookie-form>
                 <input type="hidden" name="returnUrl" value="@currentPath" />
                 <p class="c-cookie-banner__text">
-                    We use strictly necessary cookies for secure sign-in, CSRF protection, and your theme preference. No third-party ad trackers are loaded.
+                    We use strictly necessary cookies for secure cross-portal sign-in, CSRF protection, and your theme preference. No third-party ad trackers are loaded.
                 </p>
                 <div class="c-cookie-banner__actions">
                     <button type="submit"

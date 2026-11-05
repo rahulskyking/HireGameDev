@@ -14,13 +14,13 @@ public static class AuthorizationPolicies
         services.AddAuthorizationBuilder()
             .AddPolicy(CandidateOnly, policy =>
                 policy.RequireAuthenticatedUser()
-                      .RequireClaim(HireGameDevClaimTypes.AccountType, "candidate"))
+                      .RequireRole(HireGameDevRoleNames.Candidate))
             .AddPolicy(StudioMember, policy =>
                 policy.RequireAuthenticatedUser()
-                      .RequireClaim(HireGameDevClaimTypes.AccountType, "studio"))
+                      .RequireRole(HireGameDevRoleNames.Studio))
             .AddPolicy(AdminOnly, policy =>
                 policy.RequireAuthenticatedUser()
-                      .RequireClaim(HireGameDevClaimTypes.AccountType, "admin"));
+                      .RequireRole(HireGameDevRoleNames.Admin));
 
         return services;
     }

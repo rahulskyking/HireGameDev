@@ -9,7 +9,8 @@ namespace HireGameDev.Infrastructure.Identity;
 
 /// <summary>
 /// Embeds lightweight HireGameDev claims (`account_type`, `display_name`, `theme`)
-/// into the authentication cookie so policies and layout read them with zero extra DB queries.
+/// plus `ClaimTypes.Role` entries from `user_roles` so single-email dual-role accounts
+/// (`candidate` + `studio`) authorize across portals with zero extra DB queries.
 /// </summary>
 public sealed class ApplicationUserClaimsPrincipalFactory
     : UserClaimsPrincipalFactory<ApplicationUser, ApplicationRole>
@@ -28,6 +29,11 @@ public sealed class ApplicationUserClaimsPrincipalFactory
 
         var accountTypeText = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
         var themeText = SnakeCaseEnumValueConverter<ThemePreference>.ToSnakeCaseValue(user.ThemePreference);
+
+        if (!identity.HasClaim(ClaimTypes.Role, accountTypeText))
+        {
+            identity.AddClaim(new Claim(ClaimTypes.Role, accountTypeText));
+        }
 
         identity.AddClaim(new Claim(HireGameDevClaimTypes.AccountType, accountTypeText));
         identity.AddClaim(new Claim(HireGameDevClaimTypes.DisplayName, user.DisplayName));

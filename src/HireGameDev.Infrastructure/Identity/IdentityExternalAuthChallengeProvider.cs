@@ -12,8 +12,11 @@ internal sealed class IdentityExternalAuthChallengeProvider : IExternalAuthChall
         _signInManager = signInManager;
     }
 
-    public AuthenticationProperties CreateChallengeProperties(string provider, string redirectUrl)
+    public AuthenticationProperties CreateChallengeProperties(
+        string provider,
+        string redirectUrl,
+        string? userId = null)
     {
-        return _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+        return _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, userId);
     }
 }

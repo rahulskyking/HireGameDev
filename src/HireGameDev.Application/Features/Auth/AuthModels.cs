@@ -1,3 +1,4 @@
+using HireGameDev.Application.Features.Consent;
 using HireGameDev.Domain.Enums;
 
 namespace HireGameDev.Application.Features.Auth;
@@ -42,7 +43,8 @@ public enum LoginStatus
 public sealed record LoginResult(
     LoginStatus Status,
     AccountType? AccountType = null,
-    string? Message = null);
+    string? Message = null,
+    IReadOnlyList<string>? Roles = null);
 
 public sealed record ForgotPasswordCommand(
     string Email,
@@ -75,7 +77,8 @@ public sealed record ExternalLoginCallbackResult(
     AccountType? AccountType = null,
     string? Email = null,
     string? ProviderDisplayName = null,
-    string? Message = null);
+    string? Message = null,
+    IReadOnlyList<string>? Roles = null);
 
 public sealed record PendingExternalRegistration(
     string Provider,
@@ -94,4 +97,43 @@ public sealed record CompleteExternalRegistrationCommand(
 public sealed record CompleteExternalRegistrationResult(
     Guid UserId,
     string Email,
-    AccountType AccountType);
+    AccountType AccountType,
+    IReadOnlyList<string>? Roles = null);
+
+public sealed record LinkedExternalLoginItem(
+    string LoginProvider,
+    string ProviderDisplayName,
+    string ProviderKey);
+
+public sealed record AccountManageState(
+    Guid UserId,
+    string Email,
+    string DisplayName,
+    AccountType PrimaryAccountType,
+    IReadOnlyList<string> Roles,
+    ThemePreference ThemePreference,
+    bool HasPassword,
+    bool IsRecentlyAuthenticated,
+    DateTimeOffset? LastLoginAt,
+    IReadOnlyList<LinkedExternalLoginItem> LinkedLogins,
+    IReadOnlyList<ExternalProviderDescriptor> AvailableProviders,
+    IReadOnlyList<ConsentRecordItem> Consents,
+    string CurrentTermsVersion,
+    string CurrentPrivacyVersion,
+    bool HasAcceptedCurrentTerms,
+    bool HasAcceptedCurrentPrivacy);
+
+public sealed record UpdateDisplayNameCommand(
+    Guid UserId,
+    string DisplayName);
+
+public sealed record ChangePasswordCommand(
+    Guid UserId,
+    string CurrentPassword,
+    string NewPassword);
+
+public sealed record UnlinkExternalLoginCommand(
+    Guid UserId,
+    string LoginProvider,
+    string ProviderKey,
+    string? CurrentPassword = null);

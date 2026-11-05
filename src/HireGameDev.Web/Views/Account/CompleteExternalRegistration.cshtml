@@ -1,6 +1,7 @@
 @model CompleteExternalRegistrationViewModel
 @{
     ViewData["Title"] = "Complete your account";
+    var isStudio = Model.AccountType == AccountType.Studio;
 }
 
 <section class="l-auth l-auth--wide" aria-labelledby="complete-account-heading">
@@ -10,7 +11,7 @@
             <h1 id="complete-account-heading" class="c-auth-card__title">Complete your HireGameDev account</h1>
             <p class="c-auth-card__subtitle">
                 Connected with <strong>@Model.ProviderDisplayName</strong> as <strong>@Model.Email</strong>.
-                Confirm your role and consent to finish signing up.
+                Confirm your details and consent to finish signing up.
             </p>
         </header>
 
@@ -19,43 +20,47 @@
 
             <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
 
-            <fieldset class="c-fieldset">
-                <legend class="c-fieldset__legend">1. I am joining as a</legend>
-                <div class="c-role-grid">
-                    <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
-                        <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
-                        <span class="c-role-card__body">
-                            <span class="c-role-card__title">Game Developer</span>
-                            <span class="c-role-card__desc">Find verified game studio roles across India.</span>
+            @if (Model.IsPortalRoleLocked)
+            {
+                <input type="hidden" asp-for="AccountType" />
+                <div class="c-alert c-alert--neutral">
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">
+                            @(isStudio ? "Activating Studio Hiring Workspace" : "Activating Game Developer (Candidate) Profile")
                         </span>
-                    </label>
-
-                    @if (Model.AllowedForStudios)
-                    {
-                        <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
-                            <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
+                        <p>
+                            You can also enable @(isStudio ? "a Candidate profile" : "a Studio workspace") later under the same email from Account Settings.
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <fieldset class="c-fieldset">
+                    <legend class="c-fieldset__legend">1. I am joining as a</legend>
+                    <div class="c-role-grid">
+                        <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
+                            <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
                             <span class="c-role-card__body">
-                                <span class="c-role-card__title">Game Studio</span>
-                                <span class="c-role-card__desc">Build your studio profile and hire game talent.</span>
+                                <span class="c-role-card__title">Game Developer</span>
+                                <span class="c-role-card__desc">Find verified game studio roles across India.</span>
                             </span>
                         </label>
-                    }
-                </div>
 
-                @if (Model.AllowedForStudios)
-                {
-                    <p class="c-hint">
-                        Studios can sign up with any verified Google account (company domain or Gmail). Company-domain studios follow standard verification; personal-email indie studios can request manual admin review.
-                    </p>
-                }
-                else
-                {
-                    <p class="c-hint">
-                        @Model.ProviderDisplayName sign-up is available for Candidate accounts only. To register a Studio, use Google or email and password.
-                    </p>
-                }
-                <span asp-validation-for="AccountType"></span>
-            </fieldset>
+                        @if (Model.AllowedForStudios)
+                        {
+                            <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
+                                <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
+                                <span class="c-role-card__body">
+                                    <span class="c-role-card__title">Game Studio</span>
+                                    <span class="c-role-card__desc">Build your studio profile and hire game talent.</span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+                    <span asp-validation-for="AccountType"></span>
+                </fieldset>
+            }
 
             <div class="c-field">
                 <label asp-for="DisplayName" class="c-label"></label>

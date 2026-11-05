@@ -65,6 +65,21 @@
     "description": "Current Privacy Policy version recorded in consent_records at registration."
   },
   {
+    "key": "legal.grievance_officer_name",
+    "value": "Grievance Officer (HireGameDev India)",
+    "description": "Designated DPDP Act 2023 Grievance Officer name shown on /Legal/Grievance."
+  },
+  {
+    "key": "legal.grievance_officer_email",
+    "value": "grievance@hiregamedev.com",
+    "description": "Designated DPDP Act 2023 Grievance Officer email shown on /Legal/Grievance."
+  },
+  {
+    "key": "legal.grievance_response_days",
+    "value": 30,
+    "description": "Maximum response SLA in days for DPDP Act 2023 grievance resolution."
+  },
+  {
     "key": "features.invites",
     "value": false,
     "description": "Feature flag for Phase 5 studio-to-candidate interview invites."

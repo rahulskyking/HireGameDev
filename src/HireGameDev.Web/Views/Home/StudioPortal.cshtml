@@ -1,0 +1,59 @@
+@model HireGameDev.Application.Features.ReferenceData.ReferenceDataSummary?
+@{
+    ViewData["Title"] = "Studio Hiring Workspace";
+    var jobsUrl = ViewData["JobsUrl"] as string ?? "/";
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var hasStudioRole = isAuthenticated &&
+                        (User.IsInRole(HireGameDevRoleNames.Studio) ||
+                         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
+}
+
+<div class="p-sg-stack">
+    <section class="p-hero" style="padding-bottom: 0;">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Studio Employer Workspace &middot; studio.hiregamedev.com</span>
+        </div>
+
+        <h1>Hire game developers by shipped proof, not keyword noise.</h1>
+        <p class="p-hero__lead">
+            Register with your studio domain or indie founder email, verify once, and hire across programming, technical art, design, animation, audio, QA, and production.
+        </p>
+
+        <div class="p-hero__cta">
+            @if (hasStudioRole)
+            {
+                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--primary c-btn--lg">Studio Account Settings</a>
+            }
+            else if (isAuthenticated)
+            {
+                <a asp-controller="Account" asp-action="EnableRole" asp-route-role="Studio" class="c-btn c-btn--primary c-btn--lg">Enable Studio Workspace on Your Account</a>
+            }
+            else
+            {
+                <a asp-controller="Account" asp-action="Register" class="c-btn c-btn--primary c-btn--lg">Create Studio Account</a>
+                <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary c-btn--lg">Studio Sign In</a>
+            }
+            <a href="@jobsUrl" class="c-btn c-btn--ghost c-btn--lg">View Public Job Board &rarr;</a>
+        </div>
+    </section>
+
+    <ol class="c-stepper" aria-label="5-step studio verification flow">
+        <li class="c-stepper__item @(isAuthenticated ? "is-complete" : "is-current")">
+            <span class="c-stepper__index">@(isAuthenticated ? "✓" : "1")</span>
+            <span>1. Register (Company or Indie Email)</span>
+        </li>
+        <li class="c-stepper__item @(hasStudioRole ? "is-current" : string.Empty)">
+            <span class="c-stepper__index">2</span>
+            <span>2. Complete Studio Essentials (M1.9)</span>
+        </li>
+        <li class="c-stepper__item">
+            <span class="c-stepper__index">3</span>
+            <span>3. Domain or Manual Admin Review</span>
+        </li>
+        <li class="c-stepper__item">
+            <span class="c-stepper__index">4</span>
+            <span>4. Publish Verified Roles (M2.1)</span>
+        </li>
+    </ol>
+</div>

@@ -1,0 +1,15 @@
+@{
+    var slug = ViewData["StudioSlug"] as string ?? "studio";
+    ViewData["Title"] = $"Studio · {slug}";
+}
+
+<section class="l-auth l-auth--wide" aria-labelledby="public-studio-heading">
+    <div class="c-empty">
+        <span class="c-badge c-badge--info">Public Studio Directory &middot; jobs.hiregamedev.com/studios/@slug</span>
+        <h1 id="public-studio-heading" class="c-empty__title">Studio profile not published yet</h1>
+        <p class="c-empty__desc">
+            Public studio pages (shipped titles, team size, Indian hub city, responsiveness badge, and live open roles) populate in Phase 1 (`M1.9`).
+        </p>
+        <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--primary">Back to Job Board</a>
+    </div>
+</section>

@@ -1,0 +1,52 @@
+@model LegalDocumentViewModel
+@{
+    ViewData["Title"] = "Terms of Use";
+}
+@section Styles {
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+}
+
+<article class="p-sg-stack" aria-labelledby="terms-heading">
+    <header class="p-sg-section">
+        <div class="c-badge-row">
+            <span class="c-badge c-badge--accent">Terms Version v@Model.Version</span>
+            <span class="c-badge c-badge--warning">Pre-launch engineering draft &middot; Counsel review pending</span>
+        </div>
+        <h1 id="terms-heading">Terms of Use</h1>
+        <p class="u-muted">
+            Governing use of <code>hiregamedev.com</code>, <code>jobs.hiregamedev.com</code>, and <code>studio.hiregamedev.com</code> in India.
+        </p>
+    </header>
+
+    <div class="c-card">
+        <h3>1. Eligibility &amp; Single-Email Identity</h3>
+        <p class="u-muted">
+            You must be at least <strong>18 years of age</strong> to register on HireGameDev. Each person maintains a single verified email identity, which may enable Candidate, Studio, or both workspaces without creating duplicate accounts.
+        </p>
+
+        <h3>2. Always Free for Candidates &amp; Zero Placement Fees</h3>
+        <p class="u-muted">
+            Searching jobs, maintaining a developer portfolio, and applying to roles are free for Candidates. Studios and recruiters are strictly prohibited from requesting application fees, training deposits, security bonds, or paid test kits from Candidates. Any listing reported for fee demands is immediately paused for moderation.
+        </p>
+
+        <h3>3. Studio Verification &amp; Truthful Job Listings</h3>
+        <p class="u-muted">
+            Studios must complete essential studio profile details and pass domain or manual admin verification before publishing live listings. Every published role must state accurate work mode, city hub, engine/skill requirements, and a genuine compensation band in <strong>&#8377;&nbsp;LPA</strong> respecting platform spread rules.
+        </p>
+
+        <h3>4. Anti-Ghosting Commitment</h3>
+        <p class="u-muted">
+            Studios commit to reviewing active applications within the platform response window (default 14 days). Applications without status movement receive automated reminders and auto-close transparently so Candidates are never left indefinitely without an answer.
+        </p>
+
+        <h3>5. Acceptable Use &amp; Contact Gating</h3>
+        <p class="u-muted">
+            Automated scraping, credential stuffing, bulk harvesting of portfolios, or circumventing Candidate contact gating is prohibited. Candidate phone numbers and direct emails are released to a Studio only when the Candidate is shortlisted or explicitly accepts an interview invite.
+        </p>
+
+        <h3>6. Governing Law &amp; Grievance Redressal</h3>
+        <p class="u-muted" style="margin-bottom: 0;">
+            These Terms are governed by the laws of India. Data protection or platform grievances may be submitted via our <a href="/Legal/Grievance">DPDP Grievance Redressal</a> page.
+        </p>
+    </div>
+</article>

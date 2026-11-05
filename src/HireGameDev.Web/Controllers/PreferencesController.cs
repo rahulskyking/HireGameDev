@@ -5,6 +5,7 @@ using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Application.Features.Settings;
 using HireGameDev.Domain.Enums;
+using HireGameDev.Web.Portals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +20,7 @@ public sealed class PreferencesController : Controller
     private readonly IAuthService _authService;
     private readonly IConsentService _consentService;
     private readonly ISettingsService _settingsService;
+    private readonly IPortalNavigator _portalNavigator;
     private readonly IClock _clock;
     private readonly IWebHostEnvironment _environment;
 
@@ -26,12 +28,14 @@ public sealed class PreferencesController : Controller
         IAuthService authService,
         IConsentService consentService,
         ISettingsService settingsService,
+        IPortalNavigator portalNavigator,
         IClock clock,
         IWebHostEnvironment environment)
     {
         _authService = authService;
         _consentService = consentService;
         _settingsService = settingsService;
+        _portalNavigator = portalNavigator;
         _clock = clock;
         _environment = environment;
     }
@@ -44,18 +48,18 @@ public sealed class PreferencesController : Controller
     {
         var (normalizedValue, enumValue) = ParseTheme(theme);
 
-        Response.Cookies.Append(
-            ThemeCookieName,
-            normalizedValue,
-            new CookieOptions
-            {
-                HttpOnly = true,
-                SameSite = SameSiteMode.Lax,
-                Secure = !_environment.IsDevelopment(),
-                IsEssential = true,
-                Expires = _clock.UtcNow.AddDays(365),
-                Path = "/"
-            });
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = !_environment.IsDevelopment(),
+            IsEssential = true,
+            Expires = _clock.UtcNow.AddDays(365),
+            Path = "/",
+            Domain = _portalNavigator.ResolveSharedCookieDomain(HttpContext)
+        };
+
+        Response.Cookies.Append(ThemeCookieName, normalizedValue, cookieOptions);
 
         if (User.Identity?.IsAuthenticated == true &&
             Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
@@ -68,7 +72,7 @@ public sealed class PreferencesController : Controller
             return NoContent();
         }
 
-        return RedirectToSafeLocalUrl(returnUrl);
+        return RedirectToSafePortalUrl(returnUrl);
     }
 
     [HttpPost]
@@ -81,18 +85,18 @@ public sealed class PreferencesController : Controller
             ? "accepted"
             : "essential";
 
-        Response.Cookies.Append(
-            CookieConsentCookieName,
-            normalizedChoice,
-            new CookieOptions
-            {
-                HttpOnly = true,
-                SameSite = SameSiteMode.Lax,
-                Secure = !_environment.IsDevelopment(),
-                IsEssential = true,
-                Expires = _clock.UtcNow.AddDays(180),
-                Path = "/"
-            });
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = !_environment.IsDevelopment(),
+            IsEssential = true,
+            Expires = _clock.UtcNow.AddDays(180),
+            Path = "/",
+            Domain = _portalNavigator.ResolveSharedCookieDomain(HttpContext)
+        };
+
+        Response.Cookies.Append(CookieConsentCookieName, normalizedChoice, cookieOptions);
 
         if (normalizedChoice == "accepted" &&
             User.Identity?.IsAuthenticated == true &&
@@ -115,7 +119,7 @@ public sealed class PreferencesController : Controller
             return NoContent();
         }
 
-        return RedirectToSafeLocalUrl(returnUrl);
+        return RedirectToSafePortalUrl(returnUrl);
     }
 
     private bool IsAjaxRequest()
@@ -124,11 +128,11 @@ public sealed class PreferencesController : Controller
             "XMLHttpRequest",
             StringComparison.OrdinalIgnoreCase);
 
-    private IActionResult RedirectToSafeLocalUrl(string? returnUrl)
+    private IActionResult RedirectToSafePortalUrl(string? returnUrl)
     {
-        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        if (!string.IsNullOrWhiteSpace(returnUrl) && _portalNavigator.IsSafeReturnUrl(returnUrl, HttpContext))
         {
-            return LocalRedirect(returnUrl);
+            return Redirect(returnUrl);
         }
 
         return RedirectToAction("Index", "Home");

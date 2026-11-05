@@ -1,15 +1,36 @@
 @model LoginViewModel
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
-    ViewData["Title"] = "Sign in";
+    var eyebrow = Model.Portal switch
+    {
+        PortalSite.Studio => "Studio Hiring Workspace",
+        PortalSite.Jobs => "Candidate Portal",
+        _ => "HireGameDev Account"
+    };
+
+    var heading = Model.Portal switch
+    {
+        PortalSite.Studio => "Sign in to your Studio workspace",
+        PortalSite.Jobs => "Sign in to browse & apply",
+        _ => "Sign in to HireGameDev"
+    };
+
+    var subtitle = Model.Portal switch
+    {
+        PortalSite.Studio => "Manage your studio profile, verification status, job listings, and applicant pipeline.",
+        PortalSite.Jobs => "Access your developer profile, shipped credits, applications, and job alerts.",
+        _ => "One verified identity works across Candidate, Studio, and Admin workspaces."
+    };
+
+    ViewData["Title"] = heading;
 }
 
 <section class="l-auth" aria-labelledby="login-heading">
     <div class="c-auth-card">
         <header class="c-auth-card__header">
-            <span class="c-auth-card__eyebrow">Welcome Back</span>
-            <h1 id="login-heading" class="c-auth-card__title">Sign in to HireGameDev</h1>
-            <p class="c-auth-card__subtitle">Access your candidate profile, applications, or studio hiring workspace.</p>
+            <span class="c-auth-card__eyebrow">@eyebrow</span>
+            <h1 id="login-heading" class="c-auth-card__title">@heading</h1>
+            <p class="c-auth-card__subtitle">@subtitle</p>
         </header>
 
         @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
@@ -35,7 +56,7 @@
                                 name="provider"
                                 value="@provider.Scheme"
                                 class="c-btn c-btn--secondary c-btn--block">
-                            Continue with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates)")
+                            Continue with @provider.DisplayName@(Model.Portal == PortalSite.Landing && !provider.AllowedForStudios ? " (Candidates)" : string.Empty)
                         </button>
                     }
                 </form>
@@ -51,7 +72,7 @@
                     <span class="c-alert__title">Local Development Note</span>
                     <p>
                         Add <code>Authentication:Google</code> and/or <code>Authentication:GitHub</code> in
-                        <code>appsettings.Development.local.json</code> to enable Google (all users) and GitHub (Candidates) sign-in.
+                        <code>appsettings.Development.local.json</code> to enable social sign-in.
                     </p>
                 </div>
             </aside>
@@ -114,8 +135,15 @@
         }
 
         <footer class="c-auth-card__footer">
-            <span>New to HireGameDev?</span>
-            <a asp-controller="Account" asp-action="Register">Create an account</a>
+            <span>New here? <a href="@Model.RegisterUrl">Create an account</a></span>
+            @if (Model.Portal == PortalSite.Jobs)
+            {
+                <a href="@Model.AlternatePortalLoginUrl">Studio sign in &rarr;</a>
+            }
+            else if (Model.Portal == PortalSite.Studio)
+            {
+                <a href="@Model.AlternatePortalLoginUrl">Candidate sign in &rarr;</a>
+            }
         </footer>
     </div>
 </section>

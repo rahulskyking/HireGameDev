@@ -1,0 +1,48 @@
+@model EnableRoleViewModel
+@{
+    var isStudio = Model.TargetRole == AccountType.Studio;
+    var roleTitle = isStudio ? "Studio Hiring Workspace" : "Candidate Developer Profile";
+    ViewData["Title"] = $"Enable {roleTitle}";
+}
+
+<section class="l-auth" aria-labelledby="enable-role-heading">
+    <div class="c-auth-card">
+        <header class="c-auth-card__header">
+            <span class="c-auth-card__eyebrow">Single Identity &middot; Dual Role</span>
+            <h1 id="enable-role-heading" class="c-auth-card__title">Enable @roleTitle</h1>
+            <p class="c-auth-card__subtitle">
+                Signed in as <strong>@Model.Email</strong>. One HireGameDev account can hold both Candidate and Studio roles without creating duplicate logins.
+            </p>
+        </header>
+
+        <div class="c-alert c-alert--info" role="note">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="10" y1="9" x2="10" y2="14" /><circle cx="10" cy="6.2" r="0.8" fill="currentColor" /></svg>
+            <div class="c-alert__content">
+                @if (isStudio)
+                {
+                    <span class="c-alert__title">How Studio access works</span>
+                    <p>Enabling Studio access unlocks studio onboarding and verification on <code>studio.hiregamedev.com</code> while keeping your Candidate data separate.</p>
+                }
+                else
+                {
+                    <span class="c-alert__title">How Candidate access works</span>
+                    <p>Enabling Candidate access lets you build a developer profile and apply for roles on <code>jobs.hiregamedev.com</code> under the same login.</p>
+                }
+            </div>
+        </div>
+
+        <form asp-controller="Account" asp-action="EnableRole" method="post" class="c-form">
+            <input type="hidden" name="targetRole" value="@Model.TargetRole" />
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+
+            <button type="submit" class="c-btn c-btn--primary c-btn--lg c-btn--block">
+                Enable @(isStudio ? "Studio Workspace" : "Candidate Profile")
+            </button>
+        </form>
+
+        <footer class="c-auth-card__footer">
+            <a asp-controller="Account" asp-action="Manage">Manage account settings</a>
+            <a asp-controller="Home" asp-action="Index">Cancel</a>
+        </footer>
+    </div>
+</section>

@@ -1,15 +1,32 @@
 @model RegisterViewModel
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
-    ViewData["Title"] = "Create account";
+    var isStudioPortal = Model.Portal == PortalSite.Studio ||
+                         (Model.IsPortalRoleLocked && Model.AccountType == AccountType.Studio);
+
+    var eyebrow = Model.IsPortalRoleLocked
+        ? (isStudioPortal ? "Studio Hiring Portal" : "Candidate Portal")
+        : "Get Started";
+
+    var heading = Model.IsPortalRoleLocked
+        ? (isStudioPortal ? "Create your Studio workspace" : "Create your Developer profile")
+        : "Create your HireGameDev account";
+
+    var subtitle = Model.IsPortalRoleLocked
+        ? (isStudioPortal
+            ? "Register with your company domain or personal email. One identity can also enable a Candidate profile later."
+            : "Showcase shipped credits, playable builds, and verified skills across India's game studios.")
+        : "Choose whether you are joining as a Game Developer or a Game Studio first.";
+
+    ViewData["Title"] = heading;
 }
 
 <section class="l-auth l-auth--wide" aria-labelledby="register-heading">
     <div class="c-auth-card">
         <header class="c-auth-card__header">
-            <span class="c-auth-card__eyebrow">Get Started</span>
-            <h1 id="register-heading" class="c-auth-card__title">Create your HireGameDev account</h1>
-            <p class="c-auth-card__subtitle">Choose whether you are joining as a Game Developer or a Game Studio first.</p>
+            <span class="c-auth-card__eyebrow">@eyebrow</span>
+            <h1 id="register-heading" class="c-auth-card__title">@heading</h1>
+            <p class="c-auth-card__subtitle">@subtitle</p>
         </header>
 
         <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
@@ -25,35 +42,59 @@
         <form asp-controller="Account" asp-action="Register" method="post" id="email-register-form" class="c-form" novalidate>
             <input type="hidden" asp-for="ReturnUrl" />
 
-            <fieldset class="c-fieldset">
-                <legend class="c-fieldset__legend">1. I am joining as a</legend>
-                <div class="c-role-grid">
-                    <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
-                        <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
-                        <span class="c-role-card__body">
-                            <span class="c-role-card__title">Game Developer</span>
-                            <span class="c-role-card__desc">Candidate profile, playable builds, and verified roles across India.</span>
-                        </span>
-                    </label>
-
-                    <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
-                        <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
-                        <span class="c-role-card__body">
-                            <span class="c-role-card__title">Game Studio</span>
-                            <span class="c-role-card__desc">Studio page, domain or indie verification, and structured hiring.</span>
-                        </span>
-                    </label>
+            @if (Model.IsPortalRoleLocked)
+            {
+                <input type="hidden" asp-for="AccountType" />
+                <div class="c-alert c-alert--neutral">
+                    <div class="c-alert__content">
+                        @if (isStudioPortal)
+                        {
+                            <span class="c-alert__title">Joining as a Game Studio</span>
+                            <p>
+                                Company-domain emails follow standard domain verification; indie studios using Gmail or Outlook can submit for manual admin review after completing studio essentials.
+                                Looking for jobs instead? <a href="@Model.AlternatePortalUrl">Switch to Candidate sign-up</a>.
+                            </p>
+                        }
+                        else
+                        {
+                            <span class="c-alert__title">Joining as a Game Developer (Candidate)</span>
+                            <p>
+                                Always free for candidates, with gated contact privacy until shortlist.
+                                Hiring for a studio? <a href="@Model.AlternatePortalUrl">Switch to Studio sign-up</a>.
+                            </p>
+                        }
+                    </div>
                 </div>
-                <span asp-validation-for="AccountType"></span>
-                <p class="c-hint">
-                    Studios can register with any valid email (company domain, Gmail, or Outlook). Company-domain studios follow standard verification; personal-email indie studios can submit for manual admin review.
-                </p>
-            </fieldset>
+            }
+            else
+            {
+                <fieldset class="c-fieldset">
+                    <legend class="c-fieldset__legend">1. I am joining as a</legend>
+                    <div class="c-role-grid">
+                        <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
+                            <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
+                            <span class="c-role-card__body">
+                                <span class="c-role-card__title">Game Developer</span>
+                                <span class="c-role-card__desc">Candidate profile, playable builds, and verified roles across India.</span>
+                            </span>
+                        </label>
+
+                        <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
+                            <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
+                            <span class="c-role-card__body">
+                                <span class="c-role-card__title">Game Studio</span>
+                                <span class="c-role-card__desc">Studio page, domain or indie verification, and structured hiring.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <span asp-validation-for="AccountType"></span>
+                </fieldset>
+            }
 
             @if (Model.ExternalProviders.Count > 0)
             {
                 <section class="c-field" aria-label="Quick social sign-up">
-                    <span class="c-label">2. Quick sign-up with a connected account</span>
+                    <span class="c-label">@(Model.IsPortalRoleLocked ? "Quick sign-up with a connected account" : "2. Quick sign-up with a connected account")</span>
                     <div class="c-sso-grid">
                         @foreach (var provider in Model.ExternalProviders)
                         {
@@ -65,11 +106,11 @@
                                     class="c-btn c-btn--secondary c-btn--block"
                                     data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()"
                                     disabled="@(disabledForSelectedRole ? "disabled" : null)">
-                                Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
+                                Sign up with @provider.DisplayName@(!Model.IsPortalRoleLocked && !provider.AllowedForStudios ? " (Candidates only)" : string.Empty)
                             </button>
                         }
                     </div>
-                    <p class="c-hint">First-time social sign-up confirms your role and DPDP consent on the next step.</p>
+                    <p class="c-hint">First-time social sign-up confirms age &amp; DPDP consent on the next step.</p>
                 </section>
 
                 <div class="c-divider" role="separator">Or register with email</div>
@@ -82,21 +123,21 @@
                         <span class="c-alert__title">Local Development Note</span>
                         <p>
                             Add <code>Authentication:Google</code> and/or <code>Authentication:GitHub</code> in
-                            <code>appsettings.Development.local.json</code> to enable Google (all users) and GitHub (Candidates) sign-up.
+                            <code>appsettings.Development.local.json</code> to enable social sign-up.
                         </p>
                     </div>
                 </aside>
             }
 
             <div class="c-field">
-                <label asp-for="DisplayName" class="c-label"></label>
-                <input asp-for="DisplayName" class="c-input" autocomplete="name" placeholder="e.g. Aarav Sharma or Nila Verse Studio" />
+                <label asp-for="DisplayName" class="c-label">@(isStudioPortal ? "Your full name (founder or hiring lead)" : "Full name")</label>
+                <input asp-for="DisplayName" class="c-input" autocomplete="name" placeholder="@(isStudioPortal ? "e.g. Priya Krishnan" : "e.g. Aarav Sharma")" />
                 <span asp-validation-for="DisplayName"></span>
             </div>
 
             <div class="c-field">
-                <label asp-for="Email" class="c-label"></label>
-                <input asp-for="Email" class="c-input" type="email" autocomplete="email" placeholder="you@example.com" />
+                <label asp-for="Email" class="c-label">@(isStudioPortal ? "Work or founder email address" : "Email address")</label>
+                <input asp-for="Email" class="c-input" type="email" autocomplete="email" placeholder="@(isStudioPortal ? "founder@yourstudio.in or Gmail" : "you@example.com")" />
                 <span asp-validation-for="Email"></span>
             </div>
 
@@ -129,12 +170,14 @@
                 <span asp-validation-for="AcceptTermsAndPrivacy"></span>
             </div>
 
-            <button type="submit" class="c-btn c-btn--primary c-btn--lg c-btn--block">Create account</button>
+            <button type="submit" class="c-btn c-btn--primary c-btn--lg c-btn--block">
+                @(isStudioPortal ? "Create Studio account" : "Create Developer account")
+            </button>
         </form>
 
         <footer class="c-auth-card__footer">
-            <span>Already have an account?</span>
-            <a asp-controller="Account" asp-action="Login">Sign in</a>
+            <span>Already have a HireGameDev account?</span>
+            <a asp-controller="Account" asp-action="Login">Sign in (supports both Candidate &amp; Studio)</a>
         </footer>
     </div>
 </section>

@@ -1,0 +1,28 @@
+[Unit]
+Description=HireGameDev ASP.NET Core 8 Web Application
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/hiregamedev/current
+ExecStart=/usr/bin/dotnet /opt/hiregamedev/current/HireGameDev.Web.dll
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+SyslogIdentifier=hiregamedev-web
+
+User=hiregamedev
+Group=hiregamedev
+EnvironmentFile=/etc/hiregamedev/hiregamedev.env
+
+# Systemd sandboxing & filesystem isolation
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hiregamedev/keys /var/log/hiregamedev
+
+[Install]
+WantedBy=multi-user.target

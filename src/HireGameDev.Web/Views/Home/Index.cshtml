@@ -2,6 +2,9 @@
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
     ViewData["Title"] = "Game Industry Hiring in India";
+    var jobsUrl = ViewData["JobsUrl"] as string ?? "/";
+    var studioUrl = ViewData["StudioUrl"] as string ?? "/";
+    var studioRegisterUrl = ViewData["StudioRegisterUrl"] as string ?? "/Account/Register?type=studio";
 }
 
 <section class="p-hero">
@@ -17,14 +20,11 @@
     </p>
 
     <div class="p-hero__cta">
-        @if (User.Identity?.IsAuthenticated == true)
+        <a class="c-btn c-btn--primary c-btn--lg" href="@jobsUrl">Explore Developer Jobs</a>
+        <a class="c-btn c-btn--secondary c-btn--lg" href="@studioUrl">Studio Hiring Workspace</a>
+        @if (User.Identity?.IsAuthenticated != true)
         {
-            <a class="c-btn c-btn--primary c-btn--lg" href="/Account/Manage">Account settings</a>
-        }
-        else
-        {
-            <a class="c-btn c-btn--primary c-btn--lg" asp-controller="Account" asp-action="Register">Create candidate profile</a>
-            <a class="c-btn c-btn--secondary c-btn--lg" asp-controller="Account" asp-action="Register" asp-route-type="studio">Hire as a studio</a>
+            <a class="c-btn c-btn--ghost c-btn--lg" href="@studioRegisterUrl">Register a Studio &rarr;</a>
         }
     </div>
 
@@ -51,12 +51,12 @@
     @if (HostEnvironment.IsDevelopment() && Model is not null)
     {
         <aside class="p-dev-strip" aria-label="Local development status">
-            <strong>Dev Foundation Status (M0.1&ndash;M0.6b):</strong>
+            <strong>Dev Foundation Status (Phase 0 &middot; M0.1&ndash;M0.7):</strong>
             @Model.ActiveCityCount Indian cities (@Model.HubCityCount hubs) &middot;
             @Model.ActiveSkillCount skills &middot;
             @Model.SkillRelationCount directional skill edges &middot;
             @(ViewData["AppSettingsCount"] ?? 0) runtime settings (60s cache, @ViewData["LegalVersions"]) &middot;
-            <a href="/Dev/Styleguide">Open Component Styleguide</a>.
+            Multi-portal routing active (<a href="@jobsUrl">jobs</a> &middot; <a href="@studioUrl">studio</a> &middot; <a href="/Dev/Styleguide">Styleguide</a>).
         </aside>
     }
 </section>
