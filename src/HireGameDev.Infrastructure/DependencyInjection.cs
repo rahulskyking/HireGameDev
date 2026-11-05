@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions;
+using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Auth;
+using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Abstractions.ReferenceData;
+using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Persistence;
@@ -33,6 +36,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddMemoryCache();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IClientIpAccessor, HttpContextClientIpAccessor>();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -150,6 +155,10 @@ public static class DependencyInjection
         services.AddScoped<IExternalAuthChallengeProvider, IdentityExternalAuthChallengeProvider>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IReferenceDataSeeder, ReferenceDataSeeder>();
+        services.AddScoped<IAuditLogger, AuditLogger>();
+        services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<IAppSettingsSeeder, AppSettingsSeeder>();
+        services.AddScoped<IConsentService, ConsentService>();
 
         return services;
     }

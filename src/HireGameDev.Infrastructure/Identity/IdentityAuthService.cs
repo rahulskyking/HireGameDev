@@ -3,9 +3,12 @@ using System.Security.Claims;
 using System.Text;
 using FluentValidation;
 using HireGameDev.Application.Abstractions;
+using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Auth;
+using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Common;
+using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Auth;
 using HireGameDev.Domain.Constants;
 using HireGameDev.Domain.Enums;
@@ -28,6 +31,8 @@ internal sealed class IdentityAuthService : IAuthService
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IEmailSender _emailSender;
+    private readonly IConsentService _consentService;
+    private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
     private readonly ILogger<IdentityAuthService> _logger;
     private readonly IValidator<RegisterCommand> _registerValidator;
@@ -41,6 +46,8 @@ internal sealed class IdentityAuthService : IAuthService
         SignInManager<ApplicationUser> signInManager,
         RoleManager<ApplicationRole> roleManager,
         IEmailSender emailSender,
+        IConsentService consentService,
+        IAuditLogger auditLogger,
         IClock clock,
         ILogger<IdentityAuthService> logger,
         IValidator<RegisterCommand> registerValidator,
@@ -53,6 +60,8 @@ internal sealed class IdentityAuthService : IAuthService
         _signInManager = signInManager;
         _roleManager = roleManager;
         _emailSender = emailSender;
+        _consentService = consentService;
+        _auditLogger = auditLogger;
         _clock = clock;
         _logger = logger;
         _registerValidator = registerValidator;
@@ -111,6 +120,18 @@ internal sealed class IdentityAuthService : IAuthService
         var roleName = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(command.AccountType);
         await _userManager.AddToRoleAsync(user, roleName);
 
+        await _consentService.RecordRegistrationConsentsAsync(user.Id, cancellationToken: cancellationToken);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.register",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id,
+                AfterData: new { accountType = roleName, method = "email_password" }),
+            cancellationToken);
+
         await SendConfirmationEmailInternalAsync(user, command.ConfirmationLinkBaseUrl, cancellationToken);
 
         return Result.Success(new RegisterResult(user.Id, email, ConfirmationEmailSent: true));
@@ -157,6 +178,15 @@ internal sealed class IdentityAuthService : IAuthService
                     "Auth.ConfirmationFailed",
                     "This confirmation link has expired or is no longer valid. Please request a fresh confirmation email."));
         }
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.email_confirmed",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id),
+            cancellationToken);
 
         return Result.Success();
     }
@@ -237,6 +267,15 @@ internal sealed class IdentityAuthService : IAuthService
 
         if (signInResult.IsLockedOut)
         {
+            await _auditLogger.LogAsync(
+                new AuditLogEntry(
+                    Action: "auth.lockout",
+                    EntityType: "user",
+                    EntityId: user.Id.ToString(),
+                    ActorType: AuditActorType.System,
+                    ActorUserId: user.Id),
+                cancellationToken);
+
             return Result.Success(new LoginResult(
                 LoginStatus.LockedOut,
                 user.AccountType,
@@ -336,6 +375,15 @@ internal sealed class IdentityAuthService : IAuthService
         }
 
         await _userManager.ResetAccessFailedCountAsync(user);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.password_reset",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id),
+            cancellationToken);
 
         return Result.Success();
     }
@@ -527,6 +575,16 @@ internal sealed class IdentityAuthService : IAuthService
                 await _userManager.UpdateAsync(existingEmailUser);
                 await PersistExternalProfileMetadataAsync(existingEmailUser, info);
 
+                await _auditLogger.LogAsync(
+                    new AuditLogEntry(
+                        Action: "auth.external_link",
+                        EntityType: "user",
+                        EntityId: existingEmailUser.Id.ToString(),
+                        ActorType: AuditActorType.User,
+                        ActorUserId: existingEmailUser.Id,
+                        AfterData: new { provider = info.LoginProvider }),
+                    cancellationToken);
+
                 await _signInManager.SignInAsync(existingEmailUser, isPersistent: false, info.LoginProvider);
                 await ClearExternalCookieAsync();
 
@@ -692,6 +750,18 @@ internal sealed class IdentityAuthService : IAuthService
         }
 
         await PersistExternalProfileMetadataAsync(user, info);
+
+        await _consentService.RecordRegistrationConsentsAsync(user.Id, cancellationToken: cancellationToken);
+
+        await _auditLogger.LogAsync(
+            new AuditLogEntry(
+                Action: "auth.external_register",
+                EntityType: "user",
+                EntityId: user.Id.ToString(),
+                ActorType: AuditActorType.User,
+                ActorUserId: user.Id,
+                AfterData: new { accountType = roleName, provider = info.LoginProvider }),
+            cancellationToken);
 
         await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
         await ClearExternalCookieAsync();

@@ -1,0 +1,87 @@
+[
+  {
+    "key": "limits.apply_per_day",
+    "value": 15,
+    "description": "Maximum job applications a candidate can submit per UTC day."
+  },
+  {
+    "key": "limits.max_active_applications_per_job",
+    "value": 50,
+    "description": "Active applicant cap per job (job closes to new applications when reached)."
+  },
+  {
+    "key": "limits.free_active_jobs",
+    "value": 3,
+    "description": "Maximum concurrent live jobs allowed on the Free studio tier."
+  },
+  {
+    "key": "limits.resume_parse_per_day",
+    "value": 5,
+    "description": "Maximum AI resume extractions per user per UTC day."
+  },
+  {
+    "key": "limits.profile_views_per_studio_per_day",
+    "value": 100,
+    "description": "Maximum candidate profile views per studio per UTC day on the Free tier."
+  },
+  {
+    "key": "limits.reports_per_day",
+    "value": 10,
+    "description": "Maximum abuse or content reports a user can submit per UTC day."
+  },
+  {
+    "key": "job.expiry_days",
+    "value": 30,
+    "description": "Number of days before a live job posting automatically expires."
+  },
+  {
+    "key": "job.salary_max_spread",
+    "value": 1.5,
+    "description": "Maximum allowed salary_max / salary_min ratio on job postings."
+  },
+  {
+    "key": "antighost.reminder_days",
+    "value": 7,
+    "description": "Days without studio status change before an anti-ghosting reminder is sent."
+  },
+  {
+    "key": "antighost.autodecline_days",
+    "value": 14,
+    "description": "Days without studio response before an application is automatically declined."
+  },
+  {
+    "key": "match.algo_version",
+    "value": "v2",
+    "description": "Active matching algorithm version tag recorded with computed match scores."
+  },
+  {
+    "key": "legal.terms_version",
+    "value": "1.0",
+    "description": "Current Terms of Service version recorded in consent_records at registration."
+  },
+  {
+    "key": "legal.privacy_version",
+    "value": "1.0",
+    "description": "Current Privacy Policy version recorded in consent_records at registration."
+  },
+  {
+    "key": "features.invites",
+    "value": false,
+    "description": "Feature flag for Phase 5 studio-to-candidate interview invites."
+  },
+  {
+    "key": "features.chat",
+    "value": false,
+    "description": "Feature flag for Phase 5 two-way real-time messaging."
+  },
+  {
+    "key": "features.payments",
+    "value": false,
+    "description": "Feature flag for Phase 6 Razorpay subscriptions and pay-per-job."
+  },
+  {
+    "key": "features.boost",
+    "value": false,
+    "description": "Feature flag for Phase 6 boosted job placements."
+  }
+]

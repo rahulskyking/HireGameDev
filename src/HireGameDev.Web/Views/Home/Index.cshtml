@@ -7,16 +7,17 @@
 <section>
     <h1>HireGameDev</h1>
     <p>Evidence-backed hiring for game developers and studios in India.</p>
-    <p><small>Foundation modules M0.1–M0.4 active. Design system &amp; components arrive in M0.6.</small></p>
+    <p><small>Foundation modules M0.1–M0.5 active. Design system &amp; components arrive in M0.6.</small></p>
 
     @if (HostEnvironment.IsDevelopment() && Model is not null)
     {
         <aside style="margin-top:16px;padding:12px;border:1px solid #e2e1db;">
             <small>
-                <strong>Local Dev Status (M0.4 Reference Taxonomy):</strong>
+                <strong>Local Dev Status (M0.4 &amp; M0.5 Foundation):</strong>
                 @Model.ActiveCityCount Indian cities (@Model.HubCityCount gaming hubs) &middot;
                 @Model.ActiveSkillCount game-dev skills &middot;
-                @Model.SkillRelationCount directional skill relations cached and ready.
+                @Model.SkillRelationCount directional skill relations &middot;
+                @(ViewData["AppSettingsCount"] ?? 0) runtime settings (60s cache, @ViewData["LegalVersions"]) active.
             </small>
         </aside>
     }

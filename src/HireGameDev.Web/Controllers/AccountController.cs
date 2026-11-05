@@ -3,8 +3,10 @@ using HireGameDev.Application.Features.Auth;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Web.Models.Account;
+using HireGameDev.Web.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HireGameDev.Web.Controllers;
 
@@ -46,6 +48,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthRegister)]
     public async Task<IActionResult> Register(RegisterViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -105,6 +108,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     public async Task<IActionResult> ResendConfirmation(string email, CancellationToken cancellationToken)
     {
         var confirmBaseUrl = Url.Action(
@@ -150,6 +154,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     public async Task<IActionResult> Login(LoginViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -195,6 +200,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthRegister)]
     public async Task<IActionResult> ExternalLogin(
         string provider,
         AccountType? preferredAccountType = null,
@@ -281,6 +287,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthRegister)]
     public async Task<IActionResult> CompleteExternalRegistration(
         CompleteExternalRegistrationViewModel model,
         CancellationToken cancellationToken = default)
@@ -344,6 +351,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -388,6 +396,7 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
