@@ -1,24 +1,62 @@
 @model HireGameDev.Application.Features.ReferenceData.ReferenceDataSummary?
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Game Industry Hiring in India";
 }
 
-<section>
-    <h1>HireGameDev</h1>
-    <p>Evidence-backed hiring for game developers and studios in India.</p>
-    <p><small>Foundation modules M0.1–M0.5 active. Design system &amp; components arrive in M0.6.</small></p>
+<section class="p-hero">
+    <div class="p-hero__eyebrow">
+        <span class="p-hero__dot" aria-hidden="true"></span>
+        <span>Built for studios &amp; game developers across India</span>
+    </div>
+
+    <h1>Evidence-backed hiring for India&rsquo;s game studios.</h1>
+
+    <p class="p-hero__lead">
+        Structured skill matching across engines, tools, and shipped credits&mdash;with upfront salary bands in &#8377;&nbsp;LPA, verified studios, and anti-ghosting response commitments.
+    </p>
+
+    <div class="p-hero__cta">
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <a class="c-shell-btn c-shell-btn--primary" href="/Account/Manage">Account settings</a>
+        }
+        else
+        {
+            <a class="c-shell-btn c-shell-btn--primary" asp-controller="Account" asp-action="Register">Create candidate profile</a>
+            <a class="c-shell-btn" asp-controller="Account" asp-action="Register" asp-route-type="studio">Hire as a studio</a>
+        }
+    </div>
+
+    <div class="p-pillars">
+        <article class="p-pillar-card">
+            <div class="p-pillar-card__kicker">01 &middot; Proof Over Keywords</div>
+            <h3>Shipped titles &amp; portfolio evidence</h3>
+            <p>Skills backed by playable builds, store credits, and repositories carry higher matching weight than unverified resume claims.</p>
+        </article>
+
+        <article class="p-pillar-card">
+            <div class="p-pillar-card__kicker">02 &middot; Transparent &#8377; LPA Bands</div>
+            <h3>Hard dealbreakers filtered upfront</h3>
+            <p>Engine gate, work mode, city hubs, notice period, and &#8377; LPA expectations align before an application enters review.</p>
+        </article>
+
+        <article class="p-pillar-card">
+            <div class="p-pillar-card__kicker">03 &middot; Anti-Ghosting SLA</div>
+            <h3>14-day studio response window</h3>
+            <p>Every application receives real status updates, gated contact privacy until shortlist, and DPDP-compliant data controls.</p>
+        </article>
+    </div>
 
     @if (HostEnvironment.IsDevelopment() && Model is not null)
     {
-        <aside style="margin-top:16px;padding:12px;border:1px solid #e2e1db;">
-            <small>
-                <strong>Local Dev Status (M0.4 &amp; M0.5 Foundation):</strong>
-                @Model.ActiveCityCount Indian cities (@Model.HubCityCount gaming hubs) &middot;
-                @Model.ActiveSkillCount game-dev skills &middot;
-                @Model.SkillRelationCount directional skill relations &middot;
-                @(ViewData["AppSettingsCount"] ?? 0) runtime settings (60s cache, @ViewData["LegalVersions"]) active.
-            </small>
+        <aside class="p-dev-strip" aria-label="Local development status">
+            <strong>Dev Foundation Status (M0.1&ndash;M0.6a):</strong>
+            @Model.ActiveCityCount Indian cities (@Model.HubCityCount hubs) &middot;
+            @Model.ActiveSkillCount skills &middot;
+            @Model.SkillRelationCount directional skill edges &middot;
+            @(ViewData["AppSettingsCount"] ?? 0) runtime settings (60s cache, @ViewData["LegalVersions"]) &middot;
+            Neon Yellow + Obsidian design tokens active.
         </aside>
     }
 </section>

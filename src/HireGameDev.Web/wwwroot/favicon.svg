@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="HireGameDev">
+  <rect width="64" height="64" rx="14" fill="#0b0b0c" />
+  <path d="M15 17h8.5v11.2h11V17H43v30h-8.5V35.4h-11V47H15V17z" fill="#f4f3ee" />
+  <polygon points="43,17 51,17 51,29 43,25" fill="#ffe600" />
+  <rect x="45" y="39" width="6" height="8" rx="1.5" fill="#ffe600" />
+</svg>

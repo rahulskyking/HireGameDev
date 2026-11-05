@@ -50,4 +50,9 @@ public interface IAuthService
     Task<Result<CompleteExternalRegistrationResult>> CompleteExternalRegistrationAsync(
         CompleteExternalRegistrationCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<Result> UpdateThemePreferenceAsync(
+        Guid userId,
+        ThemePreference themePreference,
+        CancellationToken cancellationToken = default);
 }

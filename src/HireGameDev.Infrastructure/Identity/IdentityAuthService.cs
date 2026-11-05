@@ -791,6 +791,41 @@ internal sealed class IdentityAuthService : IAuthService
         return Result.Success(new CompleteExternalRegistrationResult(user.Id, email, user.AccountType));
     }
 
+    public async Task<Result> UpdateThemePreferenceAsync(
+        Guid userId,
+        ThemePreference themePreference,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            return Result.Failure(
+                Error.Validation("Auth.InvalidUserId", "User ID cannot be empty."));
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !user.IsActive || user.DeletedAt is not null)
+        {
+            return Result.Failure(
+                Error.NotFound("Auth.UserNotFound", "User account was not found."));
+        }
+
+        if (user.ThemePreference != themePreference)
+        {
+            user.ThemePreference = themePreference;
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                var message = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+                return Result.Failure(
+                    Error.Failure("Auth.ThemeUpdateFailed", message));
+            }
+
+            await _signInManager.RefreshSignInAsync(user);
+        }
+
+        return Result.Success();
+    }
+
     private static bool IsProviderAllowedForStudios(string providerScheme)
     {
         // ADR-006: GitHub Sign-In is restricted to Candidates only; Google is available to both Candidates and Studios.
