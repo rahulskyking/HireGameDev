@@ -4,40 +4,51 @@
     var email = ViewData["Email"] as string ?? string.Empty;
 }
 
-<section aria-labelledby="confirm-pending-heading">
-    <h1 id="confirm-pending-heading">Check your email to confirm your account</h1>
-
-    @if (TempData["StatusMessage"] is string statusMessage)
-    {
-        <div role="status">
-            <p><strong>@statusMessage</strong></p>
-        </div>
-    }
-
-    <p>
-        We sent a verification link to <strong>@email</strong>.
-        Click the link in that email to activate your account before signing in.
-    </p>
-
-    @if (HostEnvironment.IsDevelopment())
-    {
-        <aside>
-            <p>
-                <small>
-                    <strong>Local Development Note:</strong> When <code>Email:Provider</code> is <code>Dev</code>,
-                    open <code>src/HireGameDev.Web/logs/emails/</code> in your browser to view the email and click the confirmation button.
-                </small>
+<section class="l-auth" aria-labelledby="confirm-pending-heading">
+    <div class="c-auth-card">
+        <header class="c-auth-card__header">
+            <span class="c-auth-card__eyebrow">Email Verification</span>
+            <h1 id="confirm-pending-heading" class="c-auth-card__title">Check your email to confirm your account</h1>
+            <p class="c-auth-card__subtitle">
+                We sent a verification link to <strong>@(string.IsNullOrWhiteSpace(email) ? "your email address" : email)</strong>.
+                Click the link in that email to activate your account before signing in.
             </p>
-        </aside>
-    }
+        </header>
 
-    @if (!string.IsNullOrWhiteSpace(email))
-    {
-        <form asp-controller="Account" asp-action="ResendConfirmation" method="post">
-            <input type="hidden" name="email" value="@email" />
-            <button type="submit">Resend confirmation email</button>
-        </form>
-    }
+        @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="c-alert c-alert--success" role="status">
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+                <div class="c-alert__content">
+                    <p>@statusMessage</p>
+                </div>
+            </div>
+        }
 
-    <p><a asp-controller="Account" asp-action="Login">Back to sign in</a></p>
+        @if (HostEnvironment.IsDevelopment())
+        {
+            <aside class="c-alert c-alert--info" aria-label="Local email preview note">
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="10" y1="9" x2="10" y2="14" /><circle cx="10" cy="6.2" r="0.8" fill="currentColor" /></svg>
+                <div class="c-alert__content">
+                    <span class="c-alert__title">Local Development Note</span>
+                    <p>
+                        When <code>Email:Provider</code> is <code>Dev</code>, open <code>src/HireGameDev.Web/logs/emails/</code> in your browser to preview the verification email and click the confirmation button.
+                    </p>
+                </div>
+            </aside>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(email))
+        {
+            <form asp-controller="Account" asp-action="ResendConfirmation" method="post">
+                <input type="hidden" name="email" value="@email" />
+                <button type="submit" class="c-btn c-btn--secondary c-btn--block">Resend confirmation email</button>
+            </form>
+        }
+
+        <footer class="c-auth-card__footer">
+            <span>Already confirmed?</span>
+            <a asp-controller="Account" asp-action="Login">Back to sign in</a>
+        </footer>
+    </div>
 </section>

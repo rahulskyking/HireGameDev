@@ -1,0 +1,1471 @@
+/* ==========================================================================
+   HireGameDev — Reusable Component Library (Blueprint v2.0 · M0.6b)
+   Prefix convention: c-* (components), l-* (layouts), p-sg-* (styleguide)
+   All colors reference WCAG-calibrated CSS custom properties in tokens.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Buttons (.c-btn)
+      WCAG Contrast:
+      - Primary:   11.31:1 (Light) · 15.52:1 (Dark)  [AAA]
+      - Secondary: 17.17:1 (Light) · 14.97:1 (Dark)  [AAA]
+      - Danger:     5.77:1 (Light) ·  7.09:1 (Dark)  [AA / AAA]
+      - Disabled:   4.61:1 (Light) ·  4.71:1 (Dark)  [AA legible + dashed border]
+   -------------------------------------------------------------------------- */
+.c-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--control-border);
+  background-color: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.c-btn:hover {
+  background-color: var(--surface-2);
+  border-color: var(--control-border-hover);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.c-btn--primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.c-btn--primary:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.c-btn--secondary {
+  background-color: var(--surface);
+  border-color: var(--control-border);
+  color: var(--text);
+}
+
+.c-btn--secondary:hover {
+  background-color: var(--surface-2);
+  border-color: var(--control-border-hover);
+  color: var(--text);
+}
+
+.c-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.c-btn--ghost:hover {
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.c-btn--danger {
+  background-color: var(--danger-solid);
+  border-color: var(--danger-solid);
+  color: var(--on-danger);
+}
+
+.c-btn--danger:hover {
+  background-color: var(--danger-solid-hover);
+  border-color: var(--danger-solid-hover);
+  color: var(--on-danger);
+}
+
+.c-btn--danger-outline {
+  background-color: transparent;
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+}
+
+.c-btn--danger-outline:hover {
+  background-color: var(--danger-subtle);
+  border-color: var(--danger-ink);
+  color: var(--danger-ink);
+}
+
+.c-btn--sm {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.c-btn--lg {
+  min-height: 46px;
+  padding: 11px 22px;
+  font-size: 15px;
+}
+
+.c-btn--block {
+  width: 100%;
+}
+
+.c-btn__icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.c-btn:disabled,
+.c-btn[aria-disabled='true'],
+.c-btn.is-disabled {
+  background-color: var(--disabled-bg);
+  border-color: var(--disabled-border);
+  border-style: dashed;
+  color: var(--disabled-text);
+  box-shadow: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.c-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --------------------------------------------------------------------------
+   2. Form Fields, Inputs, Selects, Checkboxes & MVC Validation
+   -------------------------------------------------------------------------- */
+.c-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.c-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.c-field__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.c-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.c-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.c-input,
+.c-select,
+.c-textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--control-border);
+  background-color: var(--control-bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.c-input::placeholder,
+.c-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.c-input:hover:not(:disabled),
+.c-select:hover:not(:disabled),
+.c-textarea:hover:not(:disabled) {
+  border-color: var(--control-border-hover);
+}
+
+.c-input:focus,
+.c-select:focus,
+.c-textarea:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--focus-ring);
+}
+
+.c-textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.c-select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.c-input:disabled,
+.c-select:disabled,
+.c-textarea:disabled {
+  background-color: var(--disabled-bg);
+  border-color: var(--disabled-border);
+  border-style: dashed;
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
+.c-input[readonly] {
+  background-color: var(--surface);
+  border-color: var(--border-strong);
+}
+
+/* ASP.NET Core MVC Tag Helper Validation Hooks */
+.validation-summary-valid {
+  display: none !important;
+}
+
+.field-validation-valid {
+  display: none;
+}
+
+.field-validation-error,
+.c-field__error {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--danger-ink);
+}
+
+.c-input.input-validation-error,
+.c-select.input-validation-error,
+.c-textarea.input-validation-error,
+.c-input[aria-invalid='true'],
+.c-select[aria-invalid='true'],
+.c-textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.validation-summary-errors ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.validation-summary-errors li + li {
+  margin-top: 4px;
+}
+
+/* Checkboxes & Radios */
+.c-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.c-check input[type='checkbox'],
+.c-check input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.c-check--disabled,
+.c-check:has(input:disabled) {
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
+.c-check input:disabled {
+  cursor: not-allowed;
+}
+
+/* Role Selector Radio Cards (/Account/Register & /Account/CompleteExternalRegistration) */
+.c-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.c-fieldset__legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.c-role-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (min-width: 520px) {
+  .c-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.c-role-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--control-border);
+  background-color: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.c-role-card:hover {
+  background-color: var(--surface-2);
+  border-color: var(--control-border-hover);
+}
+
+.c-role-card input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.c-role-card:has(input[type='radio']:checked),
+.c-role-card.is-selected {
+  border-color: var(--accent-ink);
+  background-color: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent-ink);
+}
+
+.c-role-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.c-role-card__title {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.c-role-card__desc {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   3. Searchable Select / Combobox (.c-combobox)
+   -------------------------------------------------------------------------- */
+.c-combobox {
+  position: relative;
+}
+
+.c-combobox__list {
+  margin: 6px 0 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.c-combobox__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.c-combobox__option:hover,
+.c-combobox__option[aria-selected='true'] {
+  background-color: var(--accent-subtle);
+  color: var(--text);
+}
+
+.c-combobox__option-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.c-combobox__empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   4. Skill Chips (.c-chip)
+   -------------------------------------------------------------------------- */
+.c-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.c-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.c-chip--accent {
+  background-color: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.c-chip--verified {
+  background-color: var(--success-subtle);
+  border-color: var(--success-border);
+  color: var(--success-ink);
+  font-weight: 600;
+}
+
+.c-chip--interactive {
+  cursor: pointer;
+  background-color: var(--surface);
+  border-color: var(--control-border);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.c-chip--interactive:hover:not(:disabled) {
+  background-color: var(--surface-2);
+  border-color: var(--control-border-hover);
+}
+
+.c-chip--interactive[aria-pressed='true'] {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.c-chip:disabled,
+.c-chip--disabled {
+  background-color: var(--disabled-bg);
+  border-color: var(--disabled-border);
+  border-style: dashed;
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
+.c-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+}
+
+.c-chip__remove:hover {
+  background-color: var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   5. Status & Trust Badges (.c-badge)
+      Never color-only: every badge pairs border + icon + AA/AAA --*-ink text.
+      Light ratios: 5.18:1 – 6.09:1 · Dark ratios: 5.56:1 – 9.64:1
+   -------------------------------------------------------------------------- */
+.c-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.c-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.c-badge__icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.c-badge--success {
+  background-color: var(--success-subtle);
+  border-color: var(--success-border);
+  color: var(--success-ink);
+}
+
+.c-badge--accent {
+  background-color: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent-ink);
+}
+
+.c-badge--info {
+  background-color: var(--info-subtle);
+  border-color: var(--info-border);
+  color: var(--info-ink);
+}
+
+.c-badge--warning {
+  background-color: var(--warning-subtle);
+  border-color: var(--warning-border);
+  color: var(--warning-ink);
+}
+
+.c-badge--danger {
+  background-color: var(--danger-subtle);
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+}
+
+.c-badge--neutral {
+  background-color: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   6. Match Meter (.c-match)
+      Blueprint rule: label always shown.
+      Strong = success, Good = accent, Partial = muted gray.
+   -------------------------------------------------------------------------- */
+.c-match {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 132px;
+}
+
+.c-match__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.c-match__score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.c-match__track {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.c-match__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.c-match--strong .c-match__top {
+  color: var(--success-ink);
+}
+
+.c-match--strong .c-match__fill {
+  background-color: var(--success);
+}
+
+.c-match--good .c-match__top {
+  color: var(--accent-ink);
+}
+
+.c-match--good .c-match__fill {
+  background-color: var(--accent);
+}
+
+.c-match--partial .c-match__top {
+  color: var(--text-muted);
+}
+
+.c-match--partial .c-match__fill {
+  background-color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   7. Surface Cards (.c-card) & Auth Layout (.l-auth, .c-auth-card, .c-divider)
+   -------------------------------------------------------------------------- */
+.c-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.c-card--elevated {
+  background-color: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.c-card--interactive {
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.c-card--interactive:hover {
+  border-color: var(--border-strong);
+}
+
+.c-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.c-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+/* Centered Authentication Views Layout */
+.l-auth {
+  width: 100%;
+  max-width: 500px;
+  margin-inline: auto;
+  padding-block: var(--space-3) var(--space-6);
+}
+
+.l-auth--wide {
+  max-width: 560px;
+}
+
+.c-auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 640px) {
+  .c-auth-card {
+    padding: var(--space-6);
+  }
+}
+
+.c-auth-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.c-auth-card__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.c-auth-card__title {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 30px);
+  line-height: 1.18;
+}
+
+.c-auth-card__subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.c-auth-card__footer {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.c-sso-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.c-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.c-divider::before,
+.c-divider::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background-color: var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   8. Domain Cards: Job, Candidate & Studio (.c-entity-mark, .c-comp-pill)
+   -------------------------------------------------------------------------- */
+.c-entity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.c-entity-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.c-entity-mark--accent {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.c-meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.c-comp-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   9. Stepper (.c-stepper)
+   -------------------------------------------------------------------------- */
+.c-stepper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.c-stepper__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.c-stepper__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.c-stepper__item.is-complete {
+  border-color: var(--success-border);
+  color: var(--text);
+}
+
+.c-stepper__item.is-complete .c-stepper__index {
+  background-color: var(--success-subtle);
+  border-color: var(--success-border);
+  color: var(--success-ink);
+}
+
+.c-stepper__item.is-current {
+  border-color: var(--accent-ink);
+  background-color: var(--accent-subtle);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.c-stepper__item.is-current .c-stepper__index {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* --------------------------------------------------------------------------
+   10. Tabs (.c-tabs)
+   -------------------------------------------------------------------------- */
+.c-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.c-tabs__tab {
+  position: relative;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.c-tabs__tab:hover {
+  color: var(--text);
+}
+
+.c-tabs__tab[aria-selected='true'] {
+  color: var(--text);
+}
+
+.c-tabs__tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--accent-ink);
+}
+
+.c-tabs__panel {
+  padding-top: var(--space-4);
+}
+
+/* --------------------------------------------------------------------------
+   11. Responsive Data Table (.c-table-wrap, .c-table)
+   -------------------------------------------------------------------------- */
+.c-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.c-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+}
+
+.c-table th {
+  padding: 10px 14px;
+  background-color: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.c-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.c-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.c-table tbody tr:hover td {
+  background-color: var(--surface-2);
+}
+
+.c-table__num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   12. Modal Dialog (.c-modal)
+   -------------------------------------------------------------------------- */
+.c-modal {
+  width: min(92vw, 480px);
+  margin: auto;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+}
+
+.c-modal::backdrop {
+  background-color: var(--overlay-scrim);
+  backdrop-filter: blur(2px);
+}
+
+.c-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.c-modal__title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.c-modal__body {
+  padding: var(--space-5);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.c-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+/* --------------------------------------------------------------------------
+   13. Alerts & Toast Banners (.c-alert, .c-toast)
+   -------------------------------------------------------------------------- */
+.c-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.c-alert p {
+  margin: 0;
+}
+
+.c-alert__icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.c-alert__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+}
+
+.c-alert__title {
+  font-weight: 600;
+}
+
+.c-alert--success {
+  background-color: var(--success-subtle);
+  border-color: var(--success-border);
+}
+
+.c-alert--success .c-alert__icon,
+.c-alert--success .c-alert__title {
+  color: var(--success-ink);
+}
+
+.c-alert--warning {
+  background-color: var(--warning-subtle);
+  border-color: var(--warning-border);
+}
+
+.c-alert--warning .c-alert__icon,
+.c-alert--warning .c-alert__title {
+  color: var(--warning-ink);
+}
+
+.c-alert--danger {
+  background-color: var(--danger-subtle);
+  border-color: var(--danger-border);
+}
+
+.c-alert--danger .c-alert__icon,
+.c-alert--danger .c-alert__title {
+  color: var(--danger-ink);
+}
+
+.c-alert--info {
+  background-color: var(--info-subtle);
+  border-color: var(--info-border);
+}
+
+.c-alert--info .c-alert__icon,
+.c-alert--info .c-alert__title {
+  color: var(--info-ink);
+}
+
+.c-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   14. Skeleton Loader (.c-skeleton)
+   -------------------------------------------------------------------------- */
+@keyframes hgd-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.c-skeleton {
+  display: block;
+  border-radius: 6px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  animation: hgd-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.c-skeleton--title {
+  height: 20px;
+  width: 62%;
+}
+
+.c-skeleton--text {
+  height: 14px;
+  width: 90%;
+}
+
+.c-skeleton--short {
+  height: 14px;
+  width: 45%;
+}
+
+.c-skeleton--avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   15. Empty State (.c-empty)
+   -------------------------------------------------------------------------- */
+.c-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-strong);
+  background-color: var(--surface);
+}
+
+.c-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--accent-ink);
+}
+
+.c-empty__title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.c-empty__desc {
+  margin: 0;
+  max-width: 44ch;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   16. Timeline (.c-timeline)
+   -------------------------------------------------------------------------- */
+.c-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.c-timeline__item {
+  position: relative;
+  padding: 0 0 var(--space-4) var(--space-5);
+  border-left: 2px solid var(--border-strong);
+}
+
+.c-timeline__item:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.c-timeline__dot {
+  position: absolute;
+  left: -7px;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg);
+  background-color: var(--text-muted);
+}
+
+.c-timeline__item.is-done .c-timeline__dot {
+  background-color: var(--success);
+}
+
+.c-timeline__item.is-active .c-timeline__dot {
+  background-color: var(--accent);
+}
+
+.c-timeline__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.c-timeline__meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   17. Notification Item (.c-notification)
+   -------------------------------------------------------------------------- */
+.c-notification {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.c-notification.is-unread {
+  border-color: var(--accent-border);
+  background-color: var(--accent-subtle);
+}
+
+.c-notification__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--accent-ink);
+}
+
+.c-notification__body {
+  flex: 1 1 auto;
+  font-size: 14px;
+}
+
+.c-notification__time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   18. Kanban Pipeline Board (.c-kanban)
+   -------------------------------------------------------------------------- */
+.c-kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.c-kanban__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.c-kanban__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.c-kanban__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.c-kanban__card {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   19. Development Styleguide Layout Helpers (.p-sg-*)
+   -------------------------------------------------------------------------- */
+.p-sg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.p-sg-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.p-sg-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.p-sg-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 820px) {
+  .p-sg-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.p-sg-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .p-sg-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.p-sg-theme-box {
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.p-sg-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: var(--space-3);
+}
+
+.p-sg-swatch {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.p-sg-swatch__chip {
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+}
+
+.p-sg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

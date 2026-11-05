@@ -1,43 +1,85 @@
 /* ==========================================================================
    HireGameDev — Design Tokens (Blueprint v2.0: Neon Yellow + Obsidian)
-   Light default · Explicit [data-theme='dark'] · System prefers-color-scheme
+   WCAG 2.1 AA/AAA Calibrated across Light & Dark Themes
    ========================================================================== */
 
-:root {
+:root,
+[data-theme='light'] {
   color-scheme: light;
 
-  /* Surfaces & Text — Light */
+  /* Surfaces & Text — Light
+     --text (#14130f) on --bg (#ffffff)        = 18.59:1 (AAA)
+     --text (#14130f) on --surface-2 (#ecece8) = 15.69:1 (AAA)
+     --text-muted (#56544c) on --bg (#ffffff)  =  7.59:1 (AAA)
+     --text-muted (#56544c) on --surface-2     =  6.40:1 (AA)  */
   --bg: #ffffff;
   --surface: #f6f6f3;
   --surface-2: #ecece8;
   --surface-elevated: #ffffff;
   --text: #14130f;
-  --text-muted: #5c5a52;
-  --border: #e2e1db;
-  --border-strong: #cfcec6;
+  --text-muted: #56544c;
+  --border: #dfded7;
+  --border-strong: #c5c3ba;
 
-  /* Brand Accent (WCAG AA compliant: --on-accent on yellow fills, --accent-ink for text on light) */
+  /* Interactive Control Border (WCAG 1.4.11 >= 3.0:1 against --bg & --surface)
+     #8c897f on #ffffff = 3.50:1 · on #f6f6f3 = 3.23:1 */
+  --control-bg: #ffffff;
+  --control-border: #8c897f;
+  --control-border-hover: #56544c;
+
+  /* Disabled Controls (Unmistakably inactive surface + >= 4.5:1 legible label)
+     #6e6b63 on #efefe9 = 4.61:1 */
+  --disabled-bg: #efefe9;
+  --disabled-text: #6e6b63;
+  --disabled-border: #c8c6be;
+
+  /* Brand Accent (Neon Gold on Light)
+     --on-accent (#14130f) on --accent (#f5c400)       = 11.31:1 (AAA)
+     --on-accent (#14130f) on --accent-hover (#e0b200) =  9.33:1 (AAA)
+     --accent-ink (#755900) on --surface (#f6f6f3)     =  6.09:1 (AA)
+     --accent-ink (#755900) on --accent-subtle         =  5.66:1 (AA) */
   --accent: #f5c400;
   --accent-hover: #e0b200;
   --on-accent: #14130f;
-  --accent-ink: #8a6a00;
-  --accent-subtle: rgba(245, 196, 0, 0.14);
+  --accent-ink: #755900;
+  --accent-subtle: rgba(245, 196, 0, 0.16);
+  --accent-border: rgba(148, 112, 0, 0.36);
   --focus-ring: #14130f;
 
-  /* Semantic Status */
+  /* Semantic Status (Separated fill/meter color vs. AA-verified badge/text ink)
+     --success-ink (#146c3b) on --success-subtle = 5.18:1 (AA)
+     --warning-ink (#8a5000) on --warning-subtle = 5.24:1 (AA)
+     --danger-ink  (#ab2626) on --danger-subtle  = 5.55:1 (AA)
+     --info-ink    (#1d5694) on --info-subtle    = 6.04:1 (AA)
+     --on-danger   (#ffffff) on --danger-solid   = 5.77:1 (AA) */
   --success: #1f8a4c;
-  --success-subtle: rgba(31, 138, 76, 0.10);
+  --success-ink: #146c3b;
+  --success-subtle: rgba(20, 108, 59, 0.10);
+  --success-border: rgba(20, 108, 59, 0.30);
+
   --warning: #b76e00;
+  --warning-ink: #8a5000;
   --warning-subtle: rgba(183, 110, 0, 0.12);
+  --warning-border: rgba(138, 80, 0, 0.32);
+
   --danger: #c93a3a;
+  --danger-solid: #be2f2f;
+  --danger-solid-hover: #a32626;
+  --on-danger: #ffffff;
+  --danger-ink: #ab2626;
   --danger-subtle: rgba(201, 58, 58, 0.10);
+  --danger-border: rgba(171, 38, 38, 0.30);
+
   --info: #2b6cb0;
+  --info-ink: #1d5694;
   --info-subtle: rgba(43, 108, 176, 0.10);
+  --info-border: rgba(29, 86, 148, 0.30);
 
   /* Elevation & Overlay */
   --shadow-sm: 0 1px 2px rgba(20, 19, 15, 0.06);
   --shadow-md: 0 4px 16px rgba(20, 19, 15, 0.08);
-  --backdrop-glass: rgba(255, 255, 255, 0.86);
+  --overlay-scrim: rgba(20, 19, 15, 0.52);
+  --backdrop-glass: rgba(255, 255, 255, 0.88);
 
   /* Shape */
   --radius-sm: 8px;
@@ -67,37 +109,80 @@
   --transition-fast: 160ms ease-out;
 }
 
-:root[data-theme='dark'] {
+:root[data-theme='dark'],
+[data-theme='dark'] {
   color-scheme: dark;
 
+  /* Surfaces & Text — Obsidian Dark
+     --text (#f4f3ee) on --bg (#0b0b0c)        = 17.71:1 (AAA)
+     --text (#f4f3ee) on --surface-2 (#1e1e21) = 14.97:1 (AAA)
+     --text-muted (#a3a199) on --bg (#0b0b0c)  =  7.60:1 (AAA)
+     --text-muted (#a3a199) on --surface-2     =  6.43:1 (AA) */
   --bg: #0b0b0c;
   --surface: #151517;
   --surface-2: #1e1e21;
-  --surface-elevated: #19191c;
+  --surface-elevated: #1b1b1f;
   --text: #f4f3ee;
   --text-muted: #a3a199;
   --border: #2a2a2e;
-  --border-strong: #3a3a40;
+  --border-strong: #3d3d44;
 
+  /* Interactive Control Border (WCAG 1.4.11 >= 3.0:1)
+     #6e6d76 on #0b0b0c = 3.85:1 · on #151517 = 3.57:1 */
+  --control-bg: #111113;
+  --control-border: #6e6d76;
+  --control-border-hover: #a3a199;
+
+  /* Disabled Controls (#85837c on #17171a = 4.71:1) */
+  --disabled-bg: #17171a;
+  --disabled-text: #85837c;
+  --disabled-border: #303036;
+
+  /* Brand Accent (Neon Yellow on Obsidian)
+     --on-accent (#0b0b0c) on --accent (#ffe600)       = 15.52:1 (AAA)
+     --on-accent (#0b0b0c) on --accent-hover (#fff04d) = 16.70:1 (AAA)
+     --accent-ink (#ffe600) on --accent-subtle         =  9.64:1 (AAA) */
   --accent: #ffe600;
   --accent-hover: #fff04d;
   --on-accent: #0b0b0c;
   --accent-ink: #ffe600;
   --accent-subtle: rgba(255, 230, 0, 0.12);
+  --accent-border: rgba(255, 230, 0, 0.34);
   --focus-ring: #ffe600;
 
+  /* Semantic Status — Obsidian Dark
+     --success-ink (#4ce09a) on --success-subtle = 7.42:1 (AAA)
+     --warning-ink (#ffc164) on --warning-subtle = 7.57:1 (AAA)
+     --danger-ink  (#ff8080) on --danger-subtle  = 5.56:1 (AA)
+     --info-ink    (#7ec0ff) on --info-subtle    = 6.62:1 (AA)
+     --on-danger   (#0b0b0c) on --danger-solid   = 7.09:1 (AAA) */
   --success: #3dd68c;
+  --success-ink: #4ce09a;
   --success-subtle: rgba(61, 214, 140, 0.14);
+  --success-border: rgba(76, 224, 154, 0.34);
+
   --warning: #ffb84d;
+  --warning-ink: #ffc164;
   --warning-subtle: rgba(255, 184, 77, 0.14);
+  --warning-border: rgba(255, 193, 100, 0.34);
+
   --danger: #ff6b6b;
+  --danger-solid: #ff6b6b;
+  --danger-solid-hover: #ff8585;
+  --on-danger: #0b0b0c;
+  --danger-ink: #ff8080;
   --danger-subtle: rgba(255, 107, 107, 0.14);
+  --danger-border: rgba(255, 128, 128, 0.36);
+
   --info: #6cb4ff;
+  --info-ink: #7ec0ff;
   --info-subtle: rgba(108, 180, 255, 0.14);
+  --info-border: rgba(126, 192, 255, 0.34);
 
   --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --backdrop-glass: rgba(11, 11, 12, 0.86);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.48);
+  --overlay-scrim: rgba(0, 0, 0, 0.72);
+  --backdrop-glass: rgba(11, 11, 12, 0.88);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -107,30 +192,54 @@
     --bg: #0b0b0c;
     --surface: #151517;
     --surface-2: #1e1e21;
-    --surface-elevated: #19191c;
+    --surface-elevated: #1b1b1f;
     --text: #f4f3ee;
     --text-muted: #a3a199;
     --border: #2a2a2e;
-    --border-strong: #3a3a40;
+    --border-strong: #3d3d44;
+
+    --control-bg: #111113;
+    --control-border: #6e6d76;
+    --control-border-hover: #a3a199;
+
+    --disabled-bg: #17171a;
+    --disabled-text: #85837c;
+    --disabled-border: #303036;
 
     --accent: #ffe600;
     --accent-hover: #fff04d;
     --on-accent: #0b0b0c;
     --accent-ink: #ffe600;
     --accent-subtle: rgba(255, 230, 0, 0.12);
+    --accent-border: rgba(255, 230, 0, 0.34);
     --focus-ring: #ffe600;
 
     --success: #3dd68c;
+    --success-ink: #4ce09a;
     --success-subtle: rgba(61, 214, 140, 0.14);
+    --success-border: rgba(76, 224, 154, 0.34);
+
     --warning: #ffb84d;
+    --warning-ink: #ffc164;
     --warning-subtle: rgba(255, 184, 77, 0.14);
+    --warning-border: rgba(255, 193, 100, 0.34);
+
     --danger: #ff6b6b;
+    --danger-solid: #ff6b6b;
+    --danger-solid-hover: #ff8585;
+    --on-danger: #0b0b0c;
+    --danger-ink: #ff8080;
     --danger-subtle: rgba(255, 107, 107, 0.14);
+    --danger-border: rgba(255, 128, 128, 0.36);
+
     --info: #6cb4ff;
+    --info-ink: #7ec0ff;
     --info-subtle: rgba(108, 180, 255, 0.14);
+    --info-border: rgba(126, 192, 255, 0.34);
 
     --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --backdrop-glass: rgba(11, 11, 12, 0.86);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.48);
+    --overlay-scrim: rgba(0, 0, 0, 0.72);
+    --backdrop-glass: rgba(11, 11, 12, 0.88);
   }
 }

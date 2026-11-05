@@ -3,16 +3,36 @@
     ViewData["Title"] = Model.Succeeded ? "Email verified" : "Verification failed";
 }
 
-<section aria-labelledby="confirm-result-heading">
-    <h1 id="confirm-result-heading">@(Model.Succeeded ? "Email verified" : "Could not verify email")</h1>
-    <p role="status">@Model.Message</p>
+<section class="l-auth" aria-labelledby="confirm-result-heading">
+    <div class="c-auth-card">
+        <header class="c-auth-card__header">
+            <span class="c-auth-card__eyebrow">Account Status</span>
+            <h1 id="confirm-result-heading" class="c-auth-card__title">
+                @(Model.Succeeded ? "Email verified" : "Could not verify email")
+            </h1>
+        </header>
 
-    @if (Model.Succeeded)
-    {
-        <p><a asp-controller="Account" asp-action="Login">Continue to sign in</a></p>
-    }
-    else
-    {
-        <p><a asp-controller="Account" asp-action="Login">Go to sign in to request a new confirmation email</a></p>
-    }
+        <div class="c-alert @(Model.Succeeded ? "c-alert--success" : "c-alert--danger")" role="status">
+            @if (Model.Succeeded)
+            {
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            }
+            else
+            {
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="7" y1="7" x2="13" y2="13" /><line x1="13" y1="7" x2="7" y2="13" /></svg>
+            }
+            <div class="c-alert__content">
+                <p>@Model.Message</p>
+            </div>
+        </div>
+
+        @if (Model.Succeeded)
+        {
+            <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--primary c-btn--lg c-btn--block">Continue to sign in</a>
+        }
+        else
+        {
+            <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary c-btn--block">Go to sign in to request a new confirmation email</a>
+        }
+    </div>
 </section>

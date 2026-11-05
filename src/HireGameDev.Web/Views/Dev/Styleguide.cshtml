@@ -1,0 +1,638 @@
+@{
+    ViewData["Title"] = "Design System Styleguide (Dev)";
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Development Only &middot; Blueprint v2.0 Design System</span>
+        </div>
+        <h1>Neon Yellow + Obsidian Component Library</h1>
+        <p class="u-muted">
+            Canonical Phase 0 component inventory built on <code>tokens.css</code>, <code>base.css</code>, and <code>components.css</code>.
+            Every foreground/background pair across Light and Dark themes is verified against W3C WCAG 2.1 AA/AAA luminance formulas.
+        </p>
+    </header>
+
+    <!-- 1. Side-by-Side Light vs Dark Contrast Preview -->
+    <section class="p-sg-section" aria-labelledby="sg-dual-theme">
+        <div class="p-sg-section__head">
+            <h2 id="sg-dual-theme">1. Live Side-by-Side Theme &amp; Contrast Preview</h2>
+            <p class="c-hint">Scoped <code>data-theme="light"</code> and <code>data-theme="dark"</code> containers render simultaneously so buttons, text, disabled controls, and status badges can be inspected side-by-side.</p>
+        </div>
+
+        <div class="p-sg-grid-2">
+            @foreach (var previewTheme in new[] { ("light", "Light Surface (#ffffff / #f6f6f3)"), ("dark", "Obsidian Dark (#0b0b0c / #151517)") })
+            {
+                <div class="p-sg-theme-box" data-theme="@previewTheme.Item1">
+                    <div>
+                        <span class="u-mono u-muted">@previewTheme.Item1.ToUpperInvariant()</span>
+                        <h3>@previewTheme.Item2</h3>
+                        <p class="c-hint">Muted copy stays crisp across surfaces while primary Neon Yellow CTAs maintain AAA legibility.</p>
+                    </div>
+
+                    <div class="c-btn-group">
+                        <button type="button" class="c-btn c-btn--primary">Primary CTA</button>
+                        <button type="button" class="c-btn c-btn--secondary">Secondary</button>
+                        <button type="button" class="c-btn c-btn--danger">Danger</button>
+                        <button type="button" class="c-btn" disabled>Disabled</button>
+                    </div>
+
+                    <div class="c-badge-row">
+                        <span class="c-badge c-badge--success">
+                            <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                            Verified
+                        </span>
+                        <span class="c-badge c-badge--accent">
+                            <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="8 2 10 6.2 14.5 6.8 11.2 10 12 14.5 8 12.3 4 14.5 4.8 10 1.5 6.8 6 6.2" /></svg>
+                            Boosted
+                        </span>
+                        <span class="c-badge c-badge--info">
+                            <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="13 3 6 10 3 7" /></svg>
+                            Responsive
+                        </span>
+                        <span class="c-badge c-badge--warning">
+                            <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="8" r="6" /><line x1="8" y1="5" x2="8" y2="8.5" /><circle cx="8" cy="11.2" r="0.6" fill="currentColor" /></svg>
+                            Pending review
+                        </span>
+                        <span class="c-badge c-badge--danger">
+                            <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="4.5" y1="4.5" x2="11.5" y2="11.5" /><line x1="11.5" y1="4.5" x2="4.5" y2="11.5" /></svg>
+                            Rejected
+                        </span>
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label" for="dual-disabled-@previewTheme.Item1">Disabled control sample</label>
+                        <input id="dual-disabled-@previewTheme.Item1" class="c-input" type="text" value="Locked studio domain: studio.in" disabled />
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- 2. WCAG 2.1 Contrast Verification Matrix -->
+    <section class="p-sg-section" aria-labelledby="sg-wcag">
+        <div class="p-sg-section__head">
+            <h2 id="sg-wcag">2. Verified WCAG 2.1 Contrast Ratios</h2>
+            <p class="c-hint">Calculated from relative luminance across worst-case surfaces (<code>--surface</code> / <code>--surface-2</code> + alpha-composited subtle fills).</p>
+        </div>
+
+        <div class="c-table-wrap">
+            <table class="c-table">
+                <thead>
+                    <tr>
+                        <th scope="col">UI Role / Token Pair</th>
+                        <th scope="col" class="c-table__num">Light Ratio</th>
+                        <th scope="col" class="c-table__num">Dark Ratio</th>
+                        <th scope="col" class="c-table__num">WCAG Target</th>
+                        <th scope="col">Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Primary Text (<code>--text</code> on <code>--surface-2</code>)</td>
+                        <td class="c-table__num">15.69:1</td>
+                        <td class="c-table__num">14.97:1</td>
+                        <td class="c-table__num">&ge; 4.5:1</td>
+                        <td><span class="c-badge c-badge--success">AAA Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Muted Text (<code>--text-muted</code> on <code>--surface-2</code>)</td>
+                        <td class="c-table__num">6.40:1</td>
+                        <td class="c-table__num">6.43:1</td>
+                        <td class="c-table__num">&ge; 4.5:1</td>
+                        <td><span class="c-badge c-badge--success">AA Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Primary Neon Button (<code>--on-accent</code> on <code>--accent</code>)</td>
+                        <td class="c-table__num">11.31:1</td>
+                        <td class="c-table__num">15.52:1</td>
+                        <td class="c-table__num">&ge; 4.5:1</td>
+                        <td><span class="c-badge c-badge--success">AAA Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Solid Danger Button (<code>--on-danger</code> on <code>--danger-solid</code>)</td>
+                        <td class="c-table__num">5.77:1</td>
+                        <td class="c-table__num">7.09:1</td>
+                        <td class="c-table__num">&ge; 4.5:1</td>
+                        <td><span class="c-badge c-badge--success">AA / AAA Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Status Badges (<code>--*-ink</code> on <code>--*-subtle</code>)</td>
+                        <td class="c-table__num">5.18–6.04:1</td>
+                        <td class="c-table__num">5.56–9.64:1</td>
+                        <td class="c-table__num">&ge; 4.5:1</td>
+                        <td><span class="c-badge c-badge--success">AA / AAA Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Input / Button Border (<code>--control-border</code> on <code>--surface</code>)</td>
+                        <td class="c-table__num">3.23:1</td>
+                        <td class="c-table__num">3.57:1</td>
+                        <td class="c-table__num">&ge; 3.0:1</td>
+                        <td><span class="c-badge c-badge--success">1.4.11 Pass</span></td>
+                    </tr>
+                    <tr>
+                        <td>Disabled Controls (<code>--disabled-text</code> on <code>--disabled-bg</code> + dashed border)</td>
+                        <td class="c-table__num">4.61:1</td>
+                        <td class="c-table__num">4.71:1</td>
+                        <td class="c-table__num">Legible + Distinct</td>
+                        <td><span class="c-badge c-badge--success">AA Legible</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 3. Color Swatches & Typography -->
+    <section class="p-sg-section" aria-labelledby="sg-tokens">
+        <div class="p-sg-section__head">
+            <h2 id="sg-tokens">3. Active Theme Tokens &amp; Typography</h2>
+            <p class="c-hint">Self-hosted <code>Space Grotesk</code> headings, <code>Inter</code> body copy, and Indian compensation notation (<code>₹ LPA</code>).</p>
+        </div>
+
+        <div class="p-sg-swatches">
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--bg);"></div>
+                <strong class="u-mono">--bg</strong>
+                <span class="c-hint">Page canvas</span>
+            </div>
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--surface);"></div>
+                <strong class="u-mono">--surface</strong>
+                <span class="c-hint">Cards &amp; panels</span>
+            </div>
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--surface-2);"></div>
+                <strong class="u-mono">--surface-2</strong>
+                <span class="c-hint">Chips &amp; subtle fills</span>
+            </div>
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--accent);"></div>
+                <strong class="u-mono">--accent</strong>
+                <span class="c-hint">Neon Yellow CTA</span>
+            </div>
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--success);"></div>
+                <strong class="u-mono">--success</strong>
+                <span class="c-hint">Verified &amp; strong match</span>
+            </div>
+            <div class="p-sg-swatch">
+                <div class="p-sg-swatch__chip" style="background: var(--danger-solid);"></div>
+                <strong class="u-mono">--danger-solid</strong>
+                <span class="c-hint">Destructive actions</span>
+            </div>
+        </div>
+
+        <div class="c-card">
+            <h1>H1 Display &middot; Senior Unreal Gameplay Programmer</h1>
+            <h2>H2 Section &middot; Shipped Credits &amp; Studio Verification</h2>
+            <h3>H3 Card Title &middot; Bengaluru &middot; Hybrid &middot; <span class="c-comp-pill">₹ 24–36 LPA</span></h3>
+            <p class="u-muted" style="margin: 0;">
+                Body 16px (<code>Inter</code>) — Structured hiring signal built on playable builds, shipped titles, and verified studio domains rather than keyword stuffing.
+            </p>
+        </div>
+    </section>
+
+    <!-- 4. Buttons, Badges, Chips & Match Meters -->
+    <section class="p-sg-section" aria-labelledby="sg-primitives">
+        <div class="p-sg-section__head">
+            <h2 id="sg-primitives">4. Buttons, Skill Chips, Trust Badges &amp; Match Meters</h2>
+        </div>
+
+        <div class="c-card">
+            <h3>Button Variants &amp; Sizes</h3>
+            <div class="c-btn-group">
+                <button type="button" class="c-btn c-btn--primary c-btn--sm">Small Primary</button>
+                <button type="button" class="c-btn c-btn--primary">Publish Job</button>
+                <button type="button" class="c-btn c-btn--primary c-btn--lg">Apply with Profile</button>
+                <button type="button" class="c-btn c-btn--secondary">Save Draft</button>
+                <button type="button" class="c-btn c-btn--ghost">Cancel</button>
+                <button type="button" class="c-btn c-btn--danger-outline">Withdraw</button>
+                <button type="button" class="c-btn c-btn--danger">Delete Listing</button>
+                <button type="button" class="c-btn" disabled>GitHub (Candidates only)</button>
+            </div>
+
+            <hr />
+
+            <h3>Trust &amp; Status Badges (Icon + Border + AA Ink)</h3>
+            <div class="c-badge-row">
+                <span class="c-badge c-badge--success">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                    Verified studio
+                </span>
+                <span class="c-badge c-badge--success">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                    Title verified
+                </span>
+                <span class="c-badge c-badge--success">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                    Credit verified
+                </span>
+                <span class="c-badge c-badge--accent">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="8 2 10 6.2 14.5 6.8 11.2 10 12 14.5 8 12.3 4 14.5 4.8 10 1.5 6.8 6 6.2" /></svg>
+                    Boosted
+                </span>
+                <span class="c-badge c-badge--info">
+                    <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="13 3 6 10 3 7" /></svg>
+                    Responsive
+                </span>
+                <span class="c-badge c-badge--neutral">New studio</span>
+            </div>
+
+            <hr />
+
+            <h3>Skill Chips (Static, Verified, Interactive Toggle &amp; Disabled)</h3>
+            <div class="c-chip-list">
+                <span class="c-chip c-chip--verified">Unreal Engine 5 &middot; Backed</span>
+                <span class="c-chip c-chip--accent">C++20</span>
+                <span class="c-chip">Gameplay Ability System</span>
+                <button type="button" class="c-chip c-chip--interactive" data-toggle-chip aria-pressed="true">Unity DOTS (Filter On)</button>
+                <button type="button" class="c-chip c-chip--interactive" data-toggle-chip aria-pressed="false">HLSL Shaders (Click to Toggle)</button>
+                <button type="button" class="c-chip c-chip--interactive" disabled>Archived Skill</button>
+            </div>
+
+            <hr />
+
+            <h3>Match Meters (Blueprint Rule: Label Always Shown)</h3>
+            <div class="p-sg-row">
+                <div class="c-match c-match--strong">
+                    <div class="c-match__top">
+                        <span>Strong match</span>
+                        <span class="c-match__score">88%</span>
+                    </div>
+                    <div class="c-match__track"><div class="c-match__fill" style="width: 88%;"></div></div>
+                </div>
+                <div class="c-match c-match--good">
+                    <div class="c-match__top">
+                        <span>Good match</span>
+                        <span class="c-match__score">67%</span>
+                    </div>
+                    <div class="c-match__track"><div class="c-match__fill" style="width: 67%;"></div></div>
+                </div>
+                <div class="c-match c-match--partial">
+                    <div class="c-match__top">
+                        <span>Partial match</span>
+                        <span class="c-match__score">42%</span>
+                    </div>
+                    <div class="c-match__track"><div class="c-match__fill" style="width: 42%;"></div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. Form Controls & Searchable Combobox -->
+    <section class="p-sg-section" aria-labelledby="sg-forms">
+        <div class="p-sg-section__head">
+            <h2 id="sg-forms">5. Form Inputs, Validation States &amp; Searchable Combobox</h2>
+        </div>
+
+        <div class="p-sg-grid-2">
+            <div class="c-card">
+                <div class="c-form">
+                    <div class="c-field">
+                        <label class="c-label" for="sg-title">Role Title</label>
+                        <input id="sg-title" class="c-input" type="text" value="Senior Technical Artist" />
+                        <p class="c-hint">Use clear discipline titles searchable by game developers.</p>
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label" for="sg-workmode">Work Mode (Native Select)</label>
+                        <select id="sg-workmode" class="c-select">
+                            <option>Hybrid (Bengaluru — 3 days in studio)</option>
+                            <option>Remote (India)</option>
+                            <option>On-site (Pune)</option>
+                        </select>
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label" for="sg-invalid">Compensation Max (Validation Error State)</label>
+                        <input id="sg-invalid" class="c-input input-validation-error" type="text" value="8 LPA" aria-invalid="true" aria-describedby="sg-invalid-err" />
+                        <span id="sg-invalid-err" class="c-field__error">Maximum CTC must be greater than or equal to Minimum CTC (₹ 14 LPA).</span>
+                    </div>
+
+                    <label class="c-check">
+                        <input type="checkbox" checked />
+                        <span>Visa / relocation assistance available within India</span>
+                    </label>
+                    <label class="c-check c-check--disabled">
+                        <input type="checkbox" disabled />
+                        <span>Boost listing (unlocks after studio domain verification)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="c-card">
+                <h3>Searchable Select / Skill Combobox</h3>
+                <p class="c-hint">Type below to filter canonical taxonomy skills live via <code>site.js</code>.</p>
+                <div class="c-field" data-combobox>
+                    <label class="c-label" for="sg-skill-combo">Primary Engine or Tool</label>
+                    <input id="sg-skill-combo"
+                           class="c-input"
+                           type="text"
+                           placeholder="Type e.g. Unreal, Unity, Godot, Blender..."
+                           autocomplete="off"
+                           data-combobox-input />
+                    <input type="hidden" name="selectedSkill" value="unreal-engine" data-combobox-value />
+                    <ul class="c-combobox__list" role="listbox" aria-label="Canonical skills">
+                        <li class="c-combobox__option" role="option" aria-selected="true" data-combobox-option data-value="unreal-engine" data-label="Unreal Engine 5">
+                            <span>Unreal Engine 5</span>
+                            <span class="c-combobox__option-meta">engine</span>
+                        </li>
+                        <li class="c-combobox__option" role="option" aria-selected="false" data-combobox-option data-value="unity" data-label="Unity">
+                            <span>Unity</span>
+                            <span class="c-combobox__option-meta">engine</span>
+                        </li>
+                        <li class="c-combobox__option" role="option" aria-selected="false" data-combobox-option data-value="godot" data-label="Godot 4">
+                            <span>Godot 4</span>
+                            <span class="c-combobox__option-meta">engine</span>
+                        </li>
+                        <li class="c-combobox__option" role="option" aria-selected="false" data-combobox-option data-value="cpp" data-label="C++">
+                            <span>C++</span>
+                            <span class="c-combobox__option-meta">programming</span>
+                        </li>
+                        <li class="c-combobox__option" role="option" aria-selected="false" data-combobox-option data-value="blender" data-label="Blender">
+                            <span>Blender</span>
+                            <span class="c-combobox__option-meta">art_3d</span>
+                        </li>
+                        <li class="c-combobox__option" role="option" aria-selected="false" data-combobox-option data-value="wwise" data-label="Audiokinetic Wwise">
+                            <span>Audiokinetic Wwise</span>
+                            <span class="c-combobox__option-meta">audio</span>
+                        </li>
+                    </ul>
+                    <p class="c-combobox__empty" data-combobox-empty hidden>No matching taxonomy skill found.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. Domain Cards: Job, Candidate & Studio -->
+    <section class="p-sg-section" aria-labelledby="sg-domain-cards">
+        <div class="p-sg-section__head">
+            <h2 id="sg-domain-cards">6. Domain Cards (Job, Candidate &amp; Studio)</h2>
+        </div>
+
+        <div class="p-sg-grid-3">
+            <!-- Job Card -->
+            <article class="c-card c-card--interactive">
+                <div class="c-card__header">
+                    <div class="c-entity-head">
+                        <span class="c-entity-mark c-entity-mark--accent">NV</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px;">Lead Combat Designer</h3>
+                            <span class="c-hint">Nila Verse Interactive</span>
+                        </div>
+                    </div>
+                    <span class="c-badge c-badge--success">Verified</span>
+                </div>
+                <ul class="c-meta-list">
+                    <li>Bengaluru (Hybrid)</li>
+                    <li>5–8 yrs</li>
+                    <li><span class="c-comp-pill">₹ 28–40 LPA</span></li>
+                </ul>
+                <div class="c-chip-list">
+                    <span class="c-chip c-chip--accent">Unreal Engine 5</span>
+                    <span class="c-chip">Blueprints</span>
+                    <span class="c-chip">Boss Encounter Design</span>
+                </div>
+                <div class="c-card__footer">
+                    <div class="c-match c-match--strong">
+                        <div class="c-match__top"><span>Strong match</span><span class="c-match__score">91%</span></div>
+                        <div class="c-match__track"><div class="c-match__fill" style="width: 91%;"></div></div>
+                    </div>
+                    <button type="button" class="c-btn c-btn--primary c-btn--sm">View Role</button>
+                </div>
+            </article>
+
+            <!-- Candidate Card -->
+            <article class="c-card c-card--interactive">
+                <div class="c-card__header">
+                    <div class="c-entity-head">
+                        <span class="c-entity-mark">AS</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px;">Aarav Sharma</h3>
+                            <span class="c-hint">Gameplay &amp; Network Programmer</span>
+                        </div>
+                    </div>
+                    <span class="c-badge c-badge--success">Credit verified</span>
+                </div>
+                <ul class="c-meta-list">
+                    <li>Pune &middot; Open to Bengaluru</li>
+                    <li>4.5 yrs</li>
+                    <li>30d notice</li>
+                </ul>
+                <div class="c-chip-list">
+                    <span class="c-chip c-chip--verified">C++ &middot; 2 shipped titles</span>
+                    <span class="c-chip c-chip--verified">Unreal Replication</span>
+                </div>
+                <div class="c-card__footer">
+                    <span class="c-hint">Shipped on Steam &amp; PS5</span>
+                    <button type="button" class="c-btn c-btn--secondary c-btn--sm">Shortlist</button>
+                </div>
+            </article>
+
+            <!-- Studio Card -->
+            <article class="c-card c-card--interactive">
+                <div class="c-card__header">
+                    <div class="c-entity-head">
+                        <span class="c-entity-mark">KR</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px;">Kaveri Realms Studio</h3>
+                            <span class="c-hint">PC &amp; Console Action RPG</span>
+                        </div>
+                    </div>
+                    <span class="c-badge c-badge--info">Responsive</span>
+                </div>
+                <ul class="c-meta-list">
+                    <li>Hyderabad</li>
+                    <li>45–60 devs</li>
+                    <li>3 shipped titles</li>
+                </ul>
+                <div class="c-chip-list">
+                    <span class="c-chip">Unreal Engine 5</span>
+                    <span class="c-chip">Houdini</span>
+                    <span class="c-chip">Wwise</span>
+                </div>
+                <div class="c-card__footer">
+                    <span class="u-mono u-muted" style="font-size: 12px;">4 OPEN ROLES</span>
+                    <button type="button" class="c-btn c-btn--ghost c-btn--sm">Studio Profile</button>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <!-- 7. Stepper, Tabs, Alerts, Modal, Skeleton, Empty State, Timeline, Notification & Kanban -->
+    <section class="p-sg-section" aria-labelledby="sg-workflows">
+        <div class="p-sg-section__head">
+            <h2 id="sg-workflows">7. Workflow Components (Stepper, Tabs, Alerts, Modal, Timeline &amp; Kanban)</h2>
+        </div>
+
+        <!-- Stepper -->
+        <ol class="c-stepper" aria-label="Studio onboarding progress">
+            <li class="c-stepper__item is-complete">
+                <span class="c-stepper__index">&#10003;</span>
+                <span>1. Account &amp; Consent</span>
+            </li>
+            <li class="c-stepper__item is-current" aria-current="step">
+                <span class="c-stepper__index">2</span>
+                <span>2. Studio Essentials</span>
+            </li>
+            <li class="c-stepper__item">
+                <span class="c-stepper__index">3</span>
+                <span>3. Domain / Admin Review</span>
+            </li>
+            <li class="c-stepper__item">
+                <span class="c-stepper__index">4</span>
+                <span>4. Publish First Role</span>
+            </li>
+        </ol>
+
+        <!-- Interactive ARIA Tabs -->
+        <div class="c-card" data-tabs>
+            <div class="c-tabs__list" role="tablist" aria-label="Component state previews">
+                <button type="button" class="c-tabs__tab" role="tab" id="tab-alerts" aria-controls="panel-alerts" aria-selected="true" tabindex="0">Alerts &amp; Modal</button>
+                <button type="button" class="c-tabs__tab" role="tab" id="tab-timeline" aria-controls="panel-timeline" aria-selected="false" tabindex="-1">Timeline &amp; Notifications</button>
+                <button type="button" class="c-tabs__tab" role="tab" id="tab-states" aria-controls="panel-states" aria-selected="false" tabindex="-1">Skeleton &amp; Empty State</button>
+            </div>
+
+            <div id="panel-alerts" class="c-tabs__panel" role="tabpanel" aria-labelledby="tab-alerts">
+                <div class="c-form">
+                    <div class="c-alert c-alert--success" role="status">
+                        <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+                        <div class="c-alert__content">
+                            <span class="c-alert__title">Studio verified</span>
+                            <p>Your company domain matches your website. Job publishing is now unlocked.</p>
+                        </div>
+                    </div>
+                    <div class="c-alert c-alert--warning" role="status">
+                        <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="10" y1="6" x2="10" y2="11" /><circle cx="10" cy="14" r="0.8" fill="currentColor" /></svg>
+                        <div class="c-alert__content">
+                            <span class="c-alert__title">Manual indie verification pending</span>
+                            <p>Personal-email studios are reviewed within 1 business day before listings go live.</p>
+                        </div>
+                    </div>
+                    <div class="c-alert c-alert--danger" role="alert">
+                        <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="7" y1="7" x2="13" y2="13" /><line x1="13" y1="7" x2="7" y2="13" /></svg>
+                        <div class="c-alert__content">
+                            <span class="c-alert__title">Rate limit exceeded (HTTP 429)</span>
+                            <p>Too many verification attempts from this IP. Please retry in 60 seconds.</p>
+                        </div>
+                    </div>
+                    <div class="c-btn-group">
+                        <button type="button" class="c-btn c-btn--secondary" data-modal-open="sg-demo-modal">Open Accessible Modal Dialog</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-timeline" class="c-tabs__panel" role="tabpanel" aria-labelledby="tab-timeline" hidden>
+                <div class="p-sg-grid-2">
+                    <ol class="c-timeline">
+                        <li class="c-timeline__item is-done">
+                            <span class="c-timeline__dot" aria-hidden="true"></span>
+                            <div class="c-timeline__title">Application submitted with 2 playable links</div>
+                            <div class="c-timeline__meta">2026-11-03 10:14 IST</div>
+                        </li>
+                        <li class="c-timeline__item is-done">
+                            <span class="c-timeline__dot" aria-hidden="true"></span>
+                            <div class="c-timeline__title">Shortlisted by Hiring Manager</div>
+                            <div class="c-timeline__meta">2026-11-04 16:40 IST</div>
+                        </li>
+                        <li class="c-timeline__item is-active">
+                            <span class="c-timeline__dot" aria-hidden="true"></span>
+                            <div class="c-timeline__title">Technical Systems Interview scheduled</div>
+                            <div class="c-timeline__meta">2026-11-06 15:00 IST</div>
+                        </li>
+                    </ol>
+
+                    <div class="c-form">
+                        <div class="c-notification is-unread">
+                            <span class="c-notification__dot" aria-hidden="true"></span>
+                            <div class="c-notification__body">
+                                <strong>Nila Verse Interactive</strong> moved your application to <strong>Shortlisted</strong>.
+                            </div>
+                            <span class="c-notification__time">12m ago</span>
+                        </div>
+                        <div class="c-notification">
+                            <div class="c-notification__body">
+                                Credit verification completed for <strong>Raji: Enhanced Build</strong>.
+                            </div>
+                            <span class="c-notification__time">2d ago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-states" class="c-tabs__panel" role="tabpanel" aria-labelledby="tab-states" hidden>
+                <div class="p-sg-grid-2">
+                    <div class="c-card" aria-busy="true" aria-label="Loading job card">
+                        <div class="c-entity-head">
+                            <span class="c-skeleton c-skeleton--avatar"></span>
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                                <span class="c-skeleton c-skeleton--title"></span>
+                                <span class="c-skeleton c-skeleton--short"></span>
+                            </div>
+                        </div>
+                        <span class="c-skeleton c-skeleton--text"></span>
+                        <span class="c-skeleton c-skeleton--short"></span>
+                    </div>
+
+                    <div class="c-empty">
+                        <div class="c-empty__icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        </div>
+                        <h3 class="c-empty__title">No saved job alerts yet</h3>
+                        <p class="c-empty__desc">Create an engine + city filter alert to get notified when verified studios post matching roles.</p>
+                        <button type="button" class="c-btn c-btn--primary c-btn--sm">Create Job Alert</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kanban Board -->
+        <div class="c-kanban" aria-label="Studio applicant pipeline preview">
+            <div class="c-kanban__col">
+                <div class="c-kanban__head"><span>Applied</span><span class="c-kanban__count">2</span></div>
+                <div class="c-kanban__card">
+                    <strong>Rohan Menon</strong>
+                    <span class="c-hint">Unity Gameplay &middot; 3 yrs &middot; Kochi</span>
+                </div>
+                <div class="c-kanban__card">
+                    <strong>Meera Nair</strong>
+                    <span class="c-hint">3D Environment Art &middot; 4 yrs</span>
+                </div>
+            </div>
+            <div class="c-kanban__col">
+                <div class="c-kanban__head"><span>Shortlisted</span><span class="c-kanban__count">1</span></div>
+                <div class="c-kanban__card">
+                    <strong>Aarav Sharma</strong>
+                    <span class="c-badge c-badge--success">Strong 91%</span>
+                </div>
+            </div>
+            <div class="c-kanban__col">
+                <div class="c-kanban__head"><span>Interview</span><span class="c-kanban__count">1</span></div>
+                <div class="c-kanban__card">
+                    <strong>Devika Rao</strong>
+                    <span class="c-hint">Systems Designer &middot; Bengaluru</span>
+                </div>
+            </div>
+            <div class="c-kanban__col">
+                <div class="c-kanban__head"><span>Offer</span><span class="c-kanban__count">0</span></div>
+                <p class="c-hint">Drag or advance candidates here.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<dialog id="sg-demo-modal" class="c-modal" aria-labelledby="sg-modal-title">
+    <div class="c-modal__header">
+        <h3 id="sg-modal-title" class="c-modal__title">Confirm Studio Verification Submission</h3>
+        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-modal-close aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="c-modal__body">
+        Your studio profile, website, and Steam/Play Store release links will be recorded in the audit log and queued for verification.
+    </div>
+    <div class="c-modal__footer">
+        <button type="button" class="c-btn c-btn--ghost" data-modal-close>Cancel</button>
+        <button type="button" class="c-btn c-btn--primary" data-modal-close>Submit for Verification</button>
+    </div>
+</dialog>

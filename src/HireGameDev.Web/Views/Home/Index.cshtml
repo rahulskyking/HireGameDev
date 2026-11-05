@@ -19,12 +19,12 @@
     <div class="p-hero__cta">
         @if (User.Identity?.IsAuthenticated == true)
         {
-            <a class="c-shell-btn c-shell-btn--primary" href="/Account/Manage">Account settings</a>
+            <a class="c-btn c-btn--primary c-btn--lg" href="/Account/Manage">Account settings</a>
         }
         else
         {
-            <a class="c-shell-btn c-shell-btn--primary" asp-controller="Account" asp-action="Register">Create candidate profile</a>
-            <a class="c-shell-btn" asp-controller="Account" asp-action="Register" asp-route-type="studio">Hire as a studio</a>
+            <a class="c-btn c-btn--primary c-btn--lg" asp-controller="Account" asp-action="Register">Create candidate profile</a>
+            <a class="c-btn c-btn--secondary c-btn--lg" asp-controller="Account" asp-action="Register" asp-route-type="studio">Hire as a studio</a>
         }
     </div>
 
@@ -51,12 +51,12 @@
     @if (HostEnvironment.IsDevelopment() && Model is not null)
     {
         <aside class="p-dev-strip" aria-label="Local development status">
-            <strong>Dev Foundation Status (M0.1&ndash;M0.6a):</strong>
+            <strong>Dev Foundation Status (M0.1&ndash;M0.6b):</strong>
             @Model.ActiveCityCount Indian cities (@Model.HubCityCount hubs) &middot;
             @Model.ActiveSkillCount skills &middot;
             @Model.SkillRelationCount directional skill edges &middot;
             @(ViewData["AppSettingsCount"] ?? 0) runtime settings (60s cache, @ViewData["LegalVersions"]) &middot;
-            Neon Yellow + Obsidian design tokens active.
+            <a href="/Dev/Styleguide">Open Component Styleguide</a>.
         </aside>
     }
 </section>

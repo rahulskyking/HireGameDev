@@ -2,8 +2,19 @@
     ViewData["Title"] = "Access denied";
 }
 
-<section aria-labelledby="denied-heading">
-    <h1 id="denied-heading">Access denied</h1>
-    <p>Your account does not have permission to view this page.</p>
-    <p><a asp-controller="Home" asp-action="Index">Return to home</a></p>
+<section class="l-auth" aria-labelledby="denied-heading">
+    <div class="c-empty">
+        <div class="c-empty__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+        </div>
+        <h1 id="denied-heading" class="c-empty__title">Access denied</h1>
+        <p class="c-empty__desc">Your current account role does not have permission to view this page.</p>
+        <div class="c-btn-group">
+            <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--primary">Return to home</a>
+            <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary">Switch account</a>
+        </div>
+    </div>
 </section>

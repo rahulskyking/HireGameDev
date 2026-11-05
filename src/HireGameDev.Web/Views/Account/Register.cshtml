@@ -4,146 +4,137 @@
     ViewData["Title"] = "Create account";
 }
 
-<section aria-labelledby="register-heading">
-    <h1 id="register-heading">Create your HireGameDev account</h1>
-    <p>Choose whether you are joining as a Game Developer (Candidate) or a Game Studio first.</p>
+<section class="l-auth l-auth--wide" aria-labelledby="register-heading">
+    <div class="c-auth-card">
+        <header class="c-auth-card__header">
+            <span class="c-auth-card__eyebrow">Get Started</span>
+            <h1 id="register-heading" class="c-auth-card__title">Create your HireGameDev account</h1>
+            <p class="c-auth-card__subtitle">Choose whether you are joining as a Game Developer or a Game Studio first.</p>
+        </header>
 
-    <div asp-validation-summary="ModelOnly" role="alert"></div>
-
-    @if (Model.ExternalProviders.Count > 0)
-    {
-        <form asp-controller="Account" asp-action="ExternalLogin" method="post" id="external-register-form">
-            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-            <input type="hidden" name="preferredAccountType" id="external-preferred-account-type" value="@Model.AccountType" />
-        </form>
-    }
-
-    <form asp-controller="Account" asp-action="Register" method="post" id="email-register-form" novalidate>
-        <input type="hidden" asp-for="ReturnUrl" />
-
-        <fieldset style="margin-bottom:16px;">
-            <legend><strong>1. I am joining as a</strong></legend>
-            <div>
-                <label>
-                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
-                    <strong>Game Developer (Candidate)</strong> — Find verified game studio roles in India
-                </label>
-            </div>
-            <div>
-                <label>
-                    <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
-                    <strong>Game Studio (Hiring)</strong> — Build your studio profile and hire game talent
-                </label>
-            </div>
-            <span asp-validation-for="AccountType"></span>
-            <p>
-                <small>
-                    Studios can register with any valid email (company domain, Gmail, or Outlook).
-                    After completing your studio profile, company-domain studios follow standard verification and personal-email indie studios can request manual admin review.
-                </small>
-            </p>
-        </fieldset>
+        <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
 
         @if (Model.ExternalProviders.Count > 0)
         {
-            <section aria-label="Quick social sign-up" style="margin-bottom:20px;">
-                <p><strong>2. Sign up with a connected account</strong></p>
-                <div style="display:flex;flex-wrap:wrap;gap:10px;">
-                    @foreach (var provider in Model.ExternalProviders)
-                    {
-                        <button type="submit"
-                                form="external-register-form"
-                                name="provider"
-                                value="@provider.Scheme"
-                                data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()">
-                            Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
-                        </button>
-                    }
+            <form asp-controller="Account" asp-action="ExternalLogin" method="post" id="external-register-form">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <input type="hidden" name="preferredAccountType" id="external-preferred-account-type" value="@Model.AccountType" />
+            </form>
+        }
+
+        <form asp-controller="Account" asp-action="Register" method="post" id="email-register-form" class="c-form" novalidate>
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <fieldset class="c-fieldset">
+                <legend class="c-fieldset__legend">1. I am joining as a</legend>
+                <div class="c-role-grid">
+                    <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
+                        <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
+                        <span class="c-role-card__body">
+                            <span class="c-role-card__title">Game Developer</span>
+                            <span class="c-role-card__desc">Candidate profile, playable builds, and verified roles across India.</span>
+                        </span>
+                    </label>
+
+                    <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
+                        <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
+                        <span class="c-role-card__body">
+                            <span class="c-role-card__title">Game Studio</span>
+                            <span class="c-role-card__desc">Studio page, domain or indie verification, and structured hiring.</span>
+                        </span>
+                    </label>
                 </div>
-                <p><small>First-time social sign-up includes a quick confirmation step for your role and consent. Or register with email and password below:</small></p>
-            </section>
-        }
-        else if (HostEnvironment.IsDevelopment())
-        {
-            <aside style="margin-bottom:16px;">
-                <small>
-                    <strong>Local Development Note:</strong> Add <code>Authentication:Google</code> and/or
-                    <code>Authentication:GitHub</code> (<code>ClientId</code> &amp; <code>ClientSecret</code>) in
-                    <code>appsettings.Development.local.json</code> to enable Google (all users) and GitHub (Candidates) sign-up.
-                </small>
-            </aside>
-        }
+                <span asp-validation-for="AccountType"></span>
+                <p class="c-hint">
+                    Studios can register with any valid email (company domain, Gmail, or Outlook). Company-domain studios follow standard verification; personal-email indie studios can submit for manual admin review.
+                </p>
+            </fieldset>
 
-        <div>
-            <label asp-for="DisplayName"></label><br />
-            <input asp-for="DisplayName" autocomplete="name" placeholder="e.g. Aarav Sharma" />
-            <span asp-validation-for="DisplayName"></span>
-        </div>
+            @if (Model.ExternalProviders.Count > 0)
+            {
+                <section class="c-field" aria-label="Quick social sign-up">
+                    <span class="c-label">2. Quick sign-up with a connected account</span>
+                    <div class="c-sso-grid">
+                        @foreach (var provider in Model.ExternalProviders)
+                        {
+                            var disabledForSelectedRole = Model.AccountType == AccountType.Studio && !provider.AllowedForStudios;
+                            <button type="submit"
+                                    form="external-register-form"
+                                    name="provider"
+                                    value="@provider.Scheme"
+                                    class="c-btn c-btn--secondary c-btn--block"
+                                    data-allowed-for-studios="@provider.AllowedForStudios.ToString().ToLowerInvariant()"
+                                    disabled="@(disabledForSelectedRole ? "disabled" : null)">
+                                Sign up with @provider.DisplayName@(provider.AllowedForStudios ? string.Empty : " (Candidates only)")
+                            </button>
+                        }
+                    </div>
+                    <p class="c-hint">First-time social sign-up confirms your role and DPDP consent on the next step.</p>
+                </section>
 
-        <div>
-            <label asp-for="Email"></label><br />
-            <input asp-for="Email" type="email" autocomplete="email" placeholder="you@example.com" />
-            <span asp-validation-for="Email"></span>
-        </div>
+                <div class="c-divider" role="separator">Or register with email</div>
+            }
+            else if (HostEnvironment.IsDevelopment())
+            {
+                <aside class="c-alert c-alert--info" aria-label="Local OAuth setup note">
+                    <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="8" /><line x1="10" y1="9" x2="10" y2="14" /><circle cx="10" cy="6.2" r="0.8" fill="currentColor" /></svg>
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">Local Development Note</span>
+                        <p>
+                            Add <code>Authentication:Google</code> and/or <code>Authentication:GitHub</code> in
+                            <code>appsettings.Development.local.json</code> to enable Google (all users) and GitHub (Candidates) sign-up.
+                        </p>
+                    </div>
+                </aside>
+            }
 
-        <div>
-            <label asp-for="Password"></label><br />
-            <input asp-for="Password" autocomplete="new-password" />
-            <small>At least 10 characters with uppercase, lowercase, and a number.</small>
-            <span asp-validation-for="Password"></span>
-        </div>
+            <div class="c-field">
+                <label asp-for="DisplayName" class="c-label"></label>
+                <input asp-for="DisplayName" class="c-input" autocomplete="name" placeholder="e.g. Aarav Sharma or Nila Verse Studio" />
+                <span asp-validation-for="DisplayName"></span>
+            </div>
 
-        <div>
-            <label asp-for="ConfirmPassword"></label><br />
-            <input asp-for="ConfirmPassword" autocomplete="new-password" />
-            <span asp-validation-for="ConfirmPassword"></span>
-        </div>
+            <div class="c-field">
+                <label asp-for="Email" class="c-label"></label>
+                <input asp-for="Email" class="c-input" type="email" autocomplete="email" placeholder="you@example.com" />
+                <span asp-validation-for="Email"></span>
+            </div>
 
-        <div>
-            <label>
-                <input asp-for="ConfirmAge18Plus" />
-                @Html.DisplayNameFor(m => m.ConfirmAge18Plus)
-            </label>
-            <span asp-validation-for="ConfirmAge18Plus"></span>
-        </div>
+            <div class="c-field">
+                <label asp-for="Password" class="c-label"></label>
+                <input asp-for="Password" class="c-input" autocomplete="new-password" />
+                <p class="c-hint">At least 10 characters with uppercase, lowercase, and a number.</p>
+                <span asp-validation-for="Password"></span>
+            </div>
 
-        <div>
-            <label>
-                <input asp-for="AcceptTermsAndPrivacy" />
-                I agree to the Terms of Use and Privacy Notice
-            </label>
-            <span asp-validation-for="AcceptTermsAndPrivacy"></span>
-        </div>
+            <div class="c-field">
+                <label asp-for="ConfirmPassword" class="c-label"></label>
+                <input asp-for="ConfirmPassword" class="c-input" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword"></span>
+            </div>
 
-        <div>
-            <button type="submit">Create account</button>
-        </div>
-    </form>
+            <div class="c-field">
+                <label class="c-check">
+                    <input asp-for="ConfirmAge18Plus" />
+                    <span>@Html.DisplayNameFor(m => m.ConfirmAge18Plus)</span>
+                </label>
+                <span asp-validation-for="ConfirmAge18Plus"></span>
+            </div>
 
-    <p>Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a></p>
+            <div class="c-field">
+                <label class="c-check">
+                    <input asp-for="AcceptTermsAndPrivacy" />
+                    <span>I agree to the <a href="/Legal/Terms">Terms of Use</a> and <a href="/Legal/Privacy">Privacy Notice</a>.</span>
+                </label>
+                <span asp-validation-for="AcceptTermsAndPrivacy"></span>
+            </div>
+
+            <button type="submit" class="c-btn c-btn--primary c-btn--lg c-btn--block">Create account</button>
+        </form>
+
+        <footer class="c-auth-card__footer">
+            <span>Already have an account?</span>
+            <a asp-controller="Account" asp-action="Login">Sign in</a>
+        </footer>
+    </div>
 </section>
-
-@section Scripts {
-    <script>
-        (() => {
-            const hiddenType = document.getElementById('external-preferred-account-type');
-            const radios = document.querySelectorAll('[data-account-type-radio]');
-            const providerButtons = document.querySelectorAll('button[form="external-register-form"][name="provider"]');
-            if (!hiddenType || radios.length === 0) return;
-
-            const syncRole = () => {
-                const selected = Array.from(radios).find(r => r.checked);
-                if (!selected) return;
-                hiddenType.value = selected.value;
-                const isStudio = selected.value === 'Studio';
-                providerButtons.forEach(btn => {
-                    const allowedForStudios = btn.getAttribute('data-allowed-for-studios') === 'true';
-                    btn.disabled = isStudio && !allowedForStudios;
-                });
-            };
-
-            radios.forEach(r => r.addEventListener('change', syncRole));
-            syncRole();
-        })();
-    </script>
-}

@@ -3,78 +3,88 @@
     ViewData["Title"] = "Complete your account";
 }
 
-<section aria-labelledby="complete-account-heading">
-    <h1 id="complete-account-heading">Complete your HireGameDev account</h1>
-    <p>
-        Connected with <strong>@Model.ProviderDisplayName</strong> as <strong>@Model.Email</strong>.
-        Confirm how you are joining HireGameDev to finish creating your account.
-    </p>
+<section class="l-auth l-auth--wide" aria-labelledby="complete-account-heading">
+    <div class="c-auth-card">
+        <header class="c-auth-card__header">
+            <span class="c-auth-card__eyebrow">Connected Account</span>
+            <h1 id="complete-account-heading" class="c-auth-card__title">Complete your HireGameDev account</h1>
+            <p class="c-auth-card__subtitle">
+                Connected with <strong>@Model.ProviderDisplayName</strong> as <strong>@Model.Email</strong>.
+                Confirm your role and consent to finish signing up.
+            </p>
+        </header>
 
-    <form asp-controller="Account" asp-action="CompleteExternalRegistration" method="post" novalidate>
-        <input type="hidden" asp-for="ReturnUrl" />
+        <form asp-controller="Account" asp-action="CompleteExternalRegistration" method="post" class="c-form" novalidate>
+            <input type="hidden" asp-for="ReturnUrl" />
 
-        <div asp-validation-summary="ModelOnly" role="alert"></div>
+            <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
 
-        <fieldset>
-            <legend><strong>1. I am joining as a</strong></legend>
-            <div>
-                <label>
-                    <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" />
-                    <strong>Game Developer (Candidate)</strong> — Find verified game studio roles in India
-                </label>
-            </div>
-            @if (Model.AllowedForStudios)
-            {
-                <div>
-                    <label>
-                        <input type="radio" asp-for="AccountType" value="@AccountType.Studio" />
-                        <strong>Game Studio (Hiring)</strong> — Build your studio profile and hire game talent
+            <fieldset class="c-fieldset">
+                <legend class="c-fieldset__legend">1. I am joining as a</legend>
+                <div class="c-role-grid">
+                    <label class="c-role-card @(Model.AccountType == AccountType.Candidate ? "is-selected" : null)">
+                        <input type="radio" asp-for="AccountType" value="@AccountType.Candidate" data-account-type-radio />
+                        <span class="c-role-card__body">
+                            <span class="c-role-card__title">Game Developer</span>
+                            <span class="c-role-card__desc">Find verified game studio roles across India.</span>
+                        </span>
                     </label>
+
+                    @if (Model.AllowedForStudios)
+                    {
+                        <label class="c-role-card @(Model.AccountType == AccountType.Studio ? "is-selected" : null)">
+                            <input type="radio" asp-for="AccountType" value="@AccountType.Studio" data-account-type-radio />
+                            <span class="c-role-card__body">
+                                <span class="c-role-card__title">Game Studio</span>
+                                <span class="c-role-card__desc">Build your studio profile and hire game talent.</span>
+                            </span>
+                        </label>
+                    }
                 </div>
-                <p>
-                    <small>
-                        Studios can sign up with any verified Google account (company domain or Gmail).
-                        After completing your studio profile, company-domain studios follow standard verification and personal-email indie studios can request manual admin review.
-                    </small>
-                </p>
-            }
-            else
-            {
-                <p>
-                    <small>
-                        @Model.ProviderDisplayName sign-up is available for Candidate accounts only. To register a Studio, use Google or email/password.
-                    </small>
-                </p>
-            }
-            <span asp-validation-for="AccountType"></span>
-        </fieldset>
 
-        <div>
-            <label asp-for="DisplayName"></label><br />
-            <input asp-for="DisplayName" autocomplete="name" />
-            <span asp-validation-for="DisplayName"></span>
-        </div>
+                @if (Model.AllowedForStudios)
+                {
+                    <p class="c-hint">
+                        Studios can sign up with any verified Google account (company domain or Gmail). Company-domain studios follow standard verification; personal-email indie studios can request manual admin review.
+                    </p>
+                }
+                else
+                {
+                    <p class="c-hint">
+                        @Model.ProviderDisplayName sign-up is available for Candidate accounts only. To register a Studio, use Google or email and password.
+                    </p>
+                }
+                <span asp-validation-for="AccountType"></span>
+            </fieldset>
 
-        <div>
-            <label>
-                <input asp-for="ConfirmAge18Plus" />
-                @Html.DisplayNameFor(m => m.ConfirmAge18Plus)
-            </label>
-            <span asp-validation-for="ConfirmAge18Plus"></span>
-        </div>
+            <div class="c-field">
+                <label asp-for="DisplayName" class="c-label"></label>
+                <input asp-for="DisplayName" class="c-input" autocomplete="name" />
+                <span asp-validation-for="DisplayName"></span>
+            </div>
 
-        <div>
-            <label>
-                <input asp-for="AcceptTermsAndPrivacy" />
-                I agree to the Terms of Use and Privacy Notice
-            </label>
-            <span asp-validation-for="AcceptTermsAndPrivacy"></span>
-        </div>
+            <div class="c-field">
+                <label class="c-check">
+                    <input asp-for="ConfirmAge18Plus" />
+                    <span>@Html.DisplayNameFor(m => m.ConfirmAge18Plus)</span>
+                </label>
+                <span asp-validation-for="ConfirmAge18Plus"></span>
+            </div>
 
-        <div>
-            <button type="submit">Finish creating account</button>
-        </div>
-    </form>
+            <div class="c-field">
+                <label class="c-check">
+                    <input asp-for="AcceptTermsAndPrivacy" />
+                    <span>I agree to the <a href="/Legal/Terms">Terms of Use</a> and <a href="/Legal/Privacy">Privacy Notice</a>.</span>
+                </label>
+                <span asp-validation-for="AcceptTermsAndPrivacy"></span>
+            </div>
 
-    <p><a asp-controller="Account" asp-action="Login">Cancel and return to sign in</a></p>
+            <button type="submit" class="c-btn c-btn--primary c-btn--lg c-btn--block">Finish creating account</button>
+        </form>
+
+        <footer class="c-auth-card__footer">
+            <span>Changed your mind?</span>
+            <a asp-controller="Account" asp-action="Login">Cancel and return to sign in</a>
+        </footer>
+    </div>
 </section>
