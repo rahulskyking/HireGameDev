@@ -41,7 +41,12 @@ public static class CandidateProfileRules
     public const short DiscoverableCompletenessThreshold = 70;
     public const decimal MinYearsExperience = 0.0m;
     public const decimal MaxYearsExperience = 50.0m;
+    public const int MinOnboardingSkills = 3;
     public const int MinRequiredSkillsForCompleteness = 5;
+    public const int MaxCandidateSkills = 25;
+    public const int MaxPrimarySkills = 5;
+    public const short MinSkillLastUsedYear = 1990;
+    public const short MaxSkillLastUsedYear = 2100;
 
     public static readonly IReadOnlyList<short> AllowedNoticePeriodDays = [0, 15, 30, 45, 60, 90];
 
@@ -134,6 +139,16 @@ public static class CandidateProfileRules
         }
 
         return true;
+    }
+
+    public static decimal GetEvidenceMultiplier(SkillEvidenceLevel level)
+    {
+        return level switch
+        {
+            SkillEvidenceLevel.Verified => 1.00m,
+            SkillEvidenceLevel.Backed => 0.90m,
+            _ => 0.70m
+        };
     }
 
     public static CandidateCompletenessBreakdown CalculateCompleteness(CandidateCompletenessInput input)

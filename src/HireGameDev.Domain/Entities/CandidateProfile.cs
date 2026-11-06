@@ -75,4 +75,6 @@ public sealed class CandidateProfile : IAuditableEntity, ISoftDeletable
     public DateTimeOffset UpdatedAt { get; set; }
 
     public DateTimeOffset? DeletedAt { get; set; }
+
+    public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();
 }
