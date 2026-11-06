@@ -1,0 +1,409 @@
+@model CandidateOnboardingWizardViewModel
+@{
+    ViewData["Title"] = $"Developer Onboarding · Step {Model.ActiveStep} of 5";
+    var breakdown = Model.OnboardingState.CompletenessBreakdown;
+    var score = breakdown.TotalScore;
+    var matchVariant = score >= 70 ? "c-match--strong" : score >= 60 ? "c-match--good" : "c-match--partial";
+    var highestStep = Model.HighestReachedStep.Value;
+
+    var selectedCity = Model.Cities.FirstOrDefault(c => c.Id == Model.Step1.CityId);
+    var selectedCityLabel = selectedCity is null
+        ? string.Empty
+        : $"{selectedCity.Name}, {selectedCity.StateCode}";
+
+    var allowedSeniorities = CandidateProfileRules.GetAllowedSeniorityLevels(Model.Step2.YearsExperience);
+    var suggestedSeniority = CandidateProfileRules.SuggestSeniorityFromYears(Model.Step2.YearsExperience);
+
+    (DisciplineCategory Value, string Title, string Subtitle)[] disciplines =
+    [
+        (DisciplineCategory.Programming, "Programming", "Gameplay, Engine, Tools, Network, AI"),
+        (DisciplineCategory.Art, "Art & Tech Art", "2D/3D, Shaders, VFX, Rigging, Animation"),
+        (DisciplineCategory.Design, "Game Design", "Systems, Combat, Level, Economy, Narrative"),
+        (DisciplineCategory.Audio, "Audio", "Sound Design, Music, Wwise, FMOD"),
+        (DisciplineCategory.Qa, "QA", "Functionality, Automation, Cert, Performance"),
+        (DisciplineCategory.Production, "Production", "Producer, LiveOps, Project Management")
+    ];
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div>
+                <div class="p-hero__eyebrow">
+                    <span class="p-hero__dot" aria-hidden="true"></span>
+                    <span>Candidate Onboarding &middot; Draft Saved Every Step</span>
+                </div>
+                <h1 style="margin-bottom: 6px;">Build your game developer profile</h1>
+                <p class="u-muted" style="margin: 0;">
+                    Structured signals power hard-filter matching. Reach <strong>60%</strong> to apply to roles and <strong>70%</strong> to appear in studio searches.
+                </p>
+            </div>
+
+            <div class="c-card" style="min-width: 260px; padding: 14px 16px;">
+                <div class="c-match @matchVariant" style="width: 100%;">
+                    <div class="c-match__top">
+                        <span>Profile completeness</span>
+                        <span class="c-match__score">@score%</span>
+                    </div>
+                    <div class="c-match__track">
+                        <div class="c-match__fill" style="width: @(score)%;"></div>
+                    </div>
+                </div>
+                <div class="c-badge-row" style="margin-top: 10px;">
+                    <span class="c-badge @(breakdown.MeetsApplyThreshold ? "c-badge--success" : "c-badge--neutral")">
+                        60% Apply @(breakdown.MeetsApplyThreshold ? "✓" : "gate")
+                    </span>
+                    <span class="c-badge @(breakdown.MeetsDiscoverabilityThreshold ? "c-badge--success" : "c-badge--neutral")">
+                        70% Search @(breakdown.MeetsDiscoverabilityThreshold ? "✓" : "gate")
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="c-alert c-alert--success" role="status">
+                <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+                <div class="c-alert__content"><p>@statusMessage</p></div>
+            </div>
+        }
+
+        <ol class="c-stepper" aria-label="Candidate onboarding steps">
+            @{
+                (short Step, string Label)[] steps =
+                [
+                    (1, "Basics"),
+                    (2, "Experience"),
+                    (3, "Skills"),
+                    (4, "Proof"),
+                    (5, "Preferences")
+                ];
+            }
+            @foreach (var item in steps)
+            {
+                var isCurrent = Model.ActiveStep == item.Step;
+                var isComplete = Model.HasExistingProfile && highestStep > item.Step && !isCurrent;
+                var canNavigate = Model.HasExistingProfile || item.Step == 1;
+                var stateClass = isCurrent ? "is-current" : isComplete ? "is-complete" : string.Empty;
+
+                <li class="c-stepper__item @stateClass">
+                    <span class="c-stepper__index">@(isComplete ? "✓" : item.Step.ToString())</span>
+                    @if (canNavigate && !isCurrent)
+                    {
+                        <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="@item.Step" style="text-decoration: none; color: inherit;">
+                            @item.Label
+                        </a>
+                    }
+                    else
+                    {
+                        <span>@item.Label</span>
+                    }
+                </li>
+            }
+        </ol>
+    </header>
+
+    @if (Model.ActiveStep == 1)
+    {
+        <section class="c-card" aria-labelledby="step1-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="step1-heading" style="font-size: 22px; margin-bottom: 4px;">Step 1 &middot; Core Basics</h2>
+                    <p class="c-hint">Your discipline, role headline, and primary Indian city hub.</p>
+                </div>
+                @if (Model.HasExistingProfile)
+                {
+                    <a asp-controller="Candidate" asp-action="Profile" class="c-btn c-btn--ghost c-btn--sm">View Profile Hub</a>
+                }
+            </div>
+
+            <form asp-controller="Candidate" asp-action="SaveStep1" method="post" class="c-form" novalidate>
+                <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <div class="p-sg-grid-2">
+                    <div class="c-field">
+                        <label asp-for="Step1.FullName" class="c-label"></label>
+                        <input asp-for="Step1.FullName" class="c-input" autocomplete="name" placeholder="Aarav Sharma" />
+                        <span asp-validation-for="Step1.FullName"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="Step1.Headline" class="c-label"></label>
+                        <input asp-for="Step1.Headline" class="c-input" placeholder="e.g. Unity Gameplay Programmer · C# & Netcode" />
+                        <p class="c-hint">3–80 characters (+5 completeness points).</p>
+                        <span asp-validation-for="Step1.Headline"></span>
+                    </div>
+                </div>
+
+                <fieldset class="c-field" style="border: 0; padding: 0; margin: 0;">
+                    <legend class="c-label" style="margin-bottom: 8px;">Primary Discipline</legend>
+                    <div class="p-sg-grid-3">
+                        @foreach (var d in disciplines)
+                        {
+                            var isChecked = Model.Step1.PrimaryCategory == d.Value;
+                            <label class="c-role-card @(isChecked ? "is-selected" : string.Empty)">
+                                <input type="radio"
+                                       name="Step1.PrimaryCategory"
+                                       value="@d.Value"
+                                       checked="@(isChecked ? "checked" : null)"
+                                       data-discipline-radio />
+                                <span class="c-role-card__title">@d.Title</span>
+                                <span class="c-role-card__desc">@d.Subtitle</span>
+                            </label>
+                        }
+                    </div>
+                    <span asp-validation-for="Step1.PrimaryCategory"></span>
+                </fieldset>
+
+                <div class="c-field" data-combobox>
+                    <label class="c-label" for="candidate-city-search">Primary City (India)</label>
+                    <input id="candidate-city-search"
+                           class="c-input"
+                           type="text"
+                           value="@selectedCityLabel"
+                           placeholder="Search city (e.g. Bengaluru, Pune, Hyderabad, Mumbai, Chennai...)"
+                           autocomplete="off"
+                           data-combobox-input />
+                    <input type="hidden" name="Step1.CityId" value="@Model.Step1.CityId" data-combobox-value />
+                    <ul class="c-combobox__list" role="listbox" aria-label="Indian cities" style="max-height: 220px; overflow-y: auto;">
+                        @foreach (var city in Model.Cities)
+                        {
+                            var isSelected = city.Id == Model.Step1.CityId;
+                            var displayLabel = $"{city.Name}, {city.StateCode}";
+                            var aliasKeywords = string.Join(' ', city.Aliases) + " " + city.State + " " + (city.MetroGroup ?? string.Empty);
+                            <li class="c-combobox__option"
+                                role="option"
+                                aria-selected="@(isSelected ? "true" : "false")"
+                                data-combobox-option
+                                data-value="@city.Id"
+                                data-label="@displayLabel"
+                                data-search-keywords="@aliasKeywords">
+                                <span>@city.Name, @city.State</span>
+                                <span class="c-combobox__option-meta">@(city.IsHub ? $"Gaming Hub · {city.StateCode}" : city.StateCode)</span>
+                            </li>
+                        }
+                    </ul>
+                    <p class="c-combobox__empty" data-combobox-empty hidden>No matching Indian city found.</p>
+                    <p class="c-hint">Gaming hubs are listed first; aliases like &ldquo;Bangalore&rdquo; resolve to canonical Bengaluru (+5 completeness points).</p>
+                    <span asp-validation-for="Step1.CityId"></span>
+                </div>
+
+                <div class="c-field">
+                    <label asp-for="Step1.Bio" class="c-label"></label>
+                    <textarea asp-for="Step1.Bio"
+                              class="c-textarea"
+                              rows="4"
+                              placeholder="Summarize the genres, engines, platforms, or systems you love building (up to 1500 characters)..."></textarea>
+                    <p class="c-hint">Optional, up to 1500 characters (+10 completeness points when filled).</p>
+                    <span asp-validation-for="Step1.Bio"></span>
+                </div>
+
+                <div class="c-alert c-alert--info" role="note">
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">Photo &amp; Phone OTP Privacy</span>
+                        <p>Profile photo upload (+5 pts, <code>M1.6</code>) and E.164 phone OTP verification (+10 pts, <code>M1.7</code> — never shown to studios before shortlist) attach directly to your profile without blocking onboarding.</p>
+                    </div>
+                </div>
+
+                <div class="c-card__footer">
+                    <span class="c-hint">Step 1 of 5</span>
+                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save &amp; Continue to Experience &rarr;</button>
+                </div>
+            </form>
+        </section>
+    }
+    else if (Model.ActiveStep == 2)
+    {
+        <section class="c-card" aria-labelledby="step2-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="step2-heading" style="font-size: 22px; margin-bottom: 4px;">Step 2 &middot; Experience &amp; Seniority</h2>
+                    <p class="c-hint">
+                        Seniority is suggested from your years of experience and may be adjusted by at most &plusmn;1 level. Matching uses years directly, so inflating seniority never helps.
+                    </p>
+                </div>
+                <span class="c-badge c-badge--accent" data-seniority-hint>
+                    Suggested: @suggestedSeniority.ToString().ToLowerInvariant()
+                </span>
+            </div>
+
+            <form asp-controller="Candidate" asp-action="SaveStep2" method="post" class="c-form" novalidate>
+                <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <div class="p-sg-grid-2">
+                    <div class="c-field">
+                        <label asp-for="Step2.YearsExperience" class="c-label"></label>
+                        <input asp-for="Step2.YearsExperience"
+                               class="c-input"
+                               type="number"
+                               min="0"
+                               max="50"
+                               step="0.5"
+                               data-years-exp-input />
+                        <p class="c-hint">Use 0.5-year increments (0 for students/freshers, up to 50).</p>
+                        <span asp-validation-for="Step2.YearsExperience"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="Step2.Seniority" class="c-label"></label>
+                        <select asp-for="Step2.Seniority" class="c-select" data-seniority-select>
+                            @foreach (var level in Enum.GetValues<SeniorityLevel>())
+                            {
+                                var isAllowed = allowedSeniorities.Contains(level);
+                                var label = level switch
+                                {
+                                    SeniorityLevel.Fresher => "Fresher (< 1 yr)",
+                                    SeniorityLevel.Junior => "Junior (1–3 yrs)",
+                                    SeniorityLevel.Mid => "Mid-level (3–7 yrs)",
+                                    SeniorityLevel.Senior => "Senior (7–12 yrs)",
+                                    SeniorityLevel.Lead => "Lead / Principal (12+ yrs)",
+                                    _ => level.ToString()
+                                };
+                                <option value="@level"
+                                        data-level-index="@((int)level)"
+                                        disabled="@(!isAllowed ? "disabled" : null)">
+                                    @label
+                                </option>
+                            }
+                        </select>
+                        <p class="c-hint">Allowed within &plusmn;1 level of your years-derived tier.</p>
+                        <span asp-validation-for="Step2.Seniority"></span>
+                    </div>
+                </div>
+
+                <div class="c-alert c-alert--info" role="note">
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">Work History &amp; Education Cards (Module M1.3)</span>
+                        <p>
+                            Repeating work-experience (+15 pts) and education (+5 pts) cards mount here in <code>M1.3</code>. Freshers (&lt; 1 yr) can skip work history completely and earn those +15 points through Education!
+                        </p>
+                    </div>
+                </div>
+
+                <div class="c-card__footer">
+                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="1" class="c-btn c-btn--ghost">&larr; Back to Basics</a>
+                    <div class="c-btn-group">
+                        <button type="submit" name="nextStep" value="5" class="c-btn c-btn--secondary">Save &amp; Jump to Preferences</button>
+                        <button type="submit" name="nextStep" value="3" class="c-btn c-btn--primary c-btn--lg">Save &amp; Continue &rarr;</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+    }
+    else if (Model.ActiveStep == 3)
+    {
+        <section class="c-card" aria-labelledby="step3-heading">
+            <h2 id="step3-heading" style="font-size: 22px;">Step 3 &middot; Skills &amp; Proficiency (Next Slice: M1.2)</h2>
+            <p class="u-muted">
+                Typeahead skill chips (3–25 skills with 1–4 proficiency ratings and up to 5 primary skills, +15 completeness points) unlock in the very next module (<code>M1.2</code>).
+            </p>
+            <div class="c-card__footer">
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--ghost">&larr; Back to Experience</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--primary">Continue to Step 4 (Proof) &rarr;</a>
+            </div>
+        </section>
+    }
+    else if (Model.ActiveStep == 4)
+    {
+        <section class="c-card" aria-labelledby="step4-heading">
+            <h2 id="step4-heading" style="font-size: 22px;">Step 4 &middot; Shipped Titles &amp; Portfolio Proof (Module M1.4)</h2>
+            <p class="u-muted">
+                Shipped game credits (with NDA toggle for unannounced projects) and HTTPS portfolio links tagged to specific skills (+20 completeness points and automatic <code>backed</code> skill evidence) mount here in <code>M1.4</code>.
+            </p>
+            <div class="c-card__footer">
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--ghost">&larr; Back to Skills</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--primary">Continue to Step 5 (Preferences) &rarr;</a>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="c-card" aria-labelledby="step5-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="step5-heading" style="font-size: 22px; margin-bottom: 4px;">Step 5 &middot; Compensation, Notice &amp; Work Preferences</h2>
+                    <p class="c-hint">Used by upfront hard filters so you only spend time on roles that match your expectations (+10 completeness points).</p>
+                </div>
+                <span class="c-comp-pill">&#8377; LPA &middot; INR Lakhs Per Annum</span>
+            </div>
+
+            <form asp-controller="Candidate" asp-action="SaveStep5" method="post" class="c-form" novalidate>
+                <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <div class="p-sg-grid-2">
+                    <div class="c-field">
+                        <label asp-for="Step5.ExpectedCtcLpa" class="c-label"></label>
+                        <input asp-for="Step5.ExpectedCtcLpa"
+                               class="c-input"
+                               type="number"
+                               min="0.5"
+                               max="500"
+                               step="0.5"
+                               placeholder="e.g. 18.0" />
+                        <p class="c-hint">Required (&gt; 0 &#8377; LPA). Used by the salary hard filter against studio budget ceilings.</p>
+                        <span asp-validation-for="Step5.ExpectedCtcLpa"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="Step5.CurrentCtcLpa" class="c-label"></label>
+                        <input asp-for="Step5.CurrentCtcLpa"
+                               class="c-input"
+                               type="number"
+                               min="0"
+                               max="500"
+                               step="0.5"
+                               placeholder="Optional — hidden by default" />
+                        <label class="c-check" style="margin-top: 8px;">
+                            <input asp-for="Step5.ShowCurrentCtc" type="checkbox" />
+                            <span>Allow verified studios to see my current CTC (off by default)</span>
+                        </label>
+                        <span asp-validation-for="Step5.CurrentCtcLpa"></span>
+                    </div>
+                </div>
+
+                <div class="p-sg-grid-2">
+                    <div class="c-field">
+                        <label asp-for="Step5.NoticePeriodDays" class="c-label"></label>
+                        <select asp-for="Step5.NoticePeriodDays" class="c-select">
+                            <option value="0">Immediate / 0 days</option>
+                            <option value="15">15 days</option>
+                            <option value="30">30 days</option>
+                            <option value="45">45 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                        </select>
+                        <span asp-validation-for="Step5.NoticePeriodDays"></span>
+                    </div>
+
+                    <div class="c-field">
+                        <label asp-for="Step5.Availability" class="c-label"></label>
+                        <select asp-for="Step5.Availability" class="c-select">
+                            <option value="@CandidateAvailability.ActivelyLooking">Actively looking</option>
+                            <option value="@CandidateAvailability.OpenToOffers">Open to offers</option>
+                            <option value="@CandidateAvailability.NotLooking">Not looking right now</option>
+                        </select>
+                        <span asp-validation-for="Step5.Availability"></span>
+                    </div>
+                </div>
+
+                <div class="c-card" style="background: var(--surface-2); padding: 14px 16px;">
+                    <div class="c-form" style="gap: 10px;">
+                        <label class="c-check">
+                            <input asp-for="Step5.OpenToRemote" type="checkbox" />
+                            <span><strong>Open to remote roles</strong> across India</span>
+                        </label>
+                        <label class="c-check">
+                            <input asp-for="Step5.WillingToRelocate" type="checkbox" />
+                            <span><strong>Willing to relocate</strong> for hybrid or on-site studio roles in another city</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="c-card__footer">
+                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--ghost">&larr; Back to Experience</a>
+                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save Preferences &amp; View Profile &rarr;</button>
+                </div>
+            </form>
+        </section>
+    }
+</div>

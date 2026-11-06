@@ -1,0 +1,181 @@
+@model CandidateProfileOverviewViewModel
+@{
+    var p = Model.Profile;
+    var c = Model.Completeness;
+    ViewData["Title"] = $"{p.FullName} · Developer Profile";
+
+    var matchVariant = c.TotalScore >= 70 ? "c-match--strong" : c.TotalScore >= 60 ? "c-match--good" : "c-match--partial";
+    var availabilityBadge = p.Availability switch
+    {
+        CandidateAvailability.ActivelyLooking => ("Actively looking", "c-badge--success"),
+        CandidateAvailability.OpenToOffers => ("Open to offers", "c-badge--info"),
+        _ => ("Not looking", "c-badge--neutral")
+    };
+
+    var initials = !string.IsNullOrWhiteSpace(p.FullName)
+        ? char.ToUpperInvariant(p.FullName.Trim()[0]).ToString()
+        : "D";
+}
+
+<div class="p-sg-stack">
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    <!-- Profile Summary Header -->
+    <section class="c-card" aria-labelledby="candidate-profile-heading">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div class="c-entity-head">
+                <span class="c-entity-mark c-entity-mark--accent">@initials</span>
+                <div>
+                    <h1 id="candidate-profile-heading" style="margin: 0; font-size: 24px;">@p.FullName</h1>
+                    <p class="u-muted" style="margin: 4px 0 0 0;">@p.Headline</p>
+                </div>
+            </div>
+
+            <div class="c-btn-group">
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="1" class="c-btn c-btn--secondary c-btn--sm">Edit Basics</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">Edit Experience</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--primary c-btn--sm">Edit Preferences</a>
+            </div>
+        </div>
+
+        <div class="c-badge-row">
+            <span class="c-badge @availabilityBadge.Item2">@availabilityBadge.Item1</span>
+            <span class="c-badge c-badge--accent">@p.PrimaryCategory.ToString().ToLowerInvariant()</span>
+            <span class="c-badge c-badge--neutral">@p.Seniority.ToString().ToLowerInvariant() &middot; @p.YearsExperience.ToString("0.#") yrs</span>
+            @if (!string.IsNullOrWhiteSpace(p.CityName))
+            {
+                <span class="c-badge c-badge--neutral">@p.CityName, @p.CityStateCode</span>
+            }
+            @if (p.OpenToRemote)
+            {
+                <span class="c-badge c-badge--info">Open to remote</span>
+            }
+            @if (p.WillingToRelocate)
+            {
+                <span class="c-badge c-badge--info">Willing to relocate</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(p.Bio))
+        {
+            <p style="margin: 8px 0 0 0; white-space: pre-line;">@p.Bio</p>
+        }
+
+        <hr />
+
+        <div class="p-sg-grid-3">
+            <div>
+                <span class="c-label">Expected Compensation</span>
+                <div style="margin-top: 4px;">
+                    @if (p.ExpectedCtcLpa.HasValue)
+                    {
+                        <span class="c-comp-pill">&#8377; @p.ExpectedCtcLpa.Value.ToString("0.##") LPA</span>
+                    }
+                    else
+                    {
+                        <span class="c-hint">Not set yet (<a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5">add in Step 5</a>)</span>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <span class="c-label">Current CTC Privacy</span>
+                <div style="margin-top: 4px;">
+                    @if (p.CurrentCtcLpa.HasValue && p.ShowCurrentCtc)
+                    {
+                        <span class="c-badge c-badge--info">&#8377; @p.CurrentCtcLpa.Value.ToString("0.##") LPA (Visible to studios)</span>
+                    }
+                    else
+                    {
+                        <span class="c-badge c-badge--neutral">Locked &middot; Hidden from studios</span>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <span class="c-label">Notice &amp; Contact Gating</span>
+                <div style="margin-top: 4px;">
+                    <span class="c-badge c-badge--neutral">
+                        @(p.NoticePeriodDays.HasValue ? (p.NoticePeriodDays.Value == 0 ? "Immediate joiner" : $"{p.NoticePeriodDays.Value}d notice") : "Notice not set")
+                    </span>
+                    <span class="c-badge c-badge--neutral">Phone gated until shortlist</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Points-Sorted Completeness Checklist (Blueprint Section 5) -->
+    <section class="c-card" aria-labelledby="completeness-checklist-heading">
+        <div class="c-card__header" style="align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 id="completeness-checklist-heading" style="font-size: 20px; margin-bottom: 4px;">Profile Completion Checklist</h2>
+                @if (c.NextBestStep is not null)
+                {
+                    <p class="c-hint">
+                        <strong>Next best step:</strong> @c.NextBestStep.Label (<strong>+@c.NextBestStep.Points pts</strong>)
+                    </p>
+                }
+                else
+                {
+                    <p class="c-hint">Your profile is 100% complete across every matching signal.</p>
+                }
+            </div>
+
+            <div class="c-match @matchVariant" style="min-width: 220px;">
+                <div class="c-match__top">
+                    <span>@(c.MeetsDiscoverabilityThreshold ? "Studio-discoverable (≥70%)" : c.MeetsApplyThreshold ? "Apply-ready (≥60%)" : "Below 60% apply gate")</span>
+                    <span class="c-match__score">@c.TotalScore%</span>
+                </div>
+                <div class="c-match__track">
+                    <div class="c-match__fill" style="width: @(c.TotalScore)%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="c-table-wrap">
+            <table class="c-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Signal</th>
+                        <th scope="col">Points</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in c.Items)
+                    {
+                        <tr>
+                            <td>@item.Label</td>
+                            <td class="u-mono">+@item.Points</td>
+                            <td>
+                                @if (item.IsComplete)
+                                {
+                                    <span class="c-badge c-badge--success">Complete</span>
+                                }
+                                else
+                                {
+                                    <span class="c-badge c-badge--neutral">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-controller="Candidate"
+                                   asp-action="Onboarding"
+                                   asp-route-step="@item.OnboardingStep"
+                                   class="c-btn c-btn--ghost c-btn--sm">
+                                    @(item.IsComplete ? "Review" : "Complete") (Step @item.OnboardingStep)
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

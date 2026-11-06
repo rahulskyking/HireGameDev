@@ -39,7 +39,8 @@
         <div class="c-btn-group">
             @if (isAuthenticated)
             {
-                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--primary">Account &amp; Role Settings</a>
+                <a asp-controller="Candidate" asp-action="Profile" class="c-btn c-btn--primary">Developer Profile &amp; Onboarding</a>
+                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--secondary">Account Settings</a>
             }
             else
             {

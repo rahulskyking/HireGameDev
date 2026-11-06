@@ -61,6 +61,61 @@
     }
   }
 
+  function syncDisciplineSelection() {
+    var radios = document.querySelectorAll('[data-discipline-radio]');
+    for (var i = 0; i < radios.length; i++) {
+      var card = radios[i].closest('.c-role-card');
+      if (card) {
+        card.classList.toggle('is-selected', radios[i].checked);
+      }
+    }
+  }
+
+  function suggestSeniorityIndex(years) {
+    if (isNaN(years) || years < 1) return 0;
+    if (years < 3) return 1;
+    if (years < 7) return 2;
+    if (years < 12) return 3;
+    return 4;
+  }
+
+  function syncSeniorityBand() {
+    var yearsInput = document.querySelector('[data-years-exp-input]');
+    var senioritySelect = document.querySelector('[data-seniority-select]');
+    if (!yearsInput || !senioritySelect) {
+      return;
+    }
+
+    var years = parseFloat(yearsInput.value);
+    var suggestedIdx = suggestSeniorityIndex(years);
+    var tierNames = ['fresher', 'junior', 'mid', 'senior', 'lead'];
+
+    var hint = document.querySelector('[data-seniority-hint]');
+    if (hint) {
+      hint.textContent = 'Suggested: ' + tierNames[suggestedIdx];
+    }
+
+    var options = senioritySelect.querySelectorAll('option[data-level-index]');
+    var selectedValid = false;
+    var suggestedValue = null;
+
+    for (var i = 0; i < options.length; i++) {
+      var levelIdx = parseInt(options[i].getAttribute('data-level-index'), 10);
+      var allowed = Math.abs(levelIdx - suggestedIdx) <= 1;
+      options[i].disabled = !allowed;
+
+      if (levelIdx === suggestedIdx) {
+        suggestedValue = options[i].value;
+      }
+      if (options[i].selected && allowed) {
+        selectedValid = true;
+      }
+    }
+
+    if (!selectedValid && suggestedValue !== null) {
+      senioritySelect.value = suggestedValue;
+    }
+  }
   function activateTab(tab) {
     var container = tab.closest('[data-tabs]');
     if (!container) {
@@ -222,9 +277,20 @@
     if (event.target.matches('[data-account-type-radio]')) {
       syncAccountRoleSelection();
     }
+    if (event.target.matches('[data-discipline-radio]')) {
+      syncDisciplineSelection();
+    }
+    if (event.target.matches('[data-years-exp-input]')) {
+      syncSeniorityBand();
+    }
   });
 
   document.addEventListener('input', function (event) {
+    if (event.target.matches('[data-years-exp-input]')) {
+      syncSeniorityBand();
+      return;
+    }
+
     var comboInput = event.target.closest('[data-combobox-input]');
     if (!comboInput) {
       return;
@@ -236,12 +302,20 @@
     }
 
     var query = comboInput.value.trim().toLowerCase();
+    if (query.length === 0) {
+      var hiddenVal = combo.querySelector('[data-combobox-value]');
+      if (hiddenVal) {
+        hiddenVal.value = '0';
+      }
+    }
+
     var options = combo.querySelectorAll('[data-combobox-option]');
     var visibleCount = 0;
 
     for (var i = 0; i < options.length; i++) {
       var label = (options[i].getAttribute('data-label') || options[i].textContent || '').toLowerCase();
-      var match = query.length === 0 || label.indexOf(query) !== -1;
+      var keywords = (options[i].getAttribute('data-search-keywords') || '').toLowerCase();
+      var match = query.length === 0 || label.indexOf(query) !== -1 || keywords.indexOf(query) !== -1;
       options[i].hidden = !match;
       if (match) {
         visibleCount++;
@@ -290,4 +364,5 @@
   });
 
   syncAccountRoleSelection();
+  syncDisciplineSelection();
 })();
