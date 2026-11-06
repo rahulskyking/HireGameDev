@@ -41,6 +41,7 @@
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="1" class="c-btn c-btn--secondary c-btn--sm">Edit Basics</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">Edit Experience</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--secondary c-btn--sm">Edit Skills</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--secondary c-btn--sm">Edit Proof</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--primary c-btn--sm">Edit Preferences</a>
             </div>
         </div>
@@ -151,6 +152,157 @@
             </div>
         }
     </section>
+
+    <!-- Shipped Titles & Portfolio Proof Showcase (M1.4) -->
+    <div class="p-sg-grid-2" style="align-items: start;">
+        <section class="c-card" aria-labelledby="candidate-shipped-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="candidate-shipped-heading" style="font-size: 20px; margin-bottom: 4px;">Shipped Game Credits (@Model.PublicProof.ShippedTitles.Count)</h2>
+                    <p class="c-hint">Public/studio-safe projection (NDA redaction active where configured).</p>
+                </div>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--secondary c-btn--sm">
+                    @(Model.PublicProof.ShippedTitles.Count == 0 ? "Add" : "Manage")
+                </a>
+            </div>
+
+            @if (Model.PublicProof.ShippedTitles.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No shipped credits added yet. Add 1 shipped title or portfolio link in Step 4 to unlock +20% completeness.</p>
+            }
+            else
+            {
+                var ownerTitlesById = Model.OwnerProof.ShippedTitles.ToDictionary(t => t.Id);
+                <div class="p-sg-stack">
+                    @foreach (var pubTitle in Model.PublicProof.ShippedTitles)
+                    {
+                        var verifyBadge = pubTitle.Verification switch
+                        {
+                            ShippedTitleVerification.CreditVerified => ("Credit verified", "c-badge--success"),
+                            ShippedTitleVerification.TitleVerified => ("Title verified", "c-badge--success"),
+                            _ => ("Submitted credit · Unverified", "c-badge--neutral")
+                        };
+
+                        string? resolvedStoreHref = !string.IsNullOrWhiteSpace(pubTitle.PublicStoreUrl) &&
+                                                    HireGameDev.Domain.Rules.ExternalUrlRules.TryNormalizeHttpsUrl(pubTitle.PublicStoreUrl, out var safeStoreHref, out _)
+                            ? safeStoreHref
+                            : null;
+
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@pubTitle.DisplayTitle</strong>
+                                <div class="c-badge-row" style="gap: 6px;">
+                                    @if (pubTitle.IsNda)
+                                    {
+                                        <span class="c-badge c-badge--warning">NDA Redacted</span>
+                                    }
+                                    <span class="c-badge @verifyBadge.Item2">@verifyBadge.Item1</span>
+                                </div>
+                            </div>
+
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">
+                                @pubTitle.Role &middot; @pubTitle.DisplayStudio@(pubTitle.ReleaseYear.HasValue ? $" · {pubTitle.ReleaseYear.Value}" : string.Empty)
+                            </div>
+
+                            <div class="c-badge-row" style="margin-top: 6px; gap: 6px;">
+                                @if (!string.IsNullOrWhiteSpace(pubTitle.EngineSkillName))
+                                {
+                                    <span class="c-badge c-badge--accent">@pubTitle.EngineSkillName</span>
+                                }
+                                @foreach (var plat in pubTitle.Platforms)
+                                {
+                                    <span class="c-badge c-badge--neutral">@plat.ToUpperInvariant()</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(resolvedStoreHref))
+                                {
+                                    <a href="@resolvedStoreHref"
+                                       target="_blank"
+                                       rel="noopener noreferrer ugc"
+                                       style="font-size: 13px;">
+                                        Store / Page &nearr;
+                                    </a>
+                                }
+                            </div>
+
+                            @if (pubTitle.IsNda && ownerTitlesById.TryGetValue(pubTitle.Id, out var ownerCopy))
+                            {
+                                <p class="c-hint" style="margin: 6px 0 0 0;">
+                                    <strong>Private owner record (hidden from studios &amp; public):</strong>
+                                    @ownerCopy.GameName &middot; @ownerCopy.StudioName
+                                </p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="c-card" aria-labelledby="candidate-portfolio-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="candidate-portfolio-heading" style="font-size: 20px; margin-bottom: 4px;">Portfolio &amp; Playable Links (@Model.PublicProof.PortfolioLinks.Count)</h2>
+                    <p class="c-hint">Submitted external HTTPS proof mapped to skills.</p>
+                </div>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--secondary c-btn--sm">
+                    @(Model.PublicProof.PortfolioLinks.Count == 0 ? "Add" : "Manage")
+                </a>
+            </div>
+
+            @if (Model.PublicProof.PortfolioLinks.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No portfolio links added yet. Attach GitHub, itch.io, ArtStation, or demo reel links in Step 4.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var link in Model.PublicProof.PortfolioLinks)
+                    {
+                        var isSafeUrl = HireGameDev.Domain.Rules.ExternalUrlRules.TryNormalizeHttpsUrl(link.Url, out var safePortfolioHref, out _);
+                        var typeLabel = link.LinkType switch
+                        {
+                            PortfolioLinkType.Github => "GitHub",
+                            PortfolioLinkType.Itchio => "itch.io",
+                            PortfolioLinkType.Artstation => "ArtStation",
+                            PortfolioLinkType.Behance => "Behance",
+                            PortfolioLinkType.Youtube => "YouTube",
+                            PortfolioLinkType.Website => "Website",
+                            PortfolioLinkType.Linkedin => "LinkedIn",
+                            _ => "Other"
+                        };
+
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <div>
+                                    <span class="c-badge c-badge--neutral" style="margin-right: 6px;">@typeLabel</span>
+                                    @if (isSafeUrl)
+                                    {
+                                        <a href="@safePortfolioHref" target="_blank" rel="noopener noreferrer ugc">
+                                            <strong>@(string.IsNullOrWhiteSpace(link.Title) ? safePortfolioHref : link.Title)</strong> &nearr;
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <strong>@(string.IsNullOrWhiteSpace(link.Title) ? "Portfolio Item" : link.Title)</strong>
+                                    }
+                                </div>
+                                <span class="c-badge c-badge--info">Submitted proof</span>
+                            </div>
+
+                            @if (link.EvidencedSkills.Count > 0)
+                            {
+                                <div class="c-chip-list" style="margin-top: 8px;">
+                                    @foreach (var sk in link.EvidencedSkills)
+                                    {
+                                        <span class="c-chip">@sk.SkillName</span>
+                                    }
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
 
     <!-- Work Experience & Education Timeline (M1.3) -->
     <div class="p-sg-grid-2" style="align-items: start;">

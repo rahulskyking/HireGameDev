@@ -20,6 +20,7 @@ public sealed class CandidateController : Controller
     private readonly ICandidateProfileService _profileService;
     private readonly ICandidateSkillsService _skillsService;
     private readonly ICandidateBackgroundService _backgroundService;
+    private readonly ICandidateProofService _proofService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
@@ -27,12 +28,14 @@ public sealed class CandidateController : Controller
         ICandidateProfileService profileService,
         ICandidateSkillsService skillsService,
         ICandidateBackgroundService backgroundService,
+        ICandidateProofService proofService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
         _profileService = profileService;
         _skillsService = skillsService;
         _backgroundService = backgroundService;
+        _proofService = proofService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -58,6 +61,8 @@ public sealed class CandidateController : Controller
 
         var skills = await _skillsService.GetSkillsForUserAsync(userId, cancellationToken);
         var background = await _backgroundService.GetBackgroundForUserAsync(userId, cancellationToken);
+        var ownerProof = await _proofService.GetOwnerProofForUserAsync(userId, cancellationToken);
+        var publicProof = await _proofService.GetPublicProofForCandidateAsync(state.Profile.Id, cancellationToken);
 
         return View(new CandidateProfileOverviewViewModel
         {
@@ -65,7 +70,9 @@ public sealed class CandidateController : Controller
             Completeness = state.CompletenessBreakdown,
             Skills = skills,
             Experiences = background.Experiences,
-            Education = background.Education
+            Education = background.Education,
+            OwnerProof = ownerProof,
+            PublicProof = publicProof
         });
     }
 
@@ -248,6 +255,70 @@ public sealed class CandidateController : Controller
         return RedirectToAction(nameof(Onboarding), new { step = sanitizedNext });
     }
 
+    [HttpPost("Onboarding/Step4")]
+    public async Task<IActionResult> SaveStep4(
+        [Bind(Prefix = "Step4")] Step4ProofInputModel? input,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var normalizedInput = input ?? new Step4ProofInputModel();
+        var nonEmptyTitles = normalizedInput.ShippedTitles
+            .Where(t => !t.IsCompletelyEmpty)
+            .ToList();
+        var nonEmptyLinks = normalizedInput.PortfolioLinks
+            .Where(l => !l.IsCompletelyEmpty)
+            .ToList();
+
+        normalizedInput.ShippedTitles = nonEmptyTitles;
+        normalizedInput.PortfolioLinks = nonEmptyLinks;
+
+        // Verification is strictly backend-controlled and intentionally omitted from write inputs.
+        var titleInputs = nonEmptyTitles
+            .Select(t => new SaveShippedTitleInput(
+                Id: t.Id,
+                GameName: t.GameName,
+                StudioName: t.StudioName,
+                Role: t.Role,
+                Platforms: t.Platforms.Where(p => !string.IsNullOrWhiteSpace(p)).ToArray(),
+                EngineSkillId: t.EngineSkillId is > 0 ? t.EngineSkillId : null,
+                ReleaseYear: t.ReleaseYear,
+                StoreUrl: t.StoreUrl,
+                IsNda: t.IsNda,
+                HideStudioInPublic: t.IsNda && t.HideStudioInPublic))
+            .ToArray();
+
+        var linkInputs = nonEmptyLinks
+            .Select(l => new SavePortfolioLinkInput(
+                Id: l.Id,
+                LinkType: l.LinkType,
+                Url: l.Url,
+                Title: l.Title,
+                SkillIds: l.SkillIds.Where(id => id > 0).Distinct().ToArray()))
+            .ToArray();
+
+        var result = await _proofService.SaveStep4ProofAsync(
+            new SaveCandidateStep4ProofCommand(
+                UserId: userId,
+                ShippedTitles: titleInputs,
+                PortfolioLinks: linkInputs),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, result.Error.Message);
+            var failedState = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+            var failedVm = await BuildWizardViewModelAsync(failedState, 4, cancellationToken, step4Override: normalizedInput);
+            return View("Onboarding", failedVm);
+        }
+
+        TempData["StatusMessage"] = $"Step 4 saved ({result.Value.ShippedTitles.Count} shipped credits, {result.Value.PortfolioLinks.Count} portfolio links).";
+        return RedirectToAction(nameof(Onboarding), new { step = 5 });
+    }
+
     [HttpPost("Onboarding/Step5")]
     public async Task<IActionResult> SaveStep5(
         [Bind(Prefix = "Step5")] Step5PreferencesInputModel input,
@@ -296,6 +367,7 @@ public sealed class CandidateController : Controller
         Step1BasicsInputModel? step1Override = null,
         Step2ExperienceCoreInputModel? step2Override = null,
         Step3SkillsInputModel? step3Override = null,
+        Step4ProofInputModel? step4Override = null,
         Step5PreferencesInputModel? step5Override = null)
     {
         var cities = activeStep == 1
@@ -303,7 +375,10 @@ public sealed class CandidateController : Controller
             : [];
 
         IReadOnlyList<SkillLookupItem> availableSkills = [];
+        IReadOnlyList<SkillLookupItem> engineSkills = [];
+        IReadOnlyList<CandidateSkillItem> candidateSkillsForTagging = [];
         Step3SkillsInputModel step3;
+        Step4ProofInputModel step4;
 
         if (activeStep == 3)
         {
@@ -345,6 +420,59 @@ public sealed class CandidateController : Controller
         else
         {
             step3 = step3Override ?? new Step3SkillsInputModel();
+        }
+
+        if (activeStep == 4)
+        {
+            engineSkills = await _referenceDataService.GetActiveSkillsAsync(SkillCategory.Engine, cancellationToken);
+            candidateSkillsForTagging = await _skillsService.GetSkillsForUserAsync(state.UserId, cancellationToken);
+            var savedProof = await _proofService.GetOwnerProofForUserAsync(state.UserId, cancellationToken);
+
+            if (step4Override is not null)
+            {
+                var existingVerifications = savedProof.ShippedTitles.ToDictionary(t => t.Id, t => t.Verification);
+                foreach (var row in step4Override.ShippedTitles)
+                {
+                    if (row.Id.HasValue && existingVerifications.TryGetValue(row.Id.Value, out var existingVerification))
+                    {
+                        row.Verification = existingVerification;
+                    }
+                }
+
+                step4 = step4Override;
+            }
+            else
+            {
+                step4 = new Step4ProofInputModel
+                {
+                    ShippedTitles = savedProof.ShippedTitles.Select(t => new ShippedTitleInputRow
+                    {
+                        Id = t.Id,
+                        GameName = t.GameName,
+                        StudioName = t.StudioName,
+                        Role = t.Role,
+                        Platforms = t.Platforms.ToList(),
+                        EngineSkillId = t.EngineSkillId,
+                        ReleaseYear = t.ReleaseYear,
+                        StoreUrl = t.StoreUrl,
+                        IsNda = t.IsNda,
+                        HideStudioInPublic = t.HideStudioInPublic,
+                        Verification = t.Verification
+                    }).ToList(),
+                    PortfolioLinks = savedProof.PortfolioLinks.Select(l => new PortfolioLinkInputRow
+                    {
+                        Id = l.Id,
+                        LinkType = l.LinkType,
+                        Url = l.Url,
+                        Title = l.Title,
+                        SkillIds = l.EvidencedSkills.Select(s => s.SkillId).ToList()
+                    }).ToList()
+                };
+            }
+        }
+        else
+        {
+            step4 = step4Override ?? new Step4ProofInputModel();
         }
 
         var profile = state.Profile;
@@ -420,9 +548,12 @@ public sealed class CandidateController : Controller
             OnboardingState = state,
             Cities = cities,
             AvailableSkills = availableSkills,
+            EngineSkills = engineSkills,
+            CandidateSkillsForTagging = candidateSkillsForTagging,
             Step1 = step1,
             Step2 = step2,
             Step3 = step3,
+            Step4 = step4,
             Step5 = step5
         };
     }

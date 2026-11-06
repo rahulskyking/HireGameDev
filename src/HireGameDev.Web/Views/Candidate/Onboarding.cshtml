@@ -890,15 +890,528 @@
     }
     else if (Model.ActiveStep == 4)
     {
+        (string Key, string Label)[] platformOptions =
+        [
+            ("pc", "PC"),
+            ("android", "Android"),
+            ("ios", "iOS"),
+            ("console", "Console"),
+            ("web", "Web")
+        ];
+
+        (PortfolioLinkType Value, string Label)[] linkTypes =
+        [
+            (PortfolioLinkType.Github, "GitHub"),
+            (PortfolioLinkType.Itchio, "itch.io"),
+            (PortfolioLinkType.Artstation, "ArtStation"),
+            (PortfolioLinkType.Behance, "Behance"),
+            (PortfolioLinkType.Youtube, "YouTube / Reel"),
+            (PortfolioLinkType.Website, "Personal Website"),
+            (PortfolioLinkType.Linkedin, "LinkedIn"),
+            (PortfolioLinkType.Other, "Other HTTPS Link")
+        ];
+
         <section class="c-card" aria-labelledby="step4-heading">
-            <h2 id="step4-heading" style="font-size: 22px;">Step 4 &middot; Shipped Titles &amp; Portfolio Proof (Module M1.4)</h2>
-            <p class="u-muted">
-                Shipped game credits (with NDA toggle for unannounced projects) and HTTPS portfolio links tagged to specific skills (+20 completeness points and automatic <code>backed</code> skill evidence) mount here in <code>M1.4</code>.
-            </p>
-            <div class="c-card__footer">
-                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--ghost">&larr; Back to Skills</a>
-                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--primary">Continue to Step 5 (Preferences) &rarr;</a>
+            <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <h2 id="step4-heading" style="font-size: 22px; margin-bottom: 4px;">Step 4 &middot; Shipped Titles &amp; Portfolio Proof</h2>
+                    <p class="c-hint">
+                        Adding at least <strong>1 shipped title</strong> or <strong>1 portfolio link</strong> unlocks <strong>+20% completeness</strong>&mdash;the single largest profile signal.
+                    </p>
+                </div>
+                <span class="c-badge @(Model.Step4.ShippedTitles.Count > 0 || Model.Step4.PortfolioLinks.Count > 0 ? "c-badge--success" : "c-badge--accent")">
+                    @(Model.Step4.ShippedTitles.Count > 0 || Model.Step4.PortfolioLinks.Count > 0 ? "+20% Proof Unlocked ✓" : "+20% Completeness Available")
+                </span>
             </div>
+
+            <form asp-controller="Candidate" asp-action="SaveStep4" method="post" class="c-form" novalidate>
+                <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <div class="c-alert c-alert--info" role="note">
+                    <div class="c-alert__content">
+                        <span class="c-alert__title">Submitted Proof vs. Verified Proof &amp; NDA Protection</span>
+                        <p>
+                            Portfolio links and newly submitted game credits are recorded as <strong>submitted proof</strong> (powering <code>Backed</code> 0.90&times; skill evidence in <code>M1.5</code>).
+                            <strong>Verified</strong> badges (<code>title_verified</code> / <code>credit_verified</code>, 1.00&times;) are strictly backend-controlled and cannot be self-assigned.
+                            Enabling <strong>Under NDA</strong> masks confidential project names, store links, and optionally studio names on public/studio profiles while retaining your private internal record.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Shipped Titles Repeating Cards -->
+                <div class="p-sg-stack"
+                     data-repeat-section
+                     data-repeat-prefix="Step4.ShippedTitles"
+                     data-repeat-max="@CandidateProfileRules.MaxShippedTitles"
+                     data-repeat-template="hgd-title-card-template">
+                    <div class="c-card__header" style="padding: 0; border: 0; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="font-size: 18px; margin: 0 0 2px 0;">
+                                Shipped Game Credits
+                                <span class="c-badge c-badge--neutral" data-repeat-count>@Model.Step4.ShippedTitles.Count / @CandidateProfileRules.MaxShippedTitles</span>
+                            </h3>
+                            <p class="c-hint" style="margin: 0;">Commercial releases, live-ops titles, indie launches, or NDA studio projects.</p>
+                        </div>
+                        <button type="button"
+                                class="c-btn c-btn--secondary c-btn--sm"
+                                data-repeat-add
+                                disabled="@(Model.Step4.ShippedTitles.Count >= CandidateProfileRules.MaxShippedTitles ? "disabled" : null)">
+                            + Add Shipped Title
+                        </button>
+                    </div>
+
+                    <p class="c-hint" data-repeat-empty hidden="@(Model.Step4.ShippedTitles.Count > 0 ? "hidden" : null)">
+                        No shipped game credits added yet. Click <strong>+ Add Shipped Title</strong> (or add a portfolio link below).
+                    </p>
+
+                    <div class="p-sg-stack" data-repeat-items>
+                        @for (var i = 0; i < Model.Step4.ShippedTitles.Count; i++)
+                        {
+                            var title = Model.Step4.ShippedTitles[i];
+                            var selectedPlatforms = title.Platforms.Select(p => p.Trim().ToLowerInvariant()).ToHashSet(StringComparer.Ordinal);
+                            var verificationBadge = title.Verification switch
+                            {
+                                ShippedTitleVerification.CreditVerified => ("Credit verified", "c-badge--success"),
+                                ShippedTitleVerification.TitleVerified => ("Title verified", "c-badge--success"),
+                                _ => ("Submitted credit · Unverified", "c-badge--neutral")
+                            };
+
+                            <article class="c-card" style="padding: 16px;" data-repeat-card>
+                                <input type="hidden" name="Step4.ShippedTitles[@i].Id" value="@title.Id" data-field="Id" />
+
+                                <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <strong style="font-size: 14px;">Credit <span data-card-index>#@(i + 1)</span></strong>
+                                        <span class="c-badge @verificationBadge.Item2">@verificationBadge.Item1</span>
+                                    </div>
+                                    <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                                </div>
+
+                                <div class="p-sg-grid-3">
+                                    <div class="c-field">
+                                        <label class="c-label">Game / Project Name</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step4.ShippedTitles[@i].GameName"
+                                               value="@title.GameName"
+                                               maxlength="160"
+                                               placeholder="e.g. Raji: An Ancient Epic"
+                                               data-field="GameName" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Studio / Team Name</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step4.ShippedTitles[@i].StudioName"
+                                               value="@title.StudioName"
+                                               maxlength="160"
+                                               placeholder="e.g. Nodding Heads Games"
+                                               data-field="StudioName" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Your Credited Role</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step4.ShippedTitles[@i].Role"
+                                               value="@title.Role"
+                                               maxlength="120"
+                                               placeholder="e.g. Gameplay Programmer"
+                                               data-field="Role" />
+                                    </div>
+                                </div>
+
+                                <div class="p-sg-grid-3" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Engine (optional)</label>
+                                        <select class="c-select" name="Step4.ShippedTitles[@i].EngineSkillId" data-field="EngineSkillId">
+                                            <option value="">None / Custom</option>
+                                            @foreach (var eng in Model.EngineSkills)
+                                            {
+                                                <option value="@eng.Id" selected="@(title.EngineSkillId == eng.Id ? "selected" : null)">@eng.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Release Year (optional)</label>
+                                        <input type="number"
+                                               class="c-input"
+                                               name="Step4.ShippedTitles[@i].ReleaseYear"
+                                               value="@title.ReleaseYear"
+                                               min="1990"
+                                               max="2100"
+                                               placeholder="2024"
+                                               data-field="ReleaseYear" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Store / Page URL (optional, https://)</label>
+                                        <input type="url"
+                                               class="c-input"
+                                               name="Step4.ShippedTitles[@i].StoreUrl"
+                                               value="@title.StoreUrl"
+                                               maxlength="500"
+                                               placeholder="https://store.steampowered.com/app/..."
+                                               data-field="StoreUrl" />
+                                    </div>
+                                </div>
+
+                                <div class="c-field" style="margin-top: 12px;">
+                                    <span class="c-label">Platforms</span>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px;">
+                                        @foreach (var plat in platformOptions)
+                                        {
+                                            <label class="c-check">
+                                                <input type="checkbox"
+                                                       name="Step4.ShippedTitles[@i].Platforms"
+                                                       value="@plat.Key"
+                                                       checked="@(selectedPlatforms.Contains(plat.Key) ? "checked" : null)"
+                                                       data-field="Platforms" />
+                                                <span>@plat.Label</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="c-card" style="margin-top: 12px; padding: 12px 14px; background: var(--surface-2);">
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <label class="c-check">
+                                            <input type="checkbox"
+                                                   name="Step4.ShippedTitles[@i].IsNda"
+                                                   value="true"
+                                                   checked="@(title.IsNda ? "checked" : null)"
+                                                   data-field="IsNda"
+                                                   data-nda-toggle />
+                                            <span><strong>Under NDA:</strong> Hide confidential project name &amp; store URL publicly (shows &ldquo;Confidential Project (Under NDA)&rdquo; + your role)</span>
+                                        </label>
+                                        <label class="c-check">
+                                            <input type="checkbox"
+                                                   name="Step4.ShippedTitles[@i].HideStudioInPublic"
+                                                   value="true"
+                                                   checked="@(title.IsNda && title.HideStudioInPublic ? "checked" : null)"
+                                                   disabled="@(!title.IsNda ? "disabled" : null)"
+                                                   data-field="HideStudioInPublic"
+                                                   data-nda-hide-studio />
+                                            <span>Also hide confidential studio / client name publicly (shows &ldquo;Confidential Studio&rdquo;)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </article>
+                        }
+                    </div>
+
+                    @if (Model.Step4.ShippedTitles.Count == 0)
+                    {
+                        <noscript>
+                            <article class="c-card" style="padding: 16px;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 12px;">Optional Shipped Title Entry</strong>
+                                <div class="p-sg-grid-3">
+                                    <div class="c-field">
+                                        <label class="c-label">Game / Project Name</label>
+                                        <input type="text" class="c-input" name="Step4.ShippedTitles[0].GameName" maxlength="160" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Studio / Team Name</label>
+                                        <input type="text" class="c-input" name="Step4.ShippedTitles[0].StudioName" maxlength="160" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Your Credited Role</label>
+                                        <input type="text" class="c-input" name="Step4.ShippedTitles[0].Role" maxlength="120" />
+                                    </div>
+                                </div>
+                                <div class="p-sg-grid-3" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Engine (optional)</label>
+                                        <select class="c-select" name="Step4.ShippedTitles[0].EngineSkillId">
+                                            <option value="">None / Custom</option>
+                                            @foreach (var eng in Model.EngineSkills)
+                                            {
+                                                <option value="@eng.Id">@eng.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Release Year</label>
+                                        <input type="number" class="c-input" name="Step4.ShippedTitles[0].ReleaseYear" min="1990" max="2100" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Store URL (https://)</label>
+                                        <input type="url" class="c-input" name="Step4.ShippedTitles[0].StoreUrl" maxlength="500" />
+                                    </div>
+                                </div>
+                            </article>
+                        </noscript>
+                    }
+                </div>
+
+                <hr />
+
+                <!-- Portfolio Links Repeating Cards -->
+                <div class="p-sg-stack"
+                     data-repeat-section
+                     data-repeat-prefix="Step4.PortfolioLinks"
+                     data-repeat-max="@CandidateProfileRules.MaxPortfolioLinks"
+                     data-repeat-template="hgd-portfolio-card-template">
+                    <div class="c-card__header" style="padding: 0; border: 0; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="font-size: 18px; margin: 0 0 2px 0;">
+                                Portfolio &amp; Playable Proof Links
+                                <span class="c-badge c-badge--neutral" data-repeat-count>@Model.Step4.PortfolioLinks.Count / @CandidateProfileRules.MaxPortfolioLinks</span>
+                            </h3>
+                            <p class="c-hint" style="margin: 0;">GitHub repos, itch.io builds, ArtStation portfolios, demo reels, or technical write-ups (strictly <code>https://</code>).</p>
+                        </div>
+                        <button type="button"
+                                class="c-btn c-btn--secondary c-btn--sm"
+                                data-repeat-add
+                                disabled="@(Model.Step4.PortfolioLinks.Count >= CandidateProfileRules.MaxPortfolioLinks ? "disabled" : null)">
+                            + Add Portfolio Link
+                        </button>
+                    </div>
+
+                    <p class="c-hint" data-repeat-empty hidden="@(Model.Step4.PortfolioLinks.Count > 0 ? "hidden" : null)">
+                        No portfolio links added yet. Click <strong>+ Add Portfolio Link</strong> to attach GitHub, itch.io, ArtStation, or demo reel proof.
+                    </p>
+
+                    <div class="p-sg-stack" data-repeat-items>
+                        @for (var i = 0; i < Model.Step4.PortfolioLinks.Count; i++)
+                        {
+                            var link = Model.Step4.PortfolioLinks[i];
+                            var taggedSet = link.SkillIds.ToHashSet();
+
+                            <article class="c-card" style="padding: 16px;" data-repeat-card>
+                                <input type="hidden" name="Step4.PortfolioLinks[@i].Id" value="@link.Id" data-field="Id" />
+
+                                <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <strong style="font-size: 14px;">Portfolio Link <span data-card-index>#@(i + 1)</span></strong>
+                                        <span class="c-badge c-badge--info">Submitted proof</span>
+                                    </div>
+                                    <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                                </div>
+
+                                <div class="p-sg-grid-3">
+                                    <div class="c-field">
+                                        <label class="c-label">Link Type</label>
+                                        <select class="c-select" name="Step4.PortfolioLinks[@i].LinkType" data-field="LinkType">
+                                            @foreach (var lt in linkTypes)
+                                            {
+                                                <option value="@lt.Value" selected="@(link.LinkType == lt.Value ? "selected" : null)">@lt.Label</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Public HTTPS URL</label>
+                                        <input type="url"
+                                               class="c-input"
+                                               name="Step4.PortfolioLinks[@i].Url"
+                                               value="@link.Url"
+                                               maxlength="500"
+                                               placeholder="https://github.com/yourhandle/project"
+                                               data-field="Url" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Title / Context (optional)</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step4.PortfolioLinks[@i].Title"
+                                               value="@link.Title"
+                                               maxlength="160"
+                                               placeholder="e.g. Playable UE5 Combat Prototype"
+                                               data-field="Title" />
+                                    </div>
+                                </div>
+
+                                <div class="c-field" style="margin-top: 12px;">
+                                    <span class="c-label">Skills Evidenced by This Link (optional, up to @CandidateProfileRules.MaxEvidencedSkillsPerLink)</span>
+                                    @if (Model.CandidateSkillsForTagging.Count == 0)
+                                    {
+                                        <p class="c-hint" style="margin: 4px 0 0 0;">
+                                            Add skills in <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3">Step 3 (Skills)</a> first to tag which skills this link evidences.
+                                        </p>
+                                    }
+                                    else
+                                    {
+                                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px;">
+                                            @foreach (var sk in Model.CandidateSkillsForTagging)
+                                            {
+                                                <label class="c-check">
+                                                    <input type="checkbox"
+                                                           name="Step4.PortfolioLinks[@i].SkillIds"
+                                                           value="@sk.SkillId"
+                                                           checked="@(taggedSet.Contains(sk.SkillId) ? "checked" : null)"
+                                                           data-field="SkillIds" />
+                                                    <span>@sk.SkillName</span>
+                                                </label>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+
+                    @if (Model.Step4.PortfolioLinks.Count == 0)
+                    {
+                        <noscript>
+                            <article class="c-card" style="padding: 16px;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 12px;">Optional Portfolio Link Entry</strong>
+                                <div class="p-sg-grid-3">
+                                    <div class="c-field">
+                                        <label class="c-label">Link Type</label>
+                                        <select class="c-select" name="Step4.PortfolioLinks[0].LinkType">
+                                            @foreach (var lt in linkTypes)
+                                            {
+                                                <option value="@lt.Value">@lt.Label</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Public HTTPS URL</label>
+                                        <input type="url" class="c-input" name="Step4.PortfolioLinks[0].Url" maxlength="500" placeholder="https://..." />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Title (optional)</label>
+                                        <input type="text" class="c-input" name="Step4.PortfolioLinks[0].Title" maxlength="160" />
+                                    </div>
+                                </div>
+                            </article>
+                        </noscript>
+                    }
+                </div>
+
+                <div class="c-card__footer">
+                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--ghost">&larr; Back to Skills</a>
+                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save Proof &amp; Continue to Preferences &rarr;</button>
+                </div>
+            </form>
+
+            <template id="hgd-title-card-template">
+                <article class="c-card" style="padding: 16px;" data-repeat-card>
+                    <input type="hidden" value="" data-field="Id" />
+                    <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <strong style="font-size: 14px;">Credit <span data-card-index>#1</span></strong>
+                            <span class="c-badge c-badge--neutral">Submitted credit &middot; Unverified</span>
+                        </div>
+                        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                    </div>
+                    <div class="p-sg-grid-3">
+                        <div class="c-field">
+                            <label class="c-label">Game / Project Name</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Raji: An Ancient Epic" data-field="GameName" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Studio / Team Name</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Nodding Heads Games" data-field="StudioName" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Your Credited Role</label>
+                            <input type="text" class="c-input" maxlength="120" placeholder="e.g. Gameplay Programmer" data-field="Role" />
+                        </div>
+                    </div>
+                    <div class="p-sg-grid-3" style="margin-top: 12px;">
+                        <div class="c-field">
+                            <label class="c-label">Engine (optional)</label>
+                            <select class="c-select" data-field="EngineSkillId">
+                                <option value="">None / Custom</option>
+                                @foreach (var eng in Model.EngineSkills)
+                                {
+                                    <option value="@eng.Id">@eng.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Release Year (optional)</label>
+                            <input type="number" class="c-input" min="1990" max="2100" placeholder="2024" data-field="ReleaseYear" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Store / Page URL (optional, https://)</label>
+                            <input type="url" class="c-input" maxlength="500" placeholder="https://store.steampowered.com/app/..." data-field="StoreUrl" />
+                        </div>
+                    </div>
+                    <div class="c-field" style="margin-top: 12px;">
+                        <span class="c-label">Platforms</span>
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px;">
+                            @foreach (var plat in platformOptions)
+                            {
+                                <label class="c-check">
+                                    <input type="checkbox" value="@plat.Key" data-field="Platforms" />
+                                    <span>@plat.Label</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                    <div class="c-card" style="margin-top: 12px; padding: 12px 14px; background: var(--surface-2);">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="c-check">
+                                <input type="checkbox" value="true" data-field="IsNda" data-nda-toggle />
+                                <span><strong>Under NDA:</strong> Hide confidential project name &amp; store URL publicly (shows &ldquo;Confidential Project (Under NDA)&rdquo; + your role)</span>
+                            </label>
+                            <label class="c-check">
+                                <input type="checkbox" value="true" disabled data-field="HideStudioInPublic" data-nda-hide-studio />
+                                <span>Also hide confidential studio / client name publicly (shows &ldquo;Confidential Studio&rdquo;)</span>
+                            </label>
+                        </div>
+                    </div>
+                </article>
+            </template>
+
+            <template id="hgd-portfolio-card-template">
+                <article class="c-card" style="padding: 16px;" data-repeat-card>
+                    <input type="hidden" value="" data-field="Id" />
+                    <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <strong style="font-size: 14px;">Portfolio Link <span data-card-index>#1</span></strong>
+                            <span class="c-badge c-badge--info">Submitted proof</span>
+                        </div>
+                        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                    </div>
+                    <div class="p-sg-grid-3">
+                        <div class="c-field">
+                            <label class="c-label">Link Type</label>
+                            <select class="c-select" data-field="LinkType">
+                                @foreach (var lt in linkTypes)
+                                {
+                                    <option value="@lt.Value">@lt.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Public HTTPS URL</label>
+                            <input type="url" class="c-input" maxlength="500" placeholder="https://github.com/yourhandle/project" data-field="Url" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Title / Context (optional)</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Playable UE5 Combat Prototype" data-field="Title" />
+                        </div>
+                    </div>
+                    <div class="c-field" style="margin-top: 12px;">
+                        <span class="c-label">Skills Evidenced by This Link (optional, up to @CandidateProfileRules.MaxEvidencedSkillsPerLink)</span>
+                        @if (Model.CandidateSkillsForTagging.Count == 0)
+                        {
+                            <p class="c-hint" style="margin: 4px 0 0 0;">
+                                Add skills in <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3">Step 3 (Skills)</a> first to tag which skills this link evidences.
+                            </p>
+                        }
+                        else
+                        {
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px;">
+                                @foreach (var sk in Model.CandidateSkillsForTagging)
+                                {
+                                    <label class="c-check">
+                                        <input type="checkbox" value="@sk.SkillId" data-field="SkillIds" />
+                                        <span>@sk.SkillName</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </div>
+                </article>
+            </template>
         </section>
     }
     else
@@ -985,7 +1498,7 @@
                 </div>
 
                 <div class="c-card__footer">
-                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--ghost">&larr; Back to Experience</a>
+                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--ghost">&larr; Back to Proof</a>
                     <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save Preferences &amp; View Profile &rarr;</button>
                 </div>
             </form>

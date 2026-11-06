@@ -19,11 +19,17 @@ public sealed class CandidateOnboardingWizardViewModel
 
     public IReadOnlyList<SkillLookupItem> AvailableSkills { get; init; } = [];
 
+    public IReadOnlyList<SkillLookupItem> EngineSkills { get; init; } = [];
+
+    public IReadOnlyList<CandidateSkillItem> CandidateSkillsForTagging { get; init; } = [];
+
     public Step1BasicsInputModel Step1 { get; init; } = new();
 
     public Step2ExperienceCoreInputModel Step2 { get; init; } = new();
 
     public Step3SkillsInputModel Step3 { get; init; } = new();
+
+    public Step4ProofInputModel Step4 { get; init; } = new();
 
     public Step5PreferencesInputModel Step5 { get; init; } = new();
 
@@ -140,6 +146,68 @@ public sealed class CandidateSkillInputRow
     public SkillEvidenceLevel EvidenceLevel { get; set; } = SkillEvidenceLevel.Claimed;
 }
 
+public sealed class Step4ProofInputModel
+{
+    public List<ShippedTitleInputRow> ShippedTitles { get; set; } = [];
+
+    public List<PortfolioLinkInputRow> PortfolioLinks { get; set; } = [];
+}
+
+public sealed class ShippedTitleInputRow
+{
+    public Guid? Id { get; set; }
+
+    public string GameName { get; set; } = string.Empty;
+
+    public string StudioName { get; set; } = string.Empty;
+
+    public string Role { get; set; } = string.Empty;
+
+    public List<string> Platforms { get; set; } = [];
+
+    public int? EngineSkillId { get; set; }
+
+    public short? ReleaseYear { get; set; }
+
+    public string? StoreUrl { get; set; }
+
+    public bool IsNda { get; set; }
+
+    public bool HideStudioInPublic { get; set; }
+
+    /// <summary>
+    /// Display-only backend verification status; never mapped into write commands.
+    /// </summary>
+    public ShippedTitleVerification Verification { get; set; } = ShippedTitleVerification.None;
+
+    public bool IsCompletelyEmpty =>
+        string.IsNullOrWhiteSpace(GameName) &&
+        string.IsNullOrWhiteSpace(StudioName) &&
+        string.IsNullOrWhiteSpace(Role) &&
+        Platforms.Count == 0 &&
+        !EngineSkillId.HasValue &&
+        !ReleaseYear.HasValue &&
+        string.IsNullOrWhiteSpace(StoreUrl);
+}
+
+public sealed class PortfolioLinkInputRow
+{
+    public Guid? Id { get; set; }
+
+    public PortfolioLinkType LinkType { get; set; } = PortfolioLinkType.Github;
+
+    public string Url { get; set; } = string.Empty;
+
+    public string? Title { get; set; }
+
+    public List<int> SkillIds { get; set; } = [];
+
+    public bool IsCompletelyEmpty =>
+        string.IsNullOrWhiteSpace(Url) &&
+        string.IsNullOrWhiteSpace(Title) &&
+        SkillIds.Count == 0;
+}
+
 public sealed class Step5PreferencesInputModel
 {
     [Required(ErrorMessage = "Expected CTC (₹ LPA) is required.")]
@@ -180,4 +248,8 @@ public sealed class CandidateProfileOverviewViewModel
     public IReadOnlyList<CandidateExperienceItem> Experiences { get; init; } = [];
 
     public IReadOnlyList<CandidateEducationItem> Education { get; init; } = [];
+
+    public CandidateOwnerProofSnapshot OwnerProof { get; init; } = new([], []);
+
+    public CandidatePublicProofSnapshot PublicProof { get; init; } = new([], []);
 }

@@ -567,6 +567,20 @@
         }
       }
     }
+    if (event.target.matches('[data-nda-toggle]')) {
+      var titleCard = event.target.closest('[data-repeat-card]');
+      if (titleCard) {
+        var hideStudioBox = titleCard.querySelector('[data-nda-hide-studio]');
+        if (hideStudioBox) {
+          if (event.target.checked) {
+            hideStudioBox.disabled = false;
+          } else {
+            hideStudioBox.checked = false;
+            hideStudioBox.disabled = true;
+          }
+        }
+      }
+    }
   });
 
   document.addEventListener('input', function (event) {
