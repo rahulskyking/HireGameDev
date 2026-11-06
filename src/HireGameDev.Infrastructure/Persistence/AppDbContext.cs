@@ -38,6 +38,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<CandidateEducation> CandidateEducation => Set<CandidateEducation>();
 
+    public DbSet<ShippedTitle> ShippedTitles => Set<ShippedTitle>();
+
+    public DbSet<PortfolioLink> PortfolioLinks => Set<PortfolioLink>();
+
+    public DbSet<PortfolioLinkSkill> PortfolioLinkSkills => Set<PortfolioLinkSkill>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

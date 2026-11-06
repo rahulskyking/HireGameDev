@@ -52,7 +52,13 @@ public static class CandidateProfileRules
     public const int MaxExperienceDescriptionLength = 1500;
     public const short MinEducationYear = 1950;
     public const short MaxEducationYear = 2100;
+    public const int MaxShippedTitles = 20;
+    public const int MaxPortfolioLinks = 15;
+    public const int MaxEvidencedSkillsPerLink = 15;
+    public const short MinShippedTitleReleaseYear = 1990;
+    public const short MaxShippedTitleReleaseYear = 2100;
 
+    public static readonly IReadOnlyList<string> AllowedGamePlatforms = ["pc", "android", "ios", "console", "web"];
     public static readonly IReadOnlyList<short> AllowedNoticePeriodDays = [0, 15, 30, 45, 60, 90];
 
     public static SeniorityLevel SuggestSeniorityFromYears(decimal yearsExperience)
@@ -110,6 +116,25 @@ public static class CandidateProfileRules
         for (var i = 0; i < AllowedNoticePeriodDays.Count; i++)
         {
             if (AllowedNoticePeriodDays[i] == noticePeriodDays)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool IsValidGamePlatform(string? platform)
+    {
+        if (string.IsNullOrWhiteSpace(platform))
+        {
+            return false;
+        }
+
+        var normalized = platform.Trim().ToLowerInvariant();
+        for (var i = 0; i < AllowedGamePlatforms.Count; i++)
+        {
+            if (AllowedGamePlatforms[i] == normalized)
             {
                 return true;
             }

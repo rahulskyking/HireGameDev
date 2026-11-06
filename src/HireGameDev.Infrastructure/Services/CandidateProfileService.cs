@@ -19,6 +19,7 @@ internal sealed class CandidateProfileService : ICandidateProfileService
     private readonly IValidator<SaveCandidateBasicsCommand> _basicsValidator;
     private readonly IValidator<SaveCandidateExperienceCoreCommand> _experienceCoreValidator;
     private readonly IValidator<SaveCandidatePreferencesCommand> _preferencesValidator;
+    private readonly ICandidateCompletenessCalculator _completenessCalculator;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
 
@@ -27,6 +28,7 @@ internal sealed class CandidateProfileService : ICandidateProfileService
         IValidator<SaveCandidateBasicsCommand> basicsValidator,
         IValidator<SaveCandidateExperienceCoreCommand> experienceCoreValidator,
         IValidator<SaveCandidatePreferencesCommand> preferencesValidator,
+        ICandidateCompletenessCalculator completenessCalculator,
         IAuditLogger auditLogger,
         IClock clock)
     {
@@ -34,6 +36,7 @@ internal sealed class CandidateProfileService : ICandidateProfileService
         _basicsValidator = basicsValidator;
         _experienceCoreValidator = experienceCoreValidator;
         _preferencesValidator = preferencesValidator;
+        _completenessCalculator = completenessCalculator;
         _auditLogger = auditLogger;
         _clock = clock;
     }
@@ -326,42 +329,16 @@ internal sealed class CandidateProfileService : ICandidateProfileService
         return Result.Success(profile.Completeness);
     }
 
-    private async Task<CandidateCompletenessBreakdown> BuildCompletenessBreakdownAsync(
+    private Task<CandidateCompletenessBreakdown> BuildCompletenessBreakdownAsync(
         CandidateProfile profile,
         bool isPersisted,
         CancellationToken cancellationToken)
     {
-        var skillCount = isPersisted
-            ? await _dbContext.CandidateSkills.CountAsync(cs => cs.CandidateId == profile.Id, cancellationToken)
-            : 0;
-
-        var experienceCount = isPersisted
-            ? await _dbContext.CandidateExperiences.CountAsync(e => e.CandidateId == profile.Id, cancellationToken)
-            : 0;
-
-        var educationCount = isPersisted
-            ? await _dbContext.CandidateEducation.CountAsync(e => e.CandidateId == profile.Id, cancellationToken)
-            : 0;
-
-        var hasExpectedAndNotice = profile.ExpectedCtcLpa is > 0m &&
-                                   profile.NoticePeriodDays.HasValue &&
-                                   CandidateProfileRules.IsValidNoticePeriod(profile.NoticePeriodDays.Value);
-
-        // Shipped titles and portfolio links plug in during M1.4.
-        return CandidateProfileRules.CalculateCompleteness(new CandidateCompletenessInput(
-            HasPhoto: !string.IsNullOrWhiteSpace(profile.PhotoPath),
-            HasHeadline: !string.IsNullOrWhiteSpace(profile.Headline) && profile.Headline.Trim().Length >= 3,
-            HasBio: !string.IsNullOrWhiteSpace(profile.Bio),
-            HasCity: profile.CityId > 0,
-            SkillCount: skillCount,
-            ExperienceCount: experienceCount,
-            EducationCount: educationCount,
-            ShippedTitleCount: 0,
-            PortfolioLinkCount: 0,
-            HasExpectedCtcAndNoticePeriod: hasExpectedAndNotice,
-            IsPhoneVerified: profile.PhoneVerifiedAt is not null,
-            YearsExperience: profile.YearsExperience,
-            Seniority: profile.Seniority));
+        return _completenessCalculator.CalculateAsync(
+            profile,
+            isPersisted: isPersisted,
+            overrides: null,
+            cancellationToken: cancellationToken);
     }
 
     private static CandidateProfileSnapshot MapSnapshot(CandidateProfile profile)

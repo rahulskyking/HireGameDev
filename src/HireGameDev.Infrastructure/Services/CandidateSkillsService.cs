@@ -17,17 +17,20 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
 {
     private readonly AppDbContext _dbContext;
     private readonly IValidator<SaveCandidateSkillsCommand> _validator;
+    private readonly ICandidateCompletenessCalculator _completenessCalculator;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
 
     public CandidateSkillsService(
         AppDbContext dbContext,
         IValidator<SaveCandidateSkillsCommand> validator,
+        ICandidateCompletenessCalculator completenessCalculator,
         IAuditLogger auditLogger,
         IClock clock)
     {
         _dbContext = dbContext;
         _validator = validator;
+        _completenessCalculator = completenessCalculator;
         _auditLogger = auditLogger;
         _clock = clock;
     }
@@ -163,32 +166,10 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
         profile.OnboardingStep = Math.Max(profile.OnboardingStep, (short)4);
         profile.LastActiveAt = _clock.UtcNow;
 
-        var experienceCount = await _dbContext.CandidateExperiences
-            .CountAsync(e => e.CandidateId == profile.Id, cancellationToken);
-
-        var educationCount = await _dbContext.CandidateEducation
-            .CountAsync(e => e.CandidateId == profile.Id, cancellationToken);
-
-        var hasExpectedAndNotice = profile.ExpectedCtcLpa is > 0m &&
-                                   profile.NoticePeriodDays.HasValue &&
-                                   CandidateProfileRules.IsValidNoticePeriod(profile.NoticePeriodDays.Value);
-
-        var breakdown = CandidateProfileRules.CalculateCompleteness(new CandidateCompletenessInput(
-            HasPhoto: !string.IsNullOrWhiteSpace(profile.PhotoPath),
-            HasHeadline: !string.IsNullOrWhiteSpace(profile.Headline) && profile.Headline.Trim().Length >= 3,
-            HasBio: !string.IsNullOrWhiteSpace(profile.Bio),
-            HasCity: profile.CityId > 0,
-            SkillCount: command.Skills.Count,
-            ExperienceCount: experienceCount,
-            EducationCount: educationCount,
-            ShippedTitleCount: 0,
-            PortfolioLinkCount: 0,
-            HasExpectedCtcAndNoticePeriod: hasExpectedAndNotice,
-            IsPhoneVerified: profile.PhoneVerifiedAt is not null,
-            YearsExperience: profile.YearsExperience,
-            Seniority: profile.Seniority));
-
-        profile.Completeness = breakdown.TotalScore;
+        await _completenessCalculator.RecalculateAndApplyAsync(
+            profile,
+            new CandidateCompletenessCountOverrides(SkillCount: command.Skills.Count),
+            cancellationToken);
 
         _auditLogger.Enqueue(new AuditLogEntry(
             Action: "candidate.profile.step3_skills_saved",

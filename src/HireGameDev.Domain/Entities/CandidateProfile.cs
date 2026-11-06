@@ -81,4 +81,8 @@ public sealed class CandidateProfile : IAuditableEntity, ISoftDeletable
     public ICollection<CandidateExperience> Experiences { get; set; } = new List<CandidateExperience>();
 
     public ICollection<CandidateEducation> Education { get; set; } = new List<CandidateEducation>();
+
+    public ICollection<ShippedTitle> ShippedTitles { get; set; } = new List<ShippedTitle>();
+
+    public ICollection<PortfolioLink> PortfolioLinks { get; set; } = new List<PortfolioLink>();
 }

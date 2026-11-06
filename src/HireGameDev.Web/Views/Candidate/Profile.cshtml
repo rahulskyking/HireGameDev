@@ -132,14 +132,20 @@
             <div class="c-chip-list">
                 @foreach (var skill in Model.Skills)
                 {
-                    var chipClass = skill.EvidenceLevel >= SkillEvidenceLevel.Backed
+                    var chipClass = skill.EvidenceLevel == SkillEvidenceLevel.Verified
                         ? "c-chip c-chip--verified"
                         : skill.IsPrimary
                             ? "c-chip c-chip--accent"
                             : "c-chip";
                     var yearsSuffix = skill.YearsUsed.HasValue ? $" · {skill.YearsUsed.Value:0.#}y" : string.Empty;
+                    var evidenceSuffix = skill.EvidenceLevel switch
+                    {
+                        SkillEvidenceLevel.Verified => " · Verified",
+                        SkillEvidenceLevel.Backed => " · Proof submitted",
+                        _ => string.Empty
+                    };
                     <span class="@chipClass">
-                        @(skill.IsPrimary ? "★ " : string.Empty)@skill.SkillName &middot; @skill.Proficiency@yearsSuffix
+                        @(skill.IsPrimary ? "★ " : string.Empty)@skill.SkillName &middot; @skill.Proficiency@yearsSuffix@evidenceSuffix
                     </span>
                 }
             </div>
