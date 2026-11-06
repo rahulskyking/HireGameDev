@@ -116,6 +116,106 @@
       senioritySelect.value = suggestedValue;
     }
   }
+
+  function filterSkillCatalog(picker) {
+    if (!picker) return;
+    var searchInput = picker.querySelector('[data-skill-search-input]');
+    var activeCatBtn = picker.querySelector('[data-skill-cat-filter][aria-pressed="true"]');
+    var activeCat = activeCatBtn ? activeCatBtn.getAttribute('data-skill-cat-filter') : 'all';
+    var query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+    var buttons = picker.querySelectorAll('[data-skill-add-btn]');
+    var visibleCount = 0;
+
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var cat = btn.getAttribute('data-skill-category') || '';
+      var keywords = (btn.getAttribute('data-search-keywords') || '').toLowerCase();
+      var catMatch = activeCat === 'all' || cat === activeCat;
+      var textMatch = query.length === 0 || keywords.indexOf(query) !== -1;
+      var show = catMatch && textMatch;
+      btn.hidden = !show;
+      if (show) visibleCount++;
+    }
+
+    var emptyNote = picker.querySelector('[data-skill-catalog-empty]');
+    if (emptyNote) {
+      emptyNote.hidden = visibleCount > 0;
+    }
+  }
+
+  function syncSkillPickerState(picker) {
+    if (!picker) return;
+    var tbody = picker.querySelector('[data-selected-skills-body]');
+    if (!tbody) return;
+
+    var rows = tbody.querySelectorAll('[data-skill-row]');
+    var selectedIds = {};
+    var primaryCount = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var sid = row.getAttribute('data-skill-id') || '';
+      if (sid) selectedIds[sid] = true;
+
+      var fields = row.querySelectorAll('[data-field]');
+      for (var f = 0; f < fields.length; f++) {
+        var fieldName = fields[f].getAttribute('data-field');
+        fields[f].name = 'Step3.Skills[' + i + '].' + fieldName;
+      }
+
+      var primaryBox = row.querySelector('[data-skill-primary]');
+      if (primaryBox && primaryBox.checked) {
+        primaryCount++;
+      }
+    }
+
+    var allPrimaryBoxes = tbody.querySelectorAll('[data-skill-primary]');
+    for (var p = 0; p < allPrimaryBoxes.length; p++) {
+      allPrimaryBoxes[p].disabled = !allPrimaryBoxes[p].checked && primaryCount >= 5;
+    }
+
+    var emptyState = picker.querySelector('[data-selected-skills-empty]');
+    var tableWrap = picker.querySelector('[data-selected-skills-wrap]');
+    if (emptyState) emptyState.hidden = rows.length > 0;
+    if (tableWrap) tableWrap.hidden = rows.length === 0;
+
+    var countBadge = picker.querySelector('[data-skill-count-badge]');
+    if (countBadge) {
+      countBadge.textContent = rows.length + ' / 25 selected (min 3)';
+      countBadge.classList.toggle('c-badge--success', rows.length >= 3);
+      countBadge.classList.toggle('c-badge--neutral', rows.length < 3);
+    }
+
+    var primaryBadge = picker.querySelector('[data-primary-count-badge]');
+    if (primaryBadge) {
+      primaryBadge.textContent = primaryCount + ' / 5 primary';
+    }
+
+    var compBadge = picker.querySelector('[data-skill-completeness-badge]');
+    if (compBadge) {
+      var reachedFive = rows.length >= 5;
+      compBadge.textContent = reachedFive
+        ? '+15% completeness unlocked \u2713'
+        : 'Add ' + Math.max(0, 5 - rows.length) + ' more for +15% completeness';
+      compBadge.classList.toggle('c-badge--success', reachedFive);
+      compBadge.classList.toggle('c-badge--info', !reachedFive);
+    }
+
+    var catalogBtns = picker.querySelectorAll('[data-skill-add-btn]');
+    for (var b = 0; b < catalogBtns.length; b++) {
+      var btn = catalogBtns[b];
+      var btnSkillId = btn.getAttribute('data-skill-id') || '';
+      var skillName = btn.getAttribute('data-skill-name') || '';
+      var isAdded = !!selectedIds[btnSkillId];
+      btn.disabled = isAdded || rows.length >= 25;
+      var labelSpan = btn.querySelector('[data-skill-btn-label]');
+      if (labelSpan) {
+        labelSpan.textContent = isAdded ? skillName + ' \u2713' : '+ ' + skillName;
+      }
+    }
+  }
+
   function activateTab(tab) {
     var container = tab.closest('[data-tabs]');
     if (!container) {
@@ -218,6 +318,78 @@
       return;
     }
 
+    var catFilterBtn = event.target.closest('[data-skill-cat-filter]');
+    if (catFilterBtn) {
+      var pickerForCat = catFilterBtn.closest('[data-skill-picker]');
+      if (pickerForCat) {
+        var allCatBtns = pickerForCat.querySelectorAll('[data-skill-cat-filter]');
+        for (var c = 0; c < allCatBtns.length; c++) {
+          allCatBtns[c].setAttribute('aria-pressed', allCatBtns[c] === catFilterBtn ? 'true' : 'false');
+        }
+        filterSkillCatalog(pickerForCat);
+      }
+      return;
+    }
+
+    var addSkillBtn = event.target.closest('[data-skill-add-btn]');
+    if (addSkillBtn && !addSkillBtn.disabled) {
+      var pickerForAdd = addSkillBtn.closest('[data-skill-picker]');
+      var tbody = pickerForAdd ? pickerForAdd.querySelector('[data-selected-skills-body]') : null;
+      var tpl = document.getElementById('hgd-skill-row-template');
+      if (pickerForAdd && tbody && tpl && 'content' in tpl) {
+        var existingRows = tbody.querySelectorAll('[data-skill-row]');
+        if (existingRows.length >= 25) {
+          return;
+        }
+        var skillId = addSkillBtn.getAttribute('data-skill-id') || '';
+        if (tbody.querySelector('[data-skill-row][data-skill-id="' + skillId + '"]')) {
+          return;
+        }
+
+        var skillName = addSkillBtn.getAttribute('data-skill-name') || '';
+        var skillCatLabel = addSkillBtn.getAttribute('data-skill-category-label') || '';
+        var clone = tpl.content.cloneNode(true);
+        var tr = clone.querySelector('[data-skill-row]');
+        tr.setAttribute('data-skill-id', skillId);
+
+        var hiddenId = tr.querySelector('[data-field="SkillId"]');
+        if (hiddenId) hiddenId.value = skillId;
+
+        var nameEl = tr.querySelector('[data-tpl-skill-name]');
+        if (nameEl) nameEl.textContent = skillName;
+
+        var catEl = tr.querySelector('[data-tpl-skill-cat]');
+        if (catEl) catEl.textContent = skillCatLabel;
+
+        var profSelect = tr.querySelector('[data-field="Proficiency"]');
+        if (profSelect) profSelect.setAttribute('aria-label', 'Proficiency for ' + skillName);
+
+        var yearsField = tr.querySelector('[data-field="YearsUsed"]');
+        if (yearsField) yearsField.setAttribute('aria-label', 'Years used for ' + skillName);
+
+        var yearUsedField = tr.querySelector('[data-field="LastUsedYear"]');
+        if (yearUsedField) yearUsedField.setAttribute('aria-label', 'Last used year for ' + skillName);
+
+        var rmBtn = tr.querySelector('[data-skill-remove-btn]');
+        if (rmBtn) rmBtn.setAttribute('aria-label', 'Remove ' + skillName);
+
+        tbody.appendChild(clone);
+        syncSkillPickerState(pickerForAdd);
+      }
+      return;
+    }
+
+    var removeSkillBtn = event.target.closest('[data-skill-remove-btn]');
+    if (removeSkillBtn) {
+      var pickerForRm = removeSkillBtn.closest('[data-skill-picker]');
+      var rowToRemove = removeSkillBtn.closest('[data-skill-row]');
+      if (rowToRemove && rowToRemove.parentNode) {
+        rowToRemove.parentNode.removeChild(rowToRemove);
+        syncSkillPickerState(pickerForRm);
+      }
+      return;
+    }
+
     var modalOpenBtn = event.target.closest('[data-modal-open]');
     if (modalOpenBtn) {
       var modalId = modalOpenBtn.getAttribute('data-modal-open');
@@ -283,11 +455,19 @@
     if (event.target.matches('[data-years-exp-input]')) {
       syncSeniorityBand();
     }
+    if (event.target.matches('[data-skill-primary]')) {
+      syncSkillPickerState(event.target.closest('[data-skill-picker]'));
+    }
   });
 
   document.addEventListener('input', function (event) {
     if (event.target.matches('[data-years-exp-input]')) {
       syncSeniorityBand();
+      return;
+    }
+
+    if (event.target.matches('[data-skill-search-input]')) {
+      filterSkillCatalog(event.target.closest('[data-skill-picker]'));
       return;
     }
 

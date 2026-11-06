@@ -17,9 +17,13 @@ public sealed class CandidateOnboardingWizardViewModel
 
     public IReadOnlyList<CityLookupItem> Cities { get; init; } = [];
 
+    public IReadOnlyList<SkillLookupItem> AvailableSkills { get; init; } = [];
+
     public Step1BasicsInputModel Step1 { get; init; } = new();
 
     public Step2ExperienceCoreInputModel Step2 { get; init; } = new();
+
+    public Step3SkillsInputModel Step3 { get; init; } = new();
 
     public Step5PreferencesInputModel Step5 { get; init; } = new();
 
@@ -62,6 +66,30 @@ public sealed class Step2ExperienceCoreInputModel
     public SeniorityLevel Seniority { get; set; } = SeniorityLevel.Fresher;
 }
 
+public sealed class Step3SkillsInputModel
+{
+    public List<CandidateSkillInputRow> Skills { get; set; } = [];
+}
+
+public sealed class CandidateSkillInputRow
+{
+    public int SkillId { get; set; }
+
+    public string SkillName { get; set; } = string.Empty;
+
+    public string CategoryLabel { get; set; } = string.Empty;
+
+    public SkillProficiency Proficiency { get; set; } = SkillProficiency.Working;
+
+    public decimal? YearsUsed { get; set; }
+
+    public short? LastUsedYear { get; set; }
+
+    public bool IsPrimary { get; set; }
+
+    public SkillEvidenceLevel EvidenceLevel { get; set; } = SkillEvidenceLevel.Claimed;
+}
+
 public sealed class Step5PreferencesInputModel
 {
     [Required(ErrorMessage = "Expected CTC (₹ LPA) is required.")]
@@ -96,4 +124,6 @@ public sealed class CandidateProfileOverviewViewModel
     public CandidateProfileSnapshot Profile { get; init; } = default!;
 
     public HireGameDev.Domain.Rules.CandidateCompletenessBreakdown Completeness { get; init; } = default!;
+
+    public IReadOnlyList<CandidateSkillItem> Skills { get; init; } = [];
 }

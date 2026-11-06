@@ -40,6 +40,7 @@
             <div class="c-btn-group">
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="1" class="c-btn c-btn--secondary c-btn--sm">Edit Basics</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">Edit Experience</a>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--secondary c-btn--sm">Edit Skills</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--primary c-btn--sm">Edit Preferences</a>
             </div>
         </div>
@@ -108,6 +109,41 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <!-- Skills & Proficiency Matrix (M1.2) -->
+    <section class="c-card" aria-labelledby="candidate-skills-heading">
+        <div class="c-card__header">
+            <div>
+                <h2 id="candidate-skills-heading" style="font-size: 20px; margin-bottom: 4px;">Skills &amp; Proficiency (@Model.Skills.Count)</h2>
+                <p class="c-hint">Primary skills carry top visual prominence; shipped titles and portfolio links upgrade skills to Backed (0.90&times;) or Verified (1.00&times;).</p>
+            </div>
+            <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--secondary c-btn--sm">
+                @(Model.Skills.Count == 0 ? "Add Skills" : "Manage Skills")
+            </a>
+        </div>
+
+        @if (Model.Skills.Count == 0)
+        {
+            <p class="c-hint" style="margin: 0;">No skills added yet. Add at least 5 skills in Step 3 to earn +15% completeness.</p>
+        }
+        else
+        {
+            <div class="c-chip-list">
+                @foreach (var skill in Model.Skills)
+                {
+                    var chipClass = skill.EvidenceLevel >= SkillEvidenceLevel.Backed
+                        ? "c-chip c-chip--verified"
+                        : skill.IsPrimary
+                            ? "c-chip c-chip--accent"
+                            : "c-chip";
+                    var yearsSuffix = skill.YearsUsed.HasValue ? $" · {skill.YearsUsed.Value:0.#}y" : string.Empty;
+                    <span class="@chipClass">
+                        @(skill.IsPrimary ? "★ " : string.Empty)@skill.SkillName &middot; @skill.Proficiency@yearsSuffix
+                    </span>
+                }
+            </div>
+        }
     </section>
 
     <!-- Points-Sorted Completeness Checklist (Blueprint Section 5) -->

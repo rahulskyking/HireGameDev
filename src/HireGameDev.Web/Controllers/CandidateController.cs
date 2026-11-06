@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Features.Candidates;
+using HireGameDev.Application.Features.ReferenceData;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Domain.Rules;
 using HireGameDev.Web.Authorization;
@@ -17,15 +18,18 @@ namespace HireGameDev.Web.Controllers;
 public sealed class CandidateController : Controller
 {
     private readonly ICandidateProfileService _profileService;
+    private readonly ICandidateSkillsService _skillsService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
     public CandidateController(
         ICandidateProfileService profileService,
+        ICandidateSkillsService skillsService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
         _profileService = profileService;
+        _skillsService = skillsService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -49,10 +53,13 @@ public sealed class CandidateController : Controller
             return RedirectToAction(nameof(Onboarding), new { step = 1 });
         }
 
+        var skills = await _skillsService.GetSkillsForUserAsync(userId, cancellationToken);
+
         return View(new CandidateProfileOverviewViewModel
         {
             Profile = state.Profile,
-            Completeness = state.CompletenessBreakdown
+            Completeness = state.CompletenessBreakdown,
+            Skills = skills
         });
     }
 
@@ -153,6 +160,45 @@ public sealed class CandidateController : Controller
         return RedirectToAction(nameof(Onboarding), new { step = sanitizedNext });
     }
 
+    [HttpPost("Onboarding/Step3")]
+    public async Task<IActionResult> SaveStep3(
+        [Bind(Prefix = "Step3")] Step3SkillsInputModel? input,
+        short nextStep = 4,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var normalizedInput = input ?? new Step3SkillsInputModel();
+        var selections = normalizedInput.Skills
+            .Where(s => s.SkillId > 0)
+            .Select(s => new CandidateSkillSelectionInput(
+                SkillId: s.SkillId,
+                Proficiency: s.Proficiency,
+                YearsUsed: s.YearsUsed,
+                LastUsedYear: s.LastUsedYear,
+                IsPrimary: s.IsPrimary))
+            .ToArray();
+
+        var result = await _skillsService.SaveSkillsAsync(
+            new SaveCandidateSkillsCommand(userId, selections),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, result.Error.Message);
+            var failedState = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+            var failedVm = await BuildWizardViewModelAsync(failedState, 3, cancellationToken, step3Override: normalizedInput);
+            return View("Onboarding", failedVm);
+        }
+
+        var sanitizedNext = nextStep == 5 ? (short)5 : (short)4;
+        TempData["StatusMessage"] = $"Saved {result.Value.Count} skills to your profile.";
+        return RedirectToAction(nameof(Onboarding), new { step = sanitizedNext });
+    }
+
     [HttpPost("Onboarding/Step5")]
     public async Task<IActionResult> SaveStep5(
         [Bind(Prefix = "Step5")] Step5PreferencesInputModel input,
@@ -200,11 +246,57 @@ public sealed class CandidateController : Controller
         CancellationToken cancellationToken,
         Step1BasicsInputModel? step1Override = null,
         Step2ExperienceCoreInputModel? step2Override = null,
+        Step3SkillsInputModel? step3Override = null,
         Step5PreferencesInputModel? step5Override = null)
     {
         var cities = activeStep == 1
             ? await _referenceDataService.GetActiveCitiesAsync(cancellationToken)
             : [];
+
+        IReadOnlyList<SkillLookupItem> availableSkills = [];
+        Step3SkillsInputModel step3;
+
+        if (activeStep == 3)
+        {
+            availableSkills = await _referenceDataService.GetActiveSkillsAsync(null, cancellationToken);
+            var catalogById = availableSkills.ToDictionary(s => s.Id);
+
+            if (step3Override is not null)
+            {
+                foreach (var row in step3Override.Skills)
+                {
+                    if (catalogById.TryGetValue(row.SkillId, out var skillMeta))
+                    {
+                        row.SkillName = skillMeta.Name;
+                        row.CategoryLabel = FormatCategoryLabel(skillMeta.Category);
+                    }
+                }
+
+                step3 = step3Override;
+            }
+            else
+            {
+                var savedSkills = await _skillsService.GetSkillsForUserAsync(state.UserId, cancellationToken);
+                step3 = new Step3SkillsInputModel
+                {
+                    Skills = savedSkills.Select(s => new CandidateSkillInputRow
+                    {
+                        SkillId = s.SkillId,
+                        SkillName = s.SkillName,
+                        CategoryLabel = FormatCategoryLabel(s.Category),
+                        Proficiency = s.Proficiency,
+                        YearsUsed = s.YearsUsed,
+                        LastUsedYear = s.LastUsedYear,
+                        IsPrimary = s.IsPrimary,
+                        EvidenceLevel = s.EvidenceLevel
+                    }).ToList()
+                };
+            }
+        }
+        else
+        {
+            step3 = step3Override ?? new Step3SkillsInputModel();
+        }
 
         var profile = state.Profile;
 
@@ -241,9 +333,27 @@ public sealed class CandidateController : Controller
             HasExistingProfile = profile is not null,
             OnboardingState = state,
             Cities = cities,
+            AvailableSkills = availableSkills,
             Step1 = step1,
             Step2 = step2,
+            Step3 = step3,
             Step5 = step5
+        };
+    }
+
+    internal static string FormatCategoryLabel(SkillCategory category)
+    {
+        return category switch
+        {
+            SkillCategory.Engine => "Engine",
+            SkillCategory.Language => "Language",
+            SkillCategory.ArtTool => "Art Tool",
+            SkillCategory.DesignAudioTool => "Design & Audio",
+            SkillCategory.Devops => "DevOps",
+            SkillCategory.Genre => "Genre",
+            SkillCategory.Platform => "Platform",
+            SkillCategory.Role => "Discipline",
+            _ => category.ToString()
         };
     }
 
@@ -276,7 +386,6 @@ public sealed class CandidateController : Controller
             return false;
         }
 
-        // Redirect from studio.* always, and from apex domain when shared cross-subdomain cookies are active (.hiregamedev.com / .lvh.me).
         if (portal == PortalSite.Studio || _portalNavigator.ResolveSharedCookieDomain(HttpContext) is not null)
         {
             var pathAndQuery = $"{Request.Path}{Request.QueryString}";

@@ -292,15 +292,242 @@
     }
     else if (Model.ActiveStep == 3)
     {
-        <section class="c-card" aria-labelledby="step3-heading">
-            <h2 id="step3-heading" style="font-size: 22px;">Step 3 &middot; Skills &amp; Proficiency (Next Slice: M1.2)</h2>
-            <p class="u-muted">
-                Typeahead skill chips (3–25 skills with 1–4 proficiency ratings and up to 5 primary skills, +15 completeness points) unlock in the very next module (<code>M1.2</code>).
-            </p>
-            <div class="c-card__footer">
-                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--ghost">&larr; Back to Experience</a>
-                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="4" class="c-btn c-btn--primary">Continue to Step 4 (Proof) &rarr;</a>
+        var selectedRows = Model.Step3.Skills;
+        var selectedIdSet = selectedRows.Select(s => s.SkillId).ToHashSet();
+        var primaryCount = selectedRows.Count(s => s.IsPrimary);
+
+        (string Key, string Label)[] categoryFilters =
+        [
+            ("all", "All"),
+            ("Engine", "Engines"),
+            ("Language", "Languages"),
+            ("ArtTool", "Art Tools"),
+            ("DesignAudioTool", "Design & Audio"),
+            ("Devops", "DevOps"),
+            ("Genre", "Genres"),
+            ("Platform", "Platforms"),
+            ("Role", "Disciplines")
+        ];
+
+        <section class="c-card" aria-labelledby="step3-heading" data-skill-picker>
+            <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <h2 id="step3-heading" style="font-size: 22px; margin-bottom: 4px;">Step 3 &middot; Skills &amp; Proficiency</h2>
+                    <p class="c-hint">
+                        Pick <strong>3 to 25</strong> canonical game-dev skills, rate your proficiency (1–4), and mark up to <strong>5 primary skills</strong>. Adding at least 5 skills unlocks <strong>+15% completeness</strong>.
+                    </p>
+                </div>
+                <div class="c-badge-row">
+                    <span class="c-badge @(selectedRows.Count >= 3 ? "c-badge--success" : "c-badge--neutral")" data-skill-count-badge>
+                        @selectedRows.Count / 25 selected (min 3)
+                    </span>
+                    <span class="c-badge c-badge--accent" data-primary-count-badge>
+                        @primaryCount / 5 primary
+                    </span>
+                    <span class="c-badge @(selectedRows.Count >= 5 ? "c-badge--success" : "c-badge--info")" data-skill-completeness-badge>
+                        @(selectedRows.Count >= 5 ? "+15% completeness unlocked ✓" : $"Add {Math.Max(0, 5 - selectedRows.Count)} more for +15% completeness")
+                    </span>
+                </div>
             </div>
+
+            <form asp-controller="Candidate" asp-action="SaveStep3" method="post" class="c-form" data-skills-form novalidate>
+                <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <!-- 1. Taxonomy Search & Category Filter -->
+                <div class="c-card" style="background: var(--surface-2); padding: 16px;">
+                    <div class="c-field">
+                        <label class="c-label" for="candidate-skill-search">Search Game-Dev Skill Taxonomy</label>
+                        <input id="candidate-skill-search"
+                               class="c-input"
+                               type="search"
+                               placeholder="Search e.g. Unreal Engine, Unity, C++, Godot, HLSL, Blender, Wwise, Netcode..."
+                               autocomplete="off"
+                               data-skill-search-input />
+                    </div>
+
+                    <div class="c-chip-list" role="toolbar" aria-label="Filter skills by category" style="margin-top: 10px;">
+                        @foreach (var cat in categoryFilters)
+                        {
+                            var isDefaultAll = cat.Key == "all";
+                            <button type="button"
+                                    class="c-chip c-chip--interactive"
+                                    aria-pressed="@(isDefaultAll ? "true" : "false")"
+                                    data-skill-cat-filter="@cat.Key">
+                                @cat.Label
+                            </button>
+                        }
+                    </div>
+
+                    <div class="c-chip-list"
+                         role="region"
+                         aria-label="Available skills to add"
+                         style="margin-top: 12px; max-height: 210px; overflow-y: auto; padding: 4px 2px;"
+                         data-skill-catalog>
+                        @foreach (var skill in Model.AvailableSkills)
+                        {
+                            var alreadyAdded = selectedIdSet.Contains(skill.Id) || (!selectedIdSet.Contains(skill.Id) && selectedRows.Count >= 25);
+                            var isAdded = selectedIdSet.Contains(skill.Id);
+                            var catLabel = HireGameDev.Web.Controllers.CandidateController.FormatCategoryLabel(skill.Category);
+                            var searchTerms = $"{skill.Name} {skill.Slug} {skill.Subcategory} {string.Join(' ', skill.Aliases)}";
+                            <button type="button"
+                                    class="c-chip c-chip--interactive"
+                                    data-skill-add-btn
+                                    data-skill-id="@skill.Id"
+                                    data-skill-name="@skill.Name"
+                                    data-skill-category="@skill.Category"
+                                    data-skill-category-label="@catLabel"
+                                    data-search-keywords="@searchTerms"
+                                    disabled="@(alreadyAdded ? "disabled" : null)">
+                                <span data-skill-btn-label>@(isAdded ? $"{skill.Name} ✓" : $"+ {skill.Name}")</span>
+                            </button>
+                        }
+                    </div>
+                    <p class="c-hint" data-skill-catalog-empty hidden style="margin-top: 8px;">No matching taxonomy skills found for that filter.</p>
+                </div>
+
+                <!-- 2. Selected Skills Matrix -->
+                <div class="c-empty" data-selected-skills-empty hidden="@(selectedRows.Count > 0 ? "hidden" : null)" style="padding: 24px;">
+                    <p class="c-empty__title" style="font-size: 16px;">No skills added yet</p>
+                    <p class="c-empty__desc">Click at least 3 skills from the taxonomy above to rate your proficiency.</p>
+                </div>
+
+                <div class="c-table-wrap" data-selected-skills-wrap hidden="@(selectedRows.Count == 0 ? "hidden" : null)">
+                    <table class="c-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Skill</th>
+                                <th scope="col">Proficiency (1–4)</th>
+                                <th scope="col">Years Used</th>
+                                <th scope="col">Last Used Year</th>
+                                <th scope="col">Primary (Max 5)</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody data-selected-skills-body>
+                            @for (var i = 0; i < selectedRows.Count; i++)
+                            {
+                                var row = selectedRows[i];
+                                var disablePrimary = !row.IsPrimary && primaryCount >= 5;
+                                <tr data-skill-row data-skill-id="@row.SkillId">
+                                    <td>
+                                        <input type="hidden" name="Step3.Skills[@i].SkillId" value="@row.SkillId" data-field="SkillId" />
+                                        <div>
+                                            <strong>@row.SkillName</strong>
+                                            @if (row.EvidenceLevel == SkillEvidenceLevel.Verified)
+                                            {
+                                                <span class="c-badge c-badge--success" style="margin-left: 6px;">Verified</span>
+                                            }
+                                            else if (row.EvidenceLevel == SkillEvidenceLevel.Backed)
+                                            {
+                                                <span class="c-badge c-badge--info" style="margin-left: 6px;">Backed</span>
+                                            }
+                                        </div>
+                                        <span class="c-hint">@row.CategoryLabel</span>
+                                    </td>
+                                    <td>
+                                        <select name="Step3.Skills[@i].Proficiency"
+                                                class="c-select"
+                                                aria-label="Proficiency for @row.SkillName"
+                                                data-field="Proficiency"
+                                                style="min-width: 155px;">
+                                            <option value="@SkillProficiency.Beginner" selected="@(row.Proficiency == SkillProficiency.Beginner ? "selected" : null)">1 &middot; Beginner</option>
+                                            <option value="@SkillProficiency.Working" selected="@(row.Proficiency == SkillProficiency.Working ? "selected" : null)">2 &middot; Working</option>
+                                            <option value="@SkillProficiency.Strong" selected="@(row.Proficiency == SkillProficiency.Strong ? "selected" : null)">3 &middot; Strong</option>
+                                            <option value="@SkillProficiency.Expert" selected="@(row.Proficiency == SkillProficiency.Expert ? "selected" : null)">4 &middot; Expert</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               name="Step3.Skills[@i].YearsUsed"
+                                               value="@(row.YearsUsed?.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))"
+                                               class="c-input"
+                                               min="0"
+                                               max="50"
+                                               step="0.5"
+                                               placeholder="e.g. 3.0"
+                                               aria-label="Years used for @row.SkillName"
+                                               data-field="YearsUsed"
+                                               style="width: 105px;" />
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               name="Step3.Skills[@i].LastUsedYear"
+                                               value="@row.LastUsedYear"
+                                               class="c-input"
+                                               min="1990"
+                                               max="2100"
+                                               placeholder="@DateTime.UtcNow.Year"
+                                               aria-label="Last used year for @row.SkillName"
+                                               data-field="LastUsedYear"
+                                               style="width: 110px;" />
+                                    </td>
+                                    <td>
+                                        <label class="c-check">
+                                            <input type="checkbox"
+                                                   name="Step3.Skills[@i].IsPrimary"
+                                                   value="true"
+                                                   checked="@(row.IsPrimary ? "checked" : null)"
+                                                   disabled="@(disablePrimary ? "disabled" : null)"
+                                                   data-field="IsPrimary"
+                                                   data-skill-primary />
+                                            <span>Primary</span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <button type="button"
+                                                class="c-btn c-btn--danger-outline c-btn--sm"
+                                                data-skill-remove-btn
+                                                aria-label="Remove @row.SkillName">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="c-card__footer">
+                    <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--ghost">&larr; Back to Experience</a>
+                    <div class="c-btn-group">
+                        <button type="submit" name="nextStep" value="5" class="c-btn c-btn--secondary">Save &amp; Jump to Preferences</button>
+                        <button type="submit" name="nextStep" value="4" class="c-btn c-btn--primary c-btn--lg">Save Skills &amp; Continue &rarr;</button>
+                    </div>
+                </div>
+            </form>
+
+            <template id="hgd-skill-row-template">
+                <tr data-skill-row data-skill-id="">
+                    <td>
+                        <input type="hidden" name="" value="" data-field="SkillId" />
+                        <div><strong data-tpl-skill-name></strong></div>
+                        <span class="c-hint" data-tpl-skill-cat></span>
+                    </td>
+                    <td>
+                        <select name="" class="c-select" data-field="Proficiency" style="min-width: 155px;">
+                            <option value="Beginner">1 &middot; Beginner</option>
+                            <option value="Working" selected>2 &middot; Working</option>
+                            <option value="Strong">3 &middot; Strong</option>
+                            <option value="Expert">4 &middot; Expert</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" name="" class="c-input" min="0" max="50" step="0.5" placeholder="e.g. 2.0" data-field="YearsUsed" style="width: 105px;" />
+                    </td>
+                    <td>
+                        <input type="number" name="" class="c-input" min="1990" max="2100" placeholder="@DateTime.UtcNow.Year" data-field="LastUsedYear" style="width: 110px;" />
+                    </td>
+                    <td>
+                        <label class="c-check">
+                            <input type="checkbox" name="" value="true" data-field="IsPrimary" data-skill-primary />
+                            <span>Primary</span>
+                        </label>
+                    </td>
+                    <td>
+                        <button type="button" class="c-btn c-btn--danger-outline c-btn--sm" data-skill-remove-btn>Remove</button>
+                    </td>
+                </tr>
+            </template>
         </section>
     }
     else if (Model.ActiveStep == 4)
