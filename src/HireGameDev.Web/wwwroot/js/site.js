@@ -115,6 +115,59 @@
     if (!selectedValid && suggestedValue !== null) {
       senioritySelect.value = suggestedValue;
     }
+
+    syncFresherBanner();
+  }
+
+  function syncFresherBanner() {
+    var banner = document.querySelector('[data-fresher-banner]');
+    if (!banner) return;
+    var yearsInput = document.querySelector('[data-years-exp-input]');
+    var senioritySelect = document.querySelector('[data-seniority-select]');
+    var years = yearsInput ? parseFloat(yearsInput.value) : 0;
+    var seniorityVal = senioritySelect ? senioritySelect.value : '';
+    var isFresher = isNaN(years) || years < 1 || seniorityVal === 'Fresher';
+    banner.hidden = !isFresher;
+  }
+
+  function syncRepeatSection(section) {
+    if (!section) return;
+    var prefix = section.getAttribute('data-repeat-prefix') || '';
+    var maxItems = parseInt(section.getAttribute('data-repeat-max') || '20', 10);
+    var container = section.querySelector('[data-repeat-items]');
+    if (!container) return;
+
+    var cards = container.querySelectorAll('[data-repeat-card]');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var idxBadge = card.querySelector('[data-card-index]');
+      if (idxBadge) {
+        idxBadge.textContent = '#' + (i + 1);
+      }
+
+      var fields = card.querySelectorAll('[data-field]');
+      for (var f = 0; f < fields.length; f++) {
+        var fieldName = fields[f].getAttribute('data-field');
+        if (fieldName) {
+          fields[f].setAttribute('name', prefix + '[' + i + '].' + fieldName);
+        }
+      }
+    }
+
+    var countBadge = section.querySelector('[data-repeat-count]');
+    if (countBadge) {
+      countBadge.textContent = cards.length + ' / ' + maxItems;
+    }
+
+    var emptyHint = section.querySelector('[data-repeat-empty]');
+    if (emptyHint) {
+      emptyHint.hidden = cards.length > 0;
+    }
+
+    var addBtn = section.querySelector('[data-repeat-add]');
+    if (addBtn) {
+      addBtn.disabled = cards.length >= maxItems;
+    }
   }
 
   function filterSkillCatalog(picker) {
@@ -390,6 +443,45 @@
       return;
     }
 
+    var repeatAddBtn = event.target.closest('[data-repeat-add]');
+    if (repeatAddBtn && !repeatAddBtn.disabled) {
+      var repeatSection = repeatAddBtn.closest('[data-repeat-section]');
+      if (repeatSection) {
+        var tplId = repeatSection.getAttribute('data-repeat-template') || '';
+        var maxCount = parseInt(repeatSection.getAttribute('data-repeat-max') || '20', 10);
+        var itemsHost = repeatSection.querySelector('[data-repeat-items]');
+        var repeatTpl = tplId ? document.getElementById(tplId) : null;
+        if (itemsHost && repeatTpl && 'content' in repeatTpl) {
+          var existingCards = itemsHost.querySelectorAll('[data-repeat-card]');
+          if (existingCards.length < maxCount) {
+            var cardClone = repeatTpl.content.cloneNode(true);
+            itemsHost.appendChild(cardClone);
+            syncRepeatSection(repeatSection);
+            var updatedCards = itemsHost.querySelectorAll('[data-repeat-card]');
+            var newest = updatedCards[updatedCards.length - 1];
+            if (newest) {
+              var firstInput = newest.querySelector('input:not([type="hidden"]), textarea, select');
+              if (firstInput && typeof firstInput.focus === 'function') {
+                firstInput.focus();
+              }
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    var repeatRemoveBtn = event.target.closest('[data-repeat-remove]');
+    if (repeatRemoveBtn) {
+      var sectionForRm = repeatRemoveBtn.closest('[data-repeat-section]');
+      var cardToRemove = repeatRemoveBtn.closest('[data-repeat-card]');
+      if (cardToRemove && cardToRemove.parentNode) {
+        cardToRemove.parentNode.removeChild(cardToRemove);
+        syncRepeatSection(sectionForRm);
+      }
+      return;
+    }
+
     var modalOpenBtn = event.target.closest('[data-modal-open]');
     if (modalOpenBtn) {
       var modalId = modalOpenBtn.getAttribute('data-modal-open');
@@ -455,8 +547,25 @@
     if (event.target.matches('[data-years-exp-input]')) {
       syncSeniorityBand();
     }
+    if (event.target.matches('[data-seniority-select]')) {
+      syncFresherBanner();
+    }
     if (event.target.matches('[data-skill-primary]')) {
       syncSkillPickerState(event.target.closest('[data-skill-picker]'));
+    }
+    if (event.target.matches('[data-exp-current]')) {
+      var expCard = event.target.closest('[data-repeat-card]');
+      if (expCard) {
+        var endDateInput = expCard.querySelector('[data-field="EndDate"]');
+        if (endDateInput) {
+          if (event.target.checked) {
+            endDateInput.value = '';
+            endDateInput.disabled = true;
+          } else {
+            endDateInput.disabled = false;
+          }
+        }
+      }
     }
   });
 

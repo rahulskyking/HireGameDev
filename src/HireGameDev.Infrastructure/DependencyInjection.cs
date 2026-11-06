@@ -162,6 +162,7 @@ public static class DependencyInjection
         services.AddScoped<IConsentService, ConsentService>();
         services.AddScoped<ICandidateProfileService, CandidateProfileService>();
         services.AddScoped<ICandidateSkillsService, CandidateSkillsService>();
+        services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();
 
         return services;
     }

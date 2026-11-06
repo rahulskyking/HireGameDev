@@ -214,12 +214,14 @@
     }
     else if (Model.ActiveStep == 2)
     {
+        var isFresherSelected = Model.Step2.YearsExperience < 1.0m || Model.Step2.Seniority == SeniorityLevel.Fresher;
+
         <section class="c-card" aria-labelledby="step2-heading">
-            <div class="c-card__header">
+            <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
                 <div>
-                    <h2 id="step2-heading" style="font-size: 22px; margin-bottom: 4px;">Step 2 &middot; Experience &amp; Seniority</h2>
+                    <h2 id="step2-heading" style="font-size: 22px; margin-bottom: 4px;">Step 2 &middot; Experience &amp; Education</h2>
                     <p class="c-hint">
-                        Seniority is suggested from your years of experience and may be adjusted by at most &plusmn;1 level. Matching uses years directly, so inflating seniority never helps.
+                        Seniority is suggested from your years of experience (&plusmn;1 level allowed). Add studio/software work history (+15% completeness) and education (+5% completeness).
                     </p>
                 </div>
                 <span class="c-badge c-badge--accent" data-seniority-hint>
@@ -271,13 +273,297 @@
                     </div>
                 </div>
 
-                <div class="c-alert c-alert--info" role="note">
+                <div class="c-alert c-alert--info" role="note" data-fresher-banner hidden="@(!isFresherSelected ? "hidden" : null)">
                     <div class="c-alert__content">
-                        <span class="c-alert__title">Work History &amp; Education Cards (Module M1.3)</span>
+                        <span class="c-alert__title">Fresher-Friendly Completeness Rule (&lt; 1 Year Experience)</span>
                         <p>
-                            Repeating work-experience (+15 pts) and education (+5 pts) cards mount here in <code>M1.3</code>. Freshers (&lt; 1 yr) can skip work history completely and earn those +15 points through Education!
+                            Starting your career in game development? You can skip Work Experience completely&mdash;adding at least <strong>1 Education entry</strong> below unlocks <strong>both</strong> the +15% experience credit and +5% education credit (+20% total) so freshers can still reach 100% completeness!
                         </p>
                     </div>
+                </div>
+
+                <hr />
+
+                <!-- Work Experience Repeating Cards -->
+                <div class="p-sg-stack"
+                     data-repeat-section
+                     data-repeat-prefix="Step2.Experiences"
+                     data-repeat-max="@CandidateProfileRules.MaxCandidateExperiences"
+                     data-repeat-template="hgd-exp-card-template">
+                    <div class="c-card__header" style="padding: 0; border: 0; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="font-size: 18px; margin: 0 0 2px 0;">
+                                Work Experience
+                                <span class="c-badge c-badge--neutral" data-repeat-count>@Model.Step2.Experiences.Count / @CandidateProfileRules.MaxCandidateExperiences</span>
+                            </h3>
+                            <p class="c-hint" style="margin: 0;">Game studios, freelance contracts, internships, or software engineering roles (+15% completeness).</p>
+                        </div>
+                        <button type="button"
+                                class="c-btn c-btn--secondary c-btn--sm"
+                                data-repeat-add
+                                disabled="@(Model.Step2.Experiences.Count >= CandidateProfileRules.MaxCandidateExperiences ? "disabled" : null)">
+                            + Add Work Experience
+                        </button>
+                    </div>
+
+                    <p class="c-hint" data-repeat-empty hidden="@(Model.Step2.Experiences.Count > 0 ? "hidden" : null)">
+                        No work experience entries added yet. Click <strong>+ Add Work Experience</strong> to add a studio, internship, or software role.
+                    </p>
+
+                    <div class="p-sg-stack" data-repeat-items>
+                        @for (var i = 0; i < Model.Step2.Experiences.Count; i++)
+                        {
+                            var exp = Model.Step2.Experiences[i];
+                            <article class="c-card" style="padding: 16px;" data-repeat-card>
+                                <input type="hidden" name="Step2.Experiences[@i].Id" value="@exp.Id" data-field="Id" />
+
+                                <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center;">
+                                    <strong style="font-size: 14px;">Role <span data-card-index>#@(i + 1)</span></strong>
+                                    <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                                </div>
+
+                                <div class="p-sg-grid-2">
+                                    <div class="c-field">
+                                        <label class="c-label">Studio or Company Name</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step2.Experiences[@i].CompanyName"
+                                               value="@exp.CompanyName"
+                                               maxlength="160"
+                                               placeholder="e.g. Nodding Heads Games"
+                                               data-field="CompanyName" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Role / Job Title</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step2.Experiences[@i].Title"
+                                               value="@exp.Title"
+                                               maxlength="160"
+                                               placeholder="e.g. Gameplay Programmer"
+                                               data-field="Title" />
+                                    </div>
+                                </div>
+
+                                <div class="p-sg-grid-2" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Start Date</label>
+                                        <input type="date"
+                                               class="c-input"
+                                               name="Step2.Experiences[@i].StartDate"
+                                               value="@(exp.StartDate?.ToString("yyyy-MM-dd"))"
+                                               data-field="StartDate" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">End Date</label>
+                                        <input type="date"
+                                               class="c-input"
+                                               name="Step2.Experiences[@i].EndDate"
+                                               value="@(exp.IsCurrent ? string.Empty : exp.EndDate?.ToString("yyyy-MM-dd"))"
+                                               disabled="@(exp.IsCurrent ? "disabled" : null)"
+                                               data-field="EndDate" />
+                                    </div>
+                                </div>
+
+                                <label class="c-check" style="margin-top: 10px;">
+                                    <input type="checkbox"
+                                           name="Step2.Experiences[@i].IsCurrent"
+                                           value="true"
+                                           checked="@(exp.IsCurrent ? "checked" : null)"
+                                           data-field="IsCurrent"
+                                           data-exp-current />
+                                    <span>I currently work here</span>
+                                </label>
+
+                                <div class="c-field" style="margin-top: 12px;">
+                                    <label class="c-label">Highlights &amp; Responsibilities (optional)</label>
+                                    <textarea class="c-textarea"
+                                              rows="3"
+                                              maxlength="1500"
+                                              name="Step2.Experiences[@i].Description"
+                                              placeholder="Systems owned, target platforms, frame-budget optimizations, or team collaboration (up to 1500 characters)..."
+                                              data-field="Description">@exp.Description</textarea>
+                                </div>
+                            </article>
+                        }
+                    </div>
+
+                    @if (Model.Step2.Experiences.Count == 0)
+                    {
+                        <noscript>
+                            <article class="c-card" style="padding: 16px;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 12px;">Optional Work Experience Entry</strong>
+                                <div class="p-sg-grid-2">
+                                    <div class="c-field">
+                                        <label class="c-label">Studio or Company Name</label>
+                                        <input type="text" class="c-input" name="Step2.Experiences[0].CompanyName" maxlength="160" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Role / Job Title</label>
+                                        <input type="text" class="c-input" name="Step2.Experiences[0].Title" maxlength="160" />
+                                    </div>
+                                </div>
+                                <div class="p-sg-grid-2" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Start Date</label>
+                                        <input type="date" class="c-input" name="Step2.Experiences[0].StartDate" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">End Date</label>
+                                        <input type="date" class="c-input" name="Step2.Experiences[0].EndDate" />
+                                    </div>
+                                </div>
+                                <label class="c-check" style="margin-top: 10px;">
+                                    <input type="checkbox" name="Step2.Experiences[0].IsCurrent" value="true" />
+                                    <span>I currently work here</span>
+                                </label>
+                                <div class="c-field" style="margin-top: 12px;">
+                                    <label class="c-label">Highlights &amp; Responsibilities (optional)</label>
+                                    <textarea class="c-textarea" rows="3" maxlength="1500" name="Step2.Experiences[0].Description"></textarea>
+                                </div>
+                            </article>
+                        </noscript>
+                    }
+                </div>
+
+                <hr />
+
+                <!-- Education Repeating Cards -->
+                <div class="p-sg-stack"
+                     data-repeat-section
+                     data-repeat-prefix="Step2.Education"
+                     data-repeat-max="@CandidateProfileRules.MaxCandidateEducationEntries"
+                     data-repeat-template="hgd-edu-card-template">
+                    <div class="c-card__header" style="padding: 0; border: 0; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="font-size: 18px; margin: 0 0 2px 0;">
+                                Education
+                                <span class="c-badge c-badge--neutral" data-repeat-count>@Model.Step2.Education.Count / @CandidateProfileRules.MaxCandidateEducationEntries</span>
+                            </h3>
+                            <p class="c-hint" style="margin: 0;">Degrees, game-design/art diplomas, or university programs (+5% completeness; +20% total for freshers).</p>
+                        </div>
+                        <button type="button"
+                                class="c-btn c-btn--secondary c-btn--sm"
+                                data-repeat-add
+                                disabled="@(Model.Step2.Education.Count >= CandidateProfileRules.MaxCandidateEducationEntries ? "disabled" : null)">
+                            + Add Education
+                        </button>
+                    </div>
+
+                    <p class="c-hint" data-repeat-empty hidden="@(Model.Step2.Education.Count > 0 ? "hidden" : null)">
+                        No education entries added yet. Click <strong>+ Add Education</strong> to add your university, college, or game-dev institute.
+                    </p>
+
+                    <div class="p-sg-stack" data-repeat-items>
+                        @for (var i = 0; i < Model.Step2.Education.Count; i++)
+                        {
+                            var edu = Model.Step2.Education[i];
+                            <article class="c-card" style="padding: 16px;" data-repeat-card>
+                                <input type="hidden" name="Step2.Education[@i].Id" value="@edu.Id" data-field="Id" />
+
+                                <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center;">
+                                    <strong style="font-size: 14px;">Education <span data-card-index>#@(i + 1)</span></strong>
+                                    <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                                </div>
+
+                                <div class="p-sg-grid-2">
+                                    <div class="c-field">
+                                        <label class="c-label">Institution / University</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step2.Education[@i].Institution"
+                                               value="@edu.Institution"
+                                               maxlength="200"
+                                               placeholder="e.g. DSK Supinfogame / IIT Bombay / VIT"
+                                               data-field="Institution" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Degree / Diploma</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step2.Education[@i].Degree"
+                                               value="@edu.Degree"
+                                               maxlength="160"
+                                               placeholder="e.g. B.Tech, B.Des, BCA, PG Diploma"
+                                               data-field="Degree" />
+                                    </div>
+                                </div>
+
+                                <div class="p-sg-grid-3" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Field of Study (optional)</label>
+                                        <input type="text"
+                                               class="c-input"
+                                               name="Step2.Education[@i].Field"
+                                               value="@edu.Field"
+                                               maxlength="160"
+                                               placeholder="e.g. Computer Science / Game Design"
+                                               data-field="Field" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Start Year (optional)</label>
+                                        <input type="number"
+                                               class="c-input"
+                                               name="Step2.Education[@i].StartYear"
+                                               value="@edu.StartYear"
+                                               min="1950"
+                                               max="2100"
+                                               placeholder="2020"
+                                               data-field="StartYear" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label">Completion / Expected Year</label>
+                                        <input type="number"
+                                               class="c-input"
+                                               name="Step2.Education[@i].EndYear"
+                                               value="@edu.EndYear"
+                                               min="1950"
+                                               max="2100"
+                                               placeholder="2024"
+                                               data-field="EndYear" />
+                                    </div>
+                                </div>
+                            </article>
+                        }
+                    </div>
+
+                    @if (Model.Step2.Education.Count == 0)
+                    {
+                        <noscript>
+                            <article class="c-card" style="padding: 16px;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 12px;">Optional Education Entry</strong>
+                                <div class="p-sg-grid-2">
+                                    <div class="c-field">
+                                        <label class="c-label">Institution / University</label>
+                                        <input type="text" class="c-input" name="Step2.Education[0].Institution" maxlength="200" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Degree / Diploma</label>
+                                        <input type="text" class="c-input" name="Step2.Education[0].Degree" maxlength="160" />
+                                    </div>
+                                </div>
+                                <div class="p-sg-grid-3" style="margin-top: 12px;">
+                                    <div class="c-field">
+                                        <label class="c-label">Field of Study (optional)</label>
+                                        <input type="text" class="c-input" name="Step2.Education[0].Field" maxlength="160" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Start Year (optional)</label>
+                                        <input type="number" class="c-input" name="Step2.Education[0].StartYear" min="1950" max="2100" />
+                                    </div>
+                                    <div class="c-field">
+                                        <label class="c-label">Completion / Expected Year</label>
+                                        <input type="number" class="c-input" name="Step2.Education[0].EndYear" min="1950" max="2100" />
+                                    </div>
+                                </div>
+                            </article>
+                        </noscript>
+                    }
                 </div>
 
                 <div class="c-card__footer">
@@ -288,6 +574,78 @@
                     </div>
                 </div>
             </form>
+
+            <template id="hgd-exp-card-template">
+                <article class="c-card" style="padding: 16px;" data-repeat-card>
+                    <input type="hidden" value="" data-field="Id" />
+                    <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center;">
+                        <strong style="font-size: 14px;">Role <span data-card-index>#1</span></strong>
+                        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                    </div>
+                    <div class="p-sg-grid-2">
+                        <div class="c-field">
+                            <label class="c-label">Studio or Company Name</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Nodding Heads Games" data-field="CompanyName" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Role / Job Title</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Gameplay Programmer" data-field="Title" />
+                        </div>
+                    </div>
+                    <div class="p-sg-grid-2" style="margin-top: 12px;">
+                        <div class="c-field">
+                            <label class="c-label">Start Date</label>
+                            <input type="date" class="c-input" data-field="StartDate" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">End Date</label>
+                            <input type="date" class="c-input" data-field="EndDate" />
+                        </div>
+                    </div>
+                    <label class="c-check" style="margin-top: 10px;">
+                        <input type="checkbox" value="true" data-field="IsCurrent" data-exp-current />
+                        <span>I currently work here</span>
+                    </label>
+                    <div class="c-field" style="margin-top: 12px;">
+                        <label class="c-label">Highlights &amp; Responsibilities (optional)</label>
+                        <textarea class="c-textarea" rows="3" maxlength="1500" placeholder="Systems owned, target platforms, frame-budget optimizations, or team collaboration (up to 1500 characters)..." data-field="Description"></textarea>
+                    </div>
+                </article>
+            </template>
+
+            <template id="hgd-edu-card-template">
+                <article class="c-card" style="padding: 16px;" data-repeat-card>
+                    <input type="hidden" value="" data-field="Id" />
+                    <div class="c-card__header" style="padding-bottom: 12px; margin-bottom: 12px; align-items: center;">
+                        <strong style="font-size: 14px;">Education <span data-card-index>#1</span></strong>
+                        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                    </div>
+                    <div class="p-sg-grid-2">
+                        <div class="c-field">
+                            <label class="c-label">Institution / University</label>
+                            <input type="text" class="c-input" maxlength="200" placeholder="e.g. DSK Supinfogame / IIT Bombay / VIT" data-field="Institution" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Degree / Diploma</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. B.Tech, B.Des, BCA, PG Diploma" data-field="Degree" />
+                        </div>
+                    </div>
+                    <div class="p-sg-grid-3" style="margin-top: 12px;">
+                        <div class="c-field">
+                            <label class="c-label">Field of Study (optional)</label>
+                            <input type="text" class="c-input" maxlength="160" placeholder="e.g. Computer Science / Game Design" data-field="Field" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Start Year (optional)</label>
+                            <input type="number" class="c-input" min="1950" max="2100" placeholder="2020" data-field="StartYear" />
+                        </div>
+                        <div class="c-field">
+                            <label class="c-label">Completion / Expected Year</label>
+                            <input type="number" class="c-input" min="1950" max="2100" placeholder="2024" data-field="EndYear" />
+                        </div>
+                    </div>
+                </article>
+            </template>
         </section>
     }
     else if (Model.ActiveStep == 3)

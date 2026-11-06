@@ -64,6 +64,56 @@ public sealed class Step2ExperienceCoreInputModel
     [Required(ErrorMessage = "Select your seniority level.")]
     [Display(Name = "Seniority level")]
     public SeniorityLevel Seniority { get; set; } = SeniorityLevel.Fresher;
+
+    public List<CandidateExperienceInputRow> Experiences { get; set; } = [];
+
+    public List<CandidateEducationInputRow> Education { get; set; } = [];
+}
+
+public sealed class CandidateExperienceInputRow
+{
+    public Guid? Id { get; set; }
+
+    public string CompanyName { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+
+    public DateOnly? StartDate { get; set; }
+
+    public DateOnly? EndDate { get; set; }
+
+    public bool IsCurrent { get; set; }
+
+    public string? Description { get; set; }
+
+    public bool IsCompletelyEmpty =>
+        string.IsNullOrWhiteSpace(CompanyName) &&
+        string.IsNullOrWhiteSpace(Title) &&
+        !StartDate.HasValue &&
+        !EndDate.HasValue &&
+        string.IsNullOrWhiteSpace(Description);
+}
+
+public sealed class CandidateEducationInputRow
+{
+    public Guid? Id { get; set; }
+
+    public string Institution { get; set; } = string.Empty;
+
+    public string Degree { get; set; } = string.Empty;
+
+    public string? Field { get; set; }
+
+    public short? StartYear { get; set; }
+
+    public short? EndYear { get; set; }
+
+    public bool IsCompletelyEmpty =>
+        string.IsNullOrWhiteSpace(Institution) &&
+        string.IsNullOrWhiteSpace(Degree) &&
+        string.IsNullOrWhiteSpace(Field) &&
+        !StartYear.HasValue &&
+        !EndYear.HasValue;
 }
 
 public sealed class Step3SkillsInputModel
@@ -126,4 +176,8 @@ public sealed class CandidateProfileOverviewViewModel
     public HireGameDev.Domain.Rules.CandidateCompletenessBreakdown Completeness { get; init; } = default!;
 
     public IReadOnlyList<CandidateSkillItem> Skills { get; init; } = [];
+
+    public IReadOnlyList<CandidateExperienceItem> Experiences { get; init; } = [];
+
+    public IReadOnlyList<CandidateEducationItem> Education { get; init; } = [];
 }

@@ -146,6 +146,96 @@
         }
     </section>
 
+    <!-- Work Experience & Education Timeline (M1.3) -->
+    <div class="p-sg-grid-2" style="align-items: start;">
+        <section class="c-card" aria-labelledby="candidate-experience-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="candidate-experience-heading" style="font-size: 20px; margin-bottom: 4px;">Work Experience (@Model.Experiences.Count)</h2>
+                    <p class="c-hint">Studio, contract, and engineering timeline.</p>
+                </div>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">
+                    @(Model.Experiences.Count == 0 ? "Add" : "Edit")
+                </a>
+            </div>
+
+            @if (Model.Experiences.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">
+                    @(p.YearsExperience < 1.0m || p.Seniority == SeniorityLevel.Fresher
+                        ? "No work history yet — as a fresher, adding Education earns your +15% experience credit."
+                        : "No work experience added yet. Add at least 1 role in Step 2 to earn +15% completeness.")
+                </p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var exp in Model.Experiences)
+                    {
+                        var dateRange = exp.IsCurrent
+                            ? $"{exp.StartDate:MMM yyyy} – Present"
+                            : exp.EndDate.HasValue
+                                ? $"{exp.StartDate:MMM yyyy} – {exp.EndDate.Value:MMM yyyy}"
+                                : $"{exp.StartDate:MMM yyyy}";
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@exp.Title</strong>
+                                <span class="c-badge @(exp.IsCurrent ? "c-badge--success" : "c-badge--neutral")">@dateRange</span>
+                            </div>
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">@exp.CompanyName</div>
+                            @if (!string.IsNullOrWhiteSpace(exp.Description))
+                            {
+                                <p style="margin: 6px 0 0 0; font-size: 14px; white-space: pre-line;">@exp.Description</p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="c-card" aria-labelledby="candidate-education-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="candidate-education-heading" style="font-size: 20px; margin-bottom: 4px;">Education (@Model.Education.Count)</h2>
+                    <p class="c-hint">Degrees, game-dev institutes, and diplomas.</p>
+                </div>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">
+                    @(Model.Education.Count == 0 ? "Add" : "Edit")
+                </a>
+            </div>
+
+            @if (Model.Education.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No education entries added yet. Add an entry in Step 2 for +5% completeness.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var edu in Model.Education)
+                    {
+                        var yearsText = edu.StartYear.HasValue && edu.EndYear.HasValue
+                            ? $"{edu.StartYear} – {edu.EndYear}"
+                            : edu.EndYear.HasValue
+                                ? $"Class of {edu.EndYear}"
+                                : edu.StartYear.HasValue
+                                    ? $"Started {edu.StartYear}"
+                                    : null;
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@edu.Degree@(!string.IsNullOrWhiteSpace(edu.Field) ? $" · {edu.Field}" : string.Empty)</strong>
+                                @if (!string.IsNullOrWhiteSpace(yearsText))
+                                {
+                                    <span class="c-badge c-badge--neutral">@yearsText</span>
+                                }
+                            </div>
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">@edu.Institution</div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+
     <!-- Points-Sorted Completeness Checklist (Blueprint Section 5) -->
     <section class="c-card" aria-labelledby="completeness-checklist-heading">
         <div class="c-card__header" style="align-items: center; flex-wrap: wrap; gap: 12px;">

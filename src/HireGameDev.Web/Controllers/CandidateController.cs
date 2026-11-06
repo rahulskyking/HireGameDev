@@ -19,17 +19,20 @@ public sealed class CandidateController : Controller
 {
     private readonly ICandidateProfileService _profileService;
     private readonly ICandidateSkillsService _skillsService;
+    private readonly ICandidateBackgroundService _backgroundService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
     public CandidateController(
         ICandidateProfileService profileService,
         ICandidateSkillsService skillsService,
+        ICandidateBackgroundService backgroundService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
         _profileService = profileService;
         _skillsService = skillsService;
+        _backgroundService = backgroundService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -54,12 +57,15 @@ public sealed class CandidateController : Controller
         }
 
         var skills = await _skillsService.GetSkillsForUserAsync(userId, cancellationToken);
+        var background = await _backgroundService.GetBackgroundForUserAsync(userId, cancellationToken);
 
         return View(new CandidateProfileOverviewViewModel
         {
             Profile = state.Profile,
             Completeness = state.CompletenessBreakdown,
-            Skills = skills
+            Skills = skills,
+            Experiences = background.Experiences,
+            Education = background.Education
         });
     }
 
@@ -124,7 +130,7 @@ public sealed class CandidateController : Controller
 
     [HttpPost("Onboarding/Step2")]
     public async Task<IActionResult> SaveStep2(
-        [Bind(Prefix = "Step2")] Step2ExperienceCoreInputModel input,
+        [Bind(Prefix = "Step2")] Step2ExperienceCoreInputModel? input,
         short nextStep = 3,
         CancellationToken cancellationToken = default)
     {
@@ -133,30 +139,73 @@ public sealed class CandidateController : Controller
             return RedirectToAction("Login", "Account");
         }
 
+        var normalizedInput = input ?? new Step2ExperienceCoreInputModel();
+        var nonEmptyExpRows = normalizedInput.Experiences
+            .Where(e => !e.IsCompletelyEmpty)
+            .ToList();
+        var nonEmptyEduRows = normalizedInput.Education
+            .Where(e => !e.IsCompletelyEmpty)
+            .ToList();
+
+        normalizedInput.Experiences = nonEmptyExpRows;
+        normalizedInput.Education = nonEmptyEduRows;
+
+        for (var i = 0; i < nonEmptyExpRows.Count; i++)
+        {
+            if (!nonEmptyExpRows[i].StartDate.HasValue)
+            {
+                ModelState.AddModelError(string.Empty, $"Select a start date for work experience entry #{i + 1}.");
+                break;
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             var invalidState = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
-            var invalidVm = await BuildWizardViewModelAsync(invalidState, 2, cancellationToken, step2Override: input);
+            var invalidVm = await BuildWizardViewModelAsync(invalidState, 2, cancellationToken, step2Override: normalizedInput);
             return View("Onboarding", invalidVm);
         }
 
-        var result = await _profileService.SaveStep2ExperienceCoreAsync(
-            new SaveCandidateExperienceCoreCommand(
+        var experienceInputs = nonEmptyExpRows
+            .Select(e => new CandidateExperienceInput(
+                Id: e.Id,
+                CompanyName: e.CompanyName,
+                Title: e.Title,
+                StartDate: e.StartDate!.Value,
+                EndDate: e.IsCurrent ? null : e.EndDate,
+                IsCurrent: e.IsCurrent,
+                Description: e.Description))
+            .ToArray();
+
+        var educationInputs = nonEmptyEduRows
+            .Select(e => new CandidateEducationInput(
+                Id: e.Id,
+                Institution: e.Institution,
+                Degree: e.Degree,
+                Field: e.Field,
+                StartYear: e.StartYear,
+                EndYear: e.EndYear))
+            .ToArray();
+
+        var result = await _backgroundService.SaveStep2BackgroundAsync(
+            new SaveCandidateStep2BackgroundCommand(
                 UserId: userId,
-                YearsExperience: input.YearsExperience,
-                Seniority: input.Seniority),
+                YearsExperience: normalizedInput.YearsExperience,
+                Seniority: normalizedInput.Seniority,
+                Experiences: experienceInputs,
+                Education: educationInputs),
             cancellationToken);
 
         if (result.IsFailure)
         {
             ModelState.AddModelError(string.Empty, result.Error.Message);
             var failedState = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
-            var failedVm = await BuildWizardViewModelAsync(failedState, 2, cancellationToken, step2Override: input);
+            var failedVm = await BuildWizardViewModelAsync(failedState, 2, cancellationToken, step2Override: normalizedInput);
             return View("Onboarding", failedVm);
         }
 
         var sanitizedNext = nextStep == 5 ? (short)5 : (short)3;
-        TempData["StatusMessage"] = "Step 2 (Experience level) saved as draft.";
+        TempData["StatusMessage"] = $"Step 2 saved ({result.Value.Experiences.Count} experience, {result.Value.Education.Count} education).";
         return RedirectToAction(nameof(Onboarding), new { step = sanitizedNext });
     }
 
@@ -310,11 +359,48 @@ public sealed class CandidateController : Controller
         };
 
         var defaultYears = profile?.YearsExperience ?? 0.0m;
-        var step2 = step2Override ?? new Step2ExperienceCoreInputModel
+        Step2ExperienceCoreInputModel step2;
+
+        if (step2Override is not null)
         {
-            YearsExperience = defaultYears,
-            Seniority = profile?.Seniority ?? CandidateProfileRules.SuggestSeniorityFromYears(defaultYears)
-        };
+            step2 = step2Override;
+        }
+        else if (activeStep == 2 && profile is not null)
+        {
+            var savedBg = await _backgroundService.GetBackgroundForUserAsync(state.UserId, cancellationToken);
+            step2 = new Step2ExperienceCoreInputModel
+            {
+                YearsExperience = defaultYears,
+                Seniority = profile.Seniority,
+                Experiences = savedBg.Experiences.Select(e => new CandidateExperienceInputRow
+                {
+                    Id = e.Id,
+                    CompanyName = e.CompanyName,
+                    Title = e.Title,
+                    StartDate = e.StartDate,
+                    EndDate = e.EndDate,
+                    IsCurrent = e.IsCurrent,
+                    Description = e.Description
+                }).ToList(),
+                Education = savedBg.Education.Select(e => new CandidateEducationInputRow
+                {
+                    Id = e.Id,
+                    Institution = e.Institution,
+                    Degree = e.Degree,
+                    Field = e.Field,
+                    StartYear = e.StartYear,
+                    EndYear = e.EndYear
+                }).ToList()
+            };
+        }
+        else
+        {
+            step2 = new Step2ExperienceCoreInputModel
+            {
+                YearsExperience = defaultYears,
+                Seniority = profile?.Seniority ?? CandidateProfileRules.SuggestSeniorityFromYears(defaultYears)
+            };
+        }
 
         var step5 = step5Override ?? new Step5PreferencesInputModel
         {
