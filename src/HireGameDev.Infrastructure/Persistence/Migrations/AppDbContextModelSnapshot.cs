@@ -143,6 +143,124 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateEducation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<string>("Degree")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("degree");
+
+                    b.Property<short?>("EndYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("end_year");
+
+                    b.Property<string>("Field")
+                        .HasColumnType("text")
+                        .HasColumnName("field");
+
+                    b.Property<string>("Institution")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("institution");
+
+                    b.Property<short?>("StartYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("start_year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_candidate_education");
+
+                    b.HasIndex(new[] { "CandidateId", "EndYear" }, "ix_candedu_candidate_timeline")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_candedu_candidate_timeline");
+
+                    b.ToTable("candidate_education", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_candidate_education_degree_len", "char_length(btrim(degree)) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("ck_candidate_education_end_year", "end_year IS NULL OR (end_year BETWEEN 1950 AND 2100)");
+
+                            t.HasCheckConstraint("ck_candidate_education_field_len", "field IS NULL OR char_length(field) <= 160");
+
+                            t.HasCheckConstraint("ck_candidate_education_institution_len", "char_length(btrim(institution)) BETWEEN 1 AND 200");
+
+                            t.HasCheckConstraint("ck_candidate_education_start_year", "start_year IS NULL OR (start_year BETWEEN 1950 AND 2100)");
+
+                            t.HasCheckConstraint("ck_candidate_education_year_order", "start_year IS NULL OR end_year IS NULL OR end_year >= start_year");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateExperience", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("company_name");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<bool>("IsCurrent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_current")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_candidate_experiences");
+
+                    b.HasIndex(new[] { "CandidateId", "IsCurrent", "StartDate" }, "ix_candexp_candidate_timeline")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_candexp_candidate_timeline");
+
+                    b.ToTable("candidate_experiences", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_candidate_experiences_company_name_len", "char_length(btrim(company_name)) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("ck_candidate_experiences_current_end_date", "NOT (is_current AND end_date IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_candidate_experiences_date_order", "end_date IS NULL OR end_date >= start_date");
+
+                            t.HasCheckConstraint("ck_candidate_experiences_description_len", "description IS NULL OR char_length(description) <= 1500");
+
+                            t.HasCheckConstraint("ck_candidate_experiences_title_len", "char_length(btrim(title)) BETWEEN 1 AND 160");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -971,6 +1089,30 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_audit_logs_users_actor_user_id");
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateEducation", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany("Education")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_education_candidate_profiles_candidate_id");
+
+                    b.Navigation("Candidate");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateExperience", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany("Experiences")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_experiences_candidate_profiles_candidate_id");
+
+                    b.Navigation("Candidate");
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
                 {
                     b.HasOne("HireGameDev.Domain.Entities.City", "City")
@@ -1112,6 +1254,10 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
                 {
+                    b.Navigation("Education");
+
+                    b.Navigation("Experiences");
+
                     b.Navigation("Skills");
                 });
 
