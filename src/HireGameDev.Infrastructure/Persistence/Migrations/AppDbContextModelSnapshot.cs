@@ -143,6 +143,191 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Availability")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("availability")
+                        .HasDefaultValueSql("'actively_looking'");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text")
+                        .HasColumnName("bio");
+
+                    b.Property<DateTimeOffset?>("BoostedUntil")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("boosted_until");
+
+                    b.Property<int>("CityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("city_id");
+
+                    b.Property<short>("Completeness")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("completeness")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal?>("CurrentCtcLpa")
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("current_ctc_lpa");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<decimal?>("ExpectedCtcLpa")
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("expected_ctc_lpa");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("full_name");
+
+                    b.Property<string>("Headline")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("headline");
+
+                    b.Property<bool>("IsDiscoverable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_discoverable")
+                        .HasDefaultValueSql("true");
+
+                    b.Property<DateTimeOffset>("LastActiveAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("last_active_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<short?>("NoticePeriodDays")
+                        .HasColumnType("smallint")
+                        .HasColumnName("notice_period_days");
+
+                    b.Property<short>("OnboardingStep")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("onboarding_step")
+                        .HasDefaultValueSql("1");
+
+                    b.Property<bool>("OpenToRemote")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("open_to_remote")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text")
+                        .HasColumnName("phone");
+
+                    b.Property<DateTimeOffset?>("PhoneVerifiedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("phone_verified_at");
+
+                    b.Property<string>("PhotoPath")
+                        .HasColumnType("text")
+                        .HasColumnName("photo_path");
+
+                    b.Property<string>("PrimaryCategory")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("primary_category");
+
+                    b.Property<string>("Seniority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("seniority")
+                        .HasDefaultValueSql("'fresher'");
+
+                    b.Property<bool>("ShowCurrentCtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("show_current_ctc")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool>("WillingToRelocate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("willing_to_relocate")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<decimal>("YearsExperience")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(3,1)")
+                        .HasColumnName("years_experience")
+                        .HasDefaultValueSql("0.0");
+
+                    b.HasKey("Id")
+                        .HasName("pk_candidate_profiles");
+
+                    b.HasIndex(new[] { "PrimaryCategory", "CityId", "Seniority" }, "ix_cand_discover")
+                        .HasDatabaseName("ix_cand_discover")
+                        .HasFilter("is_discoverable AND deleted_at IS NULL");
+
+                    b.HasIndex(new[] { "CityId" }, "ix_candidate_profiles_city_id")
+                        .HasDatabaseName("ix_candidate_profiles_city_id");
+
+                    b.HasIndex(new[] { "UserId" }, "ux_candidate_profiles_user_id")
+                        .IsUnique()
+                        .HasDatabaseName("ux_candidate_profiles_user_id");
+
+                    b.ToTable("candidate_profiles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_candidate_profiles_availability", "availability IN ('actively_looking', 'open_to_offers', 'not_looking')");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_bio_len", "bio IS NULL OR char_length(bio) <= 1500");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_completeness", "completeness >= 0 AND completeness <= 100");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_current_ctc_lpa", "current_ctc_lpa IS NULL OR current_ctc_lpa >= 0");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_expected_ctc_lpa", "expected_ctc_lpa IS NULL OR expected_ctc_lpa > 0");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_full_name_len", "char_length(btrim(full_name)) BETWEEN 2 AND 80");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_headline_len", "char_length(btrim(headline)) BETWEEN 3 AND 80");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_notice_period_days", "notice_period_days IS NULL OR notice_period_days IN (0, 15, 30, 45, 60, 90)");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_onboarding_step", "onboarding_step >= 1 AND onboarding_step <= 5");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_phone_e164", "phone IS NULL OR phone ~ '^\\+[1-9][0-9]{7,14}$'");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_primary_category", "primary_category IN ('programming', 'art', 'design', 'audio', 'qa', 'production')");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_seniority", "seniority IN ('fresher', 'junior', 'mid', 'senior', 'lead')");
+
+                            t.HasCheckConstraint("ck_candidate_profiles_years_experience", "years_experience >= 0 AND years_experience <= 50");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.City", b =>
                 {
                     b.Property<int>("Id")
@@ -732,6 +917,25 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ActorUserId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_audit_logs_users_actor_user_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_profiles_cities_city_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_profiles_users_user_id");
+
+                    b.Navigation("City");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.ConsentRecord", b =>
