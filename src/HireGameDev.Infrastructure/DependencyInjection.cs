@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Auth;
+using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Abstractions.ReferenceData;
@@ -159,6 +160,7 @@ public static class DependencyInjection
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IAppSettingsSeeder, AppSettingsSeeder>();
         services.AddScoped<IConsentService, ConsentService>();
+        services.AddScoped<ICandidateProfileService, CandidateProfileService>();
 
         return services;
     }
