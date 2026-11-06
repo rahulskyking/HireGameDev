@@ -328,6 +328,58 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateSkill", b =>
+                {
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skill_id");
+
+                    b.Property<short>("EvidenceLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("evidence_level")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<bool>("IsPrimary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_primary")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<short?>("LastUsedYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("last_used_year");
+
+                    b.Property<short>("Proficiency")
+                        .HasColumnType("smallint")
+                        .HasColumnName("proficiency");
+
+                    b.Property<decimal?>("YearsUsed")
+                        .HasColumnType("numeric(3,1)")
+                        .HasColumnName("years_used");
+
+                    b.HasKey("CandidateId", "SkillId")
+                        .HasName("pk_candidate_skills");
+
+                    b.HasIndex(new[] { "SkillId", "Proficiency" }, "ix_candskills_skill")
+                        .HasDatabaseName("ix_candskills_skill");
+
+                    b.ToTable("candidate_skills", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_candidate_skills_evidence_level", "evidence_level IN (0, 1, 2)");
+
+                            t.HasCheckConstraint("ck_candidate_skills_last_used_year", "last_used_year IS NULL OR (last_used_year BETWEEN 1990 AND 2100)");
+
+                            t.HasCheckConstraint("ck_candidate_skills_proficiency", "proficiency BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_candidate_skills_years_used", "years_used IS NULL OR (years_used >= 0 AND years_used <= 50)");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.City", b =>
                 {
                     b.Property<int>("Id")
@@ -938,6 +990,27 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("City");
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateSkill", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany("Skills")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_skills_candidate_profiles_candidate_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "Skill")
+                        .WithMany()
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_skills_skills_skill_id");
+
+                    b.Navigation("Candidate");
+
+                    b.Navigation("Skill");
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.ConsentRecord", b =>
                 {
                     b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
@@ -1035,6 +1108,11 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateProfile", b =>
+                {
+                    b.Navigation("Skills");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
