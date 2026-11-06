@@ -77,4 +77,8 @@ public sealed class CandidateProfile : IAuditableEntity, ISoftDeletable
     public DateTimeOffset? DeletedAt { get; set; }
 
     public ICollection<CandidateSkill> Skills { get; set; } = new List<CandidateSkill>();
+
+    public ICollection<CandidateExperience> Experiences { get; set; } = new List<CandidateExperience>();
+
+    public ICollection<CandidateEducation> Education { get; set; } = new List<CandidateEducation>();
 }

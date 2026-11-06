@@ -163,6 +163,12 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
         profile.OnboardingStep = Math.Max(profile.OnboardingStep, (short)4);
         profile.LastActiveAt = _clock.UtcNow;
 
+        var experienceCount = await _dbContext.CandidateExperiences
+            .CountAsync(e => e.CandidateId == profile.Id, cancellationToken);
+
+        var educationCount = await _dbContext.CandidateEducation
+            .CountAsync(e => e.CandidateId == profile.Id, cancellationToken);
+
         var hasExpectedAndNotice = profile.ExpectedCtcLpa is > 0m &&
                                    profile.NoticePeriodDays.HasValue &&
                                    CandidateProfileRules.IsValidNoticePeriod(profile.NoticePeriodDays.Value);
@@ -173,8 +179,8 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
             HasBio: !string.IsNullOrWhiteSpace(profile.Bio),
             HasCity: profile.CityId > 0,
             SkillCount: command.Skills.Count,
-            ExperienceCount: 0,
-            EducationCount: 0,
+            ExperienceCount: experienceCount,
+            EducationCount: educationCount,
             ShippedTitleCount: 0,
             PortfolioLinkCount: 0,
             HasExpectedCtcAndNoticePeriod: hasExpectedAndNotice,

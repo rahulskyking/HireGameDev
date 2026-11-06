@@ -34,6 +34,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<CandidateSkill> CandidateSkills => Set<CandidateSkill>();
 
+    public DbSet<CandidateExperience> CandidateExperiences => Set<CandidateExperience>();
+
+    public DbSet<CandidateEducation> CandidateEducation => Set<CandidateEducation>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

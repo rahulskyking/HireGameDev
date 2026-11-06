@@ -335,20 +335,27 @@ internal sealed class CandidateProfileService : ICandidateProfileService
             ? await _dbContext.CandidateSkills.CountAsync(cs => cs.CandidateId == profile.Id, cancellationToken)
             : 0;
 
+        var experienceCount = isPersisted
+            ? await _dbContext.CandidateExperiences.CountAsync(e => e.CandidateId == profile.Id, cancellationToken)
+            : 0;
+
+        var educationCount = isPersisted
+            ? await _dbContext.CandidateEducation.CountAsync(e => e.CandidateId == profile.Id, cancellationToken)
+            : 0;
+
         var hasExpectedAndNotice = profile.ExpectedCtcLpa is > 0m &&
                                    profile.NoticePeriodDays.HasValue &&
                                    CandidateProfileRules.IsValidNoticePeriod(profile.NoticePeriodDays.Value);
 
-        // Child collection counts (experiences, education, shipped titles, portfolio links)
-        // plug in sequentially across M1.3 and M1.4.
+        // Shipped titles and portfolio links plug in during M1.4.
         return CandidateProfileRules.CalculateCompleteness(new CandidateCompletenessInput(
             HasPhoto: !string.IsNullOrWhiteSpace(profile.PhotoPath),
             HasHeadline: !string.IsNullOrWhiteSpace(profile.Headline) && profile.Headline.Trim().Length >= 3,
             HasBio: !string.IsNullOrWhiteSpace(profile.Bio),
             HasCity: profile.CityId > 0,
             SkillCount: skillCount,
-            ExperienceCount: 0,
-            EducationCount: 0,
+            ExperienceCount: experienceCount,
+            EducationCount: educationCount,
             ShippedTitleCount: 0,
             PortfolioLinkCount: 0,
             HasExpectedCtcAndNoticePeriod: hasExpectedAndNotice,

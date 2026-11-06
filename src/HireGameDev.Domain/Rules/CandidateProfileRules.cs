@@ -47,6 +47,11 @@ public static class CandidateProfileRules
     public const int MaxPrimarySkills = 5;
     public const short MinSkillLastUsedYear = 1990;
     public const short MaxSkillLastUsedYear = 2100;
+    public const int MaxCandidateExperiences = 20;
+    public const int MaxCandidateEducationEntries = 10;
+    public const int MaxExperienceDescriptionLength = 1500;
+    public const short MinEducationYear = 1950;
+    public const short MaxEducationYear = 2100;
 
     public static readonly IReadOnlyList<short> AllowedNoticePeriodDays = [0, 15, 30, 45, 60, 90];
 
