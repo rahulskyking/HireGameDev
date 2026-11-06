@@ -31,7 +31,7 @@
             }
             else
             {
-                <a asp-controller="Account" asp-action="Register" class="c-btn c-btn--primary c-btn--lg">Create Studio Account</a>
+                <a asp-controller="Account" asp-action="Register" asp-route-type="studio" class="c-btn c-btn--primary c-btn--lg">Create Studio Account</a>
                 <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary c-btn--lg">Studio Sign In</a>
             }
             <a href="@jobsUrl" class="c-btn c-btn--ghost c-btn--lg">View Public Job Board &rarr;</a>

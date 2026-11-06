@@ -84,6 +84,18 @@ public static class PortalServiceCollectionExtensions
                 return;
             }
 
+            // Normalize legacy *.localhost / lvh.me dev URLs straight back to bare localhost.
+            var incomingHost = context.Request.Host.Host;
+            if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
+                (incomingHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(incomingHost, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
+                 incomingHost.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase)))
+            {
+                var pathAndQuery = $"{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}";
+                context.Response.Redirect(navigator.BuildPortalUrl(PortalSite.Landing, context, pathAndQuery), permanent: false);
+                return;
+            }
+
             // When deployed as a single-portal slice (e.g. DeploymentMode = Jobs), reject requests meant for other host prefixes.
             if (navigator.DeploymentMode != PortalDeploymentMode.All)
             {

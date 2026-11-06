@@ -101,10 +101,10 @@
                 }
                 <a class="c-nav-link"
                    href="@jobsUrl"
-                   aria-current="@(currentPortal == PortalSite.Jobs && Context.Request.Path == "/" ? "page" : null)">Jobs</a>
+                   aria-current="@((currentPortal == PortalSite.Jobs && Context.Request.Path == "/") || Context.Request.Path.StartsWithSegments("/jobs") ? "page" : null)">Jobs</a>
                 <a class="c-nav-link"
                    href="@studioUrl"
-                   aria-current="@(currentPortal == PortalSite.Studio && Context.Request.Path == "/" ? "page" : null)">For Studios</a>
+                   aria-current="@((currentPortal == PortalSite.Studio && Context.Request.Path == "/") || Context.Request.Path.StartsWithSegments("/for-studios") ? "page" : null)">For Studios</a>
 
                 @if (hasCandidateRole && currentPortal != PortalSite.Studio)
                 {

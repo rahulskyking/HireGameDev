@@ -26,7 +26,9 @@ public sealed class PublicDirectoryController : Controller
         }
 
         var portal = _portalNavigator.ResolvePortal(HttpContext);
-        if (portal != PortalSite.Jobs && _portalNavigator.DeploymentMode == PortalDeploymentMode.All)
+        if (portal != PortalSite.Jobs &&
+            _portalNavigator.DeploymentMode == PortalDeploymentMode.All &&
+            _portalNavigator.IsSubdomainRoutingActive(HttpContext))
         {
             var canonical = _portalNavigator.BuildPortalUrl(
                 PortalSite.Jobs,
@@ -48,7 +50,9 @@ public sealed class PublicDirectoryController : Controller
         }
 
         var portal = _portalNavigator.ResolvePortal(HttpContext);
-        if (portal != PortalSite.Jobs && _portalNavigator.DeploymentMode == PortalDeploymentMode.All)
+        if (portal != PortalSite.Jobs &&
+            _portalNavigator.DeploymentMode == PortalDeploymentMode.All &&
+            _portalNavigator.IsSubdomainRoutingActive(HttpContext))
         {
             var canonical = _portalNavigator.BuildPortalUrl(
                 PortalSite.Jobs,

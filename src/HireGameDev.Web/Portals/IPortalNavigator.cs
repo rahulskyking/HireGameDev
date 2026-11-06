@@ -6,6 +6,8 @@ public interface IPortalNavigator
 
     PortalSite ResolvePortal(HttpContext httpContext);
 
+    bool IsSubdomainRoutingActive(HttpContext httpContext);
+
     bool IsPortalServedByThisDeployment(PortalSite site);
 
     string GetPortalBaseUrl(PortalSite target, HttpContext httpContext);

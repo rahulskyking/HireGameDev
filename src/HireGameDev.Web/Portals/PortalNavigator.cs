@@ -27,8 +27,31 @@ public sealed class PortalNavigator : IPortalNavigator
             PortalDeploymentMode.Landing => PortalSite.Landing,
             PortalDeploymentMode.Jobs => PortalSite.Jobs,
             PortalDeploymentMode.Studio => PortalSite.Studio,
-            _ => ResolvePortalFromHost(httpContext.Request.Host.Host)
+            _ => IsSubdomainRoutingActive(httpContext)
+                ? ResolvePortalFromHost(httpContext.Request.Host.Host)
+                : PortalSite.Landing
         };
+    }
+
+    public bool IsSubdomainRoutingActive(HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
+        var host = httpContext.Request.Host.Host;
+        if (string.IsNullOrWhiteSpace(host) || IsLocalSingleHost(host))
+        {
+            return false;
+        }
+
+        if (Uri.TryCreate(_options.LandingBaseUrl, UriKind.Absolute, out var landingUri) &&
+            !string.IsNullOrWhiteSpace(landingUri.Host))
+        {
+            var rootDomain = landingUri.Host.TrimStart('.');
+            return string.Equals(host, rootDomain, StringComparison.OrdinalIgnoreCase) ||
+                   host.EndsWith($".{rootDomain}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     public bool IsPortalServedByThisDeployment(PortalSite site)
@@ -48,9 +71,10 @@ public sealed class PortalNavigator : IPortalNavigator
         ArgumentNullException.ThrowIfNull(httpContext);
 
         var requestHost = httpContext.Request.Host.Host;
-        if (TryResolveLocalDevBaseUrl(target, httpContext.Request.Scheme, requestHost, httpContext.Request.Host.Port, out var devBaseUrl))
+        if (!IsSubdomainRoutingActive(httpContext) &&
+            TryResolveLocalSingleHostBaseUrl(httpContext.Request.Scheme, requestHost, httpContext.Request.Host.Port, out var singleHostBaseUrl))
         {
-            return devBaseUrl;
+            return singleHostBaseUrl;
         }
 
         var configured = target switch
@@ -66,8 +90,19 @@ public sealed class PortalNavigator : IPortalNavigator
     public string BuildPortalUrl(PortalSite target, HttpContext httpContext, string pathAndQuery = "/")
     {
         var baseUrl = GetPortalBaseUrl(target, httpContext);
+
         if (string.IsNullOrWhiteSpace(pathAndQuery) || pathAndQuery == "/")
         {
+            if (!IsSubdomainRoutingActive(httpContext) && _options.DeploymentMode == PortalDeploymentMode.All)
+            {
+                return target switch
+                {
+                    PortalSite.Jobs => $"{baseUrl}/jobs",
+                    PortalSite.Studio => $"{baseUrl}/for-studios",
+                    _ => $"{baseUrl}/"
+                };
+            }
+
             return $"{baseUrl}/";
         }
 
@@ -172,8 +207,8 @@ public sealed class PortalNavigator : IPortalNavigator
 
         var bareDomain = configuredSharedDomain.Trim().TrimStart('.');
         if (string.IsNullOrWhiteSpace(bareDomain) ||
-            string.Equals(bareDomain, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            IPAddress.TryParse(requestHost, out _))
+            IsLocalSingleHost(requestHost) ||
+            IsLocalSingleHost(bareDomain))
         {
             return null;
         }
@@ -185,6 +220,20 @@ public sealed class PortalNavigator : IPortalNavigator
         }
 
         return null;
+    }
+
+    internal static bool IsLocalSingleHost(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return false;
+        }
+
+        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+               IPAddress.TryParse(host, out _) ||
+               string.Equals(host, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase);
     }
 
     private static PortalSite ResolvePortalFromHost(string? host)
@@ -207,8 +256,7 @@ public sealed class PortalNavigator : IPortalNavigator
         return PortalSite.Landing;
     }
 
-    private static bool TryResolveLocalDevBaseUrl(
-        PortalSite target,
+    private static bool TryResolveLocalSingleHostBaseUrl(
         string scheme,
         string? requestHost,
         int? port,
@@ -220,38 +268,21 @@ public sealed class PortalNavigator : IPortalNavigator
             return false;
         }
 
-        string? rootDevHost = null;
-        if (string.Equals(requestHost, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            requestHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(requestHost, "127.0.0.1", StringComparison.Ordinal) ||
-            string.Equals(requestHost, "::1", StringComparison.Ordinal))
-        {
-            rootDevHost = "localhost";
-        }
-        else if (string.Equals(requestHost, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
-                 requestHost.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase))
-        {
-            rootDevHost = "lvh.me";
-        }
-
-        if (rootDevHost is null)
-        {
-            return false;
-        }
-
-        var targetHost = target switch
-        {
-            PortalSite.Jobs => $"jobs.{rootDevHost}",
-            PortalSite.Studio => $"studio.{rootDevHost}",
-            _ => rootDevHost
-        };
+        // Always normalize *.localhost / lvh.me back to bare localhost in local single-host dev.
+        var targetHost = requestHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(requestHost, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
+                         requestHost.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase)
+            ? "localhost"
+            : requestHost;
 
         var isDefaultPort = !port.HasValue ||
                             (string.Equals(scheme, "http", StringComparison.OrdinalIgnoreCase) && port == 80) ||
                             (string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase) && port == 443);
 
-        var portPart = isDefaultPort ? string.Empty : $":{port}";
-        baseUrl = $"{scheme}://{targetHost}{portPart}";
+        baseUrl = isDefaultPort
+            ? $"{scheme}://{targetHost}"
+            : $"{scheme}://{targetHost}:{port.Value}";
+
         return true;
     }
 }

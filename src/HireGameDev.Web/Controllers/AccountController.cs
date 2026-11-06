@@ -38,10 +38,10 @@ public sealed class AccountController : Controller
     {
         var portal = _portalNavigator.ResolvePortal(HttpContext);
 
-        // ADR-012 (A1): Route registration from apex landing domain directly to the dedicated Candidate or Studio portal.
+        // ADR-012 (A1): Route registration from apex landing domain directly to the dedicated Candidate or Studio portal when subdomain routing is active.
         if (portal == PortalSite.Landing &&
             _portalNavigator.DeploymentMode == PortalDeploymentMode.All &&
-            SupportsMultiSubdomainRouting(HttpContext.Request.Host.Host))
+            _portalNavigator.IsSubdomainRoutingActive(HttpContext))
         {
             var targetPortal = string.Equals(type, "studio", StringComparison.OrdinalIgnoreCase)
                 ? PortalSite.Studio
@@ -837,6 +837,7 @@ public sealed class AccountController : Controller
         CancellationToken cancellationToken)
     {
         var allProviders = await _authService.GetConfiguredExternalProvidersAsync(cancellationToken);
+        var subdomainActive = _portalNavigator.IsSubdomainRoutingActive(HttpContext);
 
         model.Portal = portal;
         model.ExternalProviders = portal == PortalSite.Studio
@@ -845,7 +846,7 @@ public sealed class AccountController : Controller
         model.AlternatePortalLoginUrl = portal == PortalSite.Studio
             ? _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Account/Login")
             : _portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/Account/Login");
-        model.RegisterUrl = portal == PortalSite.Landing
+        model.RegisterUrl = portal == PortalSite.Landing && subdomainActive
             ? _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Account/Register")
             : "/Account/Register";
     }
@@ -874,7 +875,7 @@ public sealed class AccountController : Controller
             return Redirect(returnUrl);
         }
 
-        if (portal == PortalSite.Landing && SupportsMultiSubdomainRouting(HttpContext.Request.Host.Host))
+        if (portal == PortalSite.Landing && _portalNavigator.IsSubdomainRoutingActive(HttpContext))
         {
             if (hasAdmin)
             {
@@ -889,6 +890,24 @@ public sealed class AccountController : Controller
             if (hasCandidate)
             {
                 return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/"));
+            }
+        }
+
+        if (portal == PortalSite.Landing && !_portalNavigator.IsSubdomainRoutingActive(HttpContext))
+        {
+            if (hasAdmin)
+            {
+                return Redirect("/Admin");
+            }
+
+            if (hasStudio && !hasCandidate)
+            {
+                return Redirect("/for-studios");
+            }
+
+            if (hasCandidate)
+            {
+                return Redirect("/Candidate/Profile");
             }
         }
 
@@ -916,21 +935,5 @@ public sealed class AccountController : Controller
             .Select(c => c.Value)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-    }
-
-    private static bool SupportsMultiSubdomainRouting(string? host)
-    {
-        if (string.IsNullOrWhiteSpace(host))
-        {
-            return false;
-        }
-
-        return string.Equals(host, "hiregamedev.com", StringComparison.OrdinalIgnoreCase) ||
-               host.EndsWith(".hiregamedev.com", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-               host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(host, "127.0.0.1", StringComparison.Ordinal) ||
-               string.Equals(host, "lvh.me", StringComparison.OrdinalIgnoreCase) ||
-               host.EndsWith(".lvh.me", StringComparison.OrdinalIgnoreCase);
     }
 }
