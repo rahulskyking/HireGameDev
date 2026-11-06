@@ -30,6 +30,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
 
+    public DbSet<CandidateProfile> CandidateProfiles => Set<CandidateProfile>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
