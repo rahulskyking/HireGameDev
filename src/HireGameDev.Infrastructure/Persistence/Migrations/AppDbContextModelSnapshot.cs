@@ -636,6 +636,186 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<string>("LinkType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("link_type");
+
+                    b.Property<short>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("sort_order")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_portfolio_links");
+
+                    b.HasIndex(new[] { "CandidateId", "SortOrder" }, "ix_portfoliolinks_candidate_sort")
+                        .HasDatabaseName("ix_portfoliolinks_candidate_sort");
+
+                    b.ToTable("portfolio_links", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_portfolio_links_link_type", "link_type IN ('github', 'itchio', 'artstation', 'behance', 'youtube', 'website', 'linkedin', 'other')");
+
+                            t.HasCheckConstraint("ck_portfolio_links_sort_order", "sort_order >= 0");
+
+                            t.HasCheckConstraint("ck_portfolio_links_title_len", "title IS NULL OR char_length(title) <= 160");
+
+                            t.HasCheckConstraint("ck_portfolio_links_url", "char_length(url) <= 500 AND url ~ '^https://[^/\\s:@]+\\.[^/\\s]+'");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLinkSkill", b =>
+                {
+                    b.Property<Guid>("PortfolioLinkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_link_id");
+
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skill_id");
+
+                    b.HasKey("PortfolioLinkId", "SkillId")
+                        .HasName("pk_portfolio_link_skills");
+
+                    b.HasIndex("SkillId")
+                        .HasDatabaseName("ix_portfoliolinkskills_skill");
+
+                    b.ToTable("portfolio_link_skills", (string)null);
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ShippedTitle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<int?>("EngineSkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("engine_skill_id");
+
+                    b.Property<string>("GameName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("game_name");
+
+                    b.Property<bool>("HideStudioInPublic")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("hide_studio_in_public")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<long?>("IgdbId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("igdb_id");
+
+                    b.Property<bool>("IsNda")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_nda")
+                        .HasDefaultValueSql("false");
+
+                    b.Property<string[]>("Platforms")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("platforms")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<short?>("ReleaseYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("release_year");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("role");
+
+                    b.Property<short>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("sort_order")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<string>("StoreUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("store_url");
+
+                    b.Property<string>("StudioName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("studio_name");
+
+                    b.Property<string>("Verification")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("verification")
+                        .HasDefaultValueSql("'none'");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_shipped_titles");
+
+                    b.HasIndex("EngineSkillId")
+                        .HasDatabaseName("ix_shippedtitles_engine_skill");
+
+                    b.HasIndex(new[] { "CandidateId", "SortOrder", "ReleaseYear" }, "ix_shippedtitles_candidate_sort")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_shippedtitles_candidate_sort");
+
+                    b.ToTable("shipped_titles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shipped_titles_game_name_len", "char_length(btrim(game_name)) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("ck_shipped_titles_nda_studio_hide", "NOT hide_studio_in_public OR is_nda");
+
+                            t.HasCheckConstraint("ck_shipped_titles_platforms", "cardinality(platforms) <= 5 AND platforms <@ ARRAY['pc', 'android', 'ios', 'console', 'web']::text[]");
+
+                            t.HasCheckConstraint("ck_shipped_titles_release_year", "release_year IS NULL OR (release_year BETWEEN 1990 AND 2100)");
+
+                            t.HasCheckConstraint("ck_shipped_titles_role_len", "char_length(btrim(role)) BETWEEN 1 AND 120");
+
+                            t.HasCheckConstraint("ck_shipped_titles_sort_order", "sort_order >= 0");
+
+                            t.HasCheckConstraint("ck_shipped_titles_store_url", "store_url IS NULL OR (char_length(store_url) <= 500 AND store_url ~ '^https://[^/\\s:@]+\\.[^/\\s]+')");
+
+                            t.HasCheckConstraint("ck_shipped_titles_studio_name_len", "char_length(btrim(studio_name)) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("ck_shipped_titles_verification", "verification IN ('none', 'title_verified', 'credit_verified')");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
                 {
                     b.Property<int>("Id")
@@ -1163,6 +1343,59 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_consent_records_users_user_id");
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLink", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany("PortfolioLinks")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_portfolio_links_candidate_profiles_candidate_id");
+
+                    b.Navigation("Candidate");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLinkSkill", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.PortfolioLink", "PortfolioLink")
+                        .WithMany("EvidencedSkills")
+                        .HasForeignKey("PortfolioLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_portfolio_link_skills_portfolio_links_portfolio_link_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "Skill")
+                        .WithMany()
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_portfolio_link_skills_skills_skill_id");
+
+                    b.Navigation("PortfolioLink");
+
+                    b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ShippedTitle", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany("ShippedTitles")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_shipped_titles_candidate_profiles_candidate_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "EngineSkill")
+                        .WithMany()
+                        .HasForeignKey("EngineSkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_shipped_titles_skills_engine_skill_id");
+
+                    b.Navigation("Candidate");
+
+                    b.Navigation("EngineSkill");
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
                 {
                     b.HasOne("HireGameDev.Domain.Entities.Skill", "ParentSkill")
@@ -1258,7 +1491,16 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Experiences");
 
+                    b.Navigation("PortfolioLinks");
+
+                    b.Navigation("ShippedTitles");
+
                     b.Navigation("Skills");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLink", b =>
+                {
+                    b.Navigation("EvidencedSkills");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.Skill", b =>
