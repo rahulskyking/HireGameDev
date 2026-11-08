@@ -18,6 +18,7 @@ internal sealed class CandidateBackgroundService : ICandidateBackgroundService
     private readonly AppDbContext _dbContext;
     private readonly IValidator<SaveCandidateStep2BackgroundCommand> _validator;
     private readonly ICandidateCompletenessCalculator _completenessCalculator;
+    private readonly IEvidenceService _evidenceService;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
 
@@ -25,12 +26,14 @@ internal sealed class CandidateBackgroundService : ICandidateBackgroundService
         AppDbContext dbContext,
         IValidator<SaveCandidateStep2BackgroundCommand> validator,
         ICandidateCompletenessCalculator completenessCalculator,
+        IEvidenceService evidenceService,
         IAuditLogger auditLogger,
         IClock clock)
     {
         _dbContext = dbContext;
         _validator = validator;
         _completenessCalculator = completenessCalculator;
+        _evidenceService = evidenceService;
         _auditLogger = auditLogger;
         _clock = clock;
     }
@@ -253,6 +256,8 @@ internal sealed class CandidateBackgroundService : ICandidateBackgroundService
                 ExperienceCount: savedExpItems.Count,
                 EducationCount: savedEduItems.Count),
             cancellationToken);
+
+        await _evidenceService.RecomputeAndApplyAsync(profile.Id, cancellationToken);
 
         _auditLogger.Enqueue(new AuditLogEntry(
             Action: "candidate.profile.step2_background_saved",

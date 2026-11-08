@@ -161,6 +161,7 @@ public static class DependencyInjection
         services.AddScoped<IAppSettingsSeeder, AppSettingsSeeder>();
         services.AddScoped<IConsentService, ConsentService>();
         services.AddScoped<ICandidateCompletenessCalculator, CandidateCompletenessCalculator>();
+        services.AddScoped<IEvidenceService, EvidenceService>();
         services.AddScoped<ICandidateProfileService, CandidateProfileService>();
         services.AddScoped<ICandidateSkillsService, CandidateSkillsService>();
         services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();

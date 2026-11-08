@@ -112,12 +112,12 @@
         </div>
     </section>
 
-    <!-- Skills & Proficiency Matrix (M1.2) -->
+    <!-- Skills & Proficiency Matrix (M1.2 + M1.5) -->
     <section class="c-card" aria-labelledby="candidate-skills-heading">
-        <div class="c-card__header">
+        <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
             <div>
                 <h2 id="candidate-skills-heading" style="font-size: 20px; margin-bottom: 4px;">Skills &amp; Proficiency (@Model.Skills.Count)</h2>
-                <p class="c-hint">Primary skills carry top visual prominence; shipped titles and portfolio links upgrade skills to Backed (0.90&times;) or Verified (1.00&times;).</p>
+                <p class="c-hint">Every skill displays whether it is self-declared, backed by submitted proof (experience, portfolio tags, or shipped titles), or independently verified.</p>
             </div>
             <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--secondary c-btn--sm">
                 @(Model.Skills.Count == 0 ? "Add Skills" : "Manage Skills")
@@ -130,24 +130,50 @@
         }
         else
         {
-            <div class="c-chip-list">
+            var verifiedSkillCount = Model.Skills.Count(s => s.EvidenceLevel == SkillEvidenceLevel.Verified);
+            var backedSkillCount = Model.Skills.Count(s => s.EvidenceLevel == SkillEvidenceLevel.Backed);
+            var claimedSkillCount = Model.Skills.Count(s => s.EvidenceLevel == SkillEvidenceLevel.Claimed);
+
+            <div class="c-badge-row" style="margin-bottom: 12px;">
+                @if (verifiedSkillCount > 0)
+                {
+                    <span class="c-badge c-badge--success">@verifiedSkillCount @SkillEvidenceLevel.Verified.ToDisplayLabel()</span>
+                }
+                @if (backedSkillCount > 0)
+                {
+                    <span class="c-badge c-badge--info">@backedSkillCount @SkillEvidenceLevel.Backed.ToDisplayLabel()</span>
+                }
+                @if (claimedSkillCount > 0)
+                {
+                    <span class="c-badge c-badge--neutral">@claimedSkillCount @SkillEvidenceLevel.Claimed.ToDisplayLabel()</span>
+                }
+            </div>
+
+            <div class="p-sg-grid-2" style="gap: 10px;">
                 @foreach (var skill in Model.Skills)
                 {
-                    var chipClass = skill.EvidenceLevel == SkillEvidenceLevel.Verified
-                        ? "c-chip c-chip--verified"
-                        : skill.IsPrimary
-                            ? "c-chip c-chip--accent"
-                            : "c-chip";
-                    var yearsSuffix = skill.YearsUsed.HasValue ? $" · {skill.YearsUsed.Value:0.#}y" : string.Empty;
-                    var evidenceSuffix = skill.EvidenceLevel switch
+                    var evidenceBadgeVariant = skill.EvidenceLevel switch
                     {
-                        SkillEvidenceLevel.Verified => " · Verified",
-                        SkillEvidenceLevel.Backed => " · Proof submitted",
-                        _ => string.Empty
+                        SkillEvidenceLevel.Verified => "c-badge--success",
+                        SkillEvidenceLevel.Backed => "c-badge--info",
+                        _ => "c-badge--neutral"
                     };
-                    <span class="@chipClass">
-                        @(skill.IsPrimary ? "★ " : string.Empty)@skill.SkillName &middot; @skill.Proficiency@yearsSuffix@evidenceSuffix
-                    </span>
+                    var yearsSuffix = skill.YearsUsed.HasValue ? $" · {skill.YearsUsed.Value:0.#} yrs" : string.Empty;
+                    var lastUsedSuffix = skill.LastUsedYear.HasValue ? $" · Last used {skill.LastUsedYear.Value}" : string.Empty;
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2);">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                @if (skill.IsPrimary)
+                                {
+                                    <span class="c-badge c-badge--accent" title="Primary skill">Primary</span>
+                                }
+                                <strong>@skill.SkillName</strong>
+                            </div>
+                            <span class="c-hint">@skill.Proficiency@yearsSuffix@lastUsedSuffix</span>
+                        </div>
+                        <span class="c-badge @evidenceBadgeVariant">@skill.EvidenceLevel.ToDisplayLabel()</span>
+                    </div>
                 }
             </div>
         }

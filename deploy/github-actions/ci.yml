@@ -41,6 +41,9 @@ jobs:
       - name: Build solution (Release)
         run: dotnet build HireGameDev.sln --configuration Release --no-restore
 
+      - name: Run unit tests (Release)
+        run: dotnet test HireGameDev.sln --configuration Release --no-build --verbosity normal
+
       - name: Publish Web application
         run: >-
           dotnet publish src/HireGameDev.Web/HireGameDev.Web.csproj

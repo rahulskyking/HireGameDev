@@ -769,16 +769,17 @@
                                 <tr data-skill-row data-skill-id="@row.SkillId">
                                     <td>
                                         <input type="hidden" name="Step3.Skills[@i].SkillId" value="@row.SkillId" data-field="SkillId" />
-                                        <div>
+                                        @{
+                                            var rowEvidenceBadgeClass = row.EvidenceLevel switch
+                                            {
+                                                SkillEvidenceLevel.Verified => "c-badge--success",
+                                                SkillEvidenceLevel.Backed => "c-badge--info",
+                                                _ => "c-badge--neutral"
+                                            };
+                                        }
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                             <strong>@row.SkillName</strong>
-                                            @if (row.EvidenceLevel == SkillEvidenceLevel.Verified)
-                                            {
-                                                <span class="c-badge c-badge--success" style="margin-left: 6px;">Verified</span>
-                                            }
-                                            else if (row.EvidenceLevel == SkillEvidenceLevel.Backed)
-                                            {
-                                                <span class="c-badge c-badge--info" style="margin-left: 6px;">Backed</span>
-                                            }
+                                            <span class="c-badge @rowEvidenceBadgeClass">@row.EvidenceLevel.ToDisplayLabel()</span>
                                         </div>
                                         <span class="c-hint">@row.CategoryLabel</span>
                                     </td>
@@ -858,7 +859,10 @@
                 <tr data-skill-row data-skill-id="">
                     <td>
                         <input type="hidden" name="" value="" data-field="SkillId" />
-                        <div><strong data-tpl-skill-name></strong></div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <strong data-tpl-skill-name></strong>
+                            <span class="c-badge c-badge--neutral">@SkillEvidenceLevel.Claimed.ToDisplayLabel()</span>
+                        </div>
                         <span class="c-hint" data-tpl-skill-cat></span>
                     </td>
                     <td>

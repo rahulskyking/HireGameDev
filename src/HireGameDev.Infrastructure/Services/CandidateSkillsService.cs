@@ -18,6 +18,7 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
     private readonly AppDbContext _dbContext;
     private readonly IValidator<SaveCandidateSkillsCommand> _validator;
     private readonly ICandidateCompletenessCalculator _completenessCalculator;
+    private readonly IEvidenceService _evidenceService;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
 
@@ -25,12 +26,14 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
         AppDbContext dbContext,
         IValidator<SaveCandidateSkillsCommand> validator,
         ICandidateCompletenessCalculator completenessCalculator,
+        IEvidenceService evidenceService,
         IAuditLogger auditLogger,
         IClock clock)
     {
         _dbContext = dbContext;
         _validator = validator;
         _completenessCalculator = completenessCalculator;
+        _evidenceService = evidenceService;
         _auditLogger = auditLogger;
         _clock = clock;
     }
@@ -126,18 +129,15 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
                 ? decimal.Round(input.YearsUsed.Value, 1, MidpointRounding.AwayFromZero)
                 : (decimal?)null;
 
-            SkillEvidenceLevel evidenceLevel;
             if (existingById.TryGetValue(input.SkillId, out var existing))
             {
                 existing.Proficiency = input.Proficiency;
                 existing.YearsUsed = normalizedYears;
                 existing.LastUsedYear = input.LastUsedYear;
                 existing.IsPrimary = input.IsPrimary;
-                evidenceLevel = existing.EvidenceLevel;
             }
             else
             {
-                evidenceLevel = SkillEvidenceLevel.Claimed;
                 _dbContext.CandidateSkills.Add(new CandidateSkill
                 {
                     CandidateId = profile.Id,
@@ -145,12 +145,25 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
                     Proficiency = input.Proficiency,
                     YearsUsed = normalizedYears,
                     LastUsedYear = input.LastUsedYear,
-                    EvidenceLevel = evidenceLevel,
+                    EvidenceLevel = SkillEvidenceLevel.Claimed,
                     IsPrimary = input.IsPrimary
                 });
             }
+        }
+
+        var recomputedEvidence = await _evidenceService.RecomputeAndApplyAsync(profile.Id, cancellationToken);
+
+        foreach (var input in command.Skills)
+        {
+            var normalizedYears = input.YearsUsed.HasValue
+                ? decimal.Round(input.YearsUsed.Value, 1, MidpointRounding.AwayFromZero)
+                : (decimal?)null;
 
             var catalogSkill = activeSkills[input.SkillId];
+            var resolvedLevel = recomputedEvidence.TryGetValue(input.SkillId, out var level)
+                ? level
+                : SkillEvidenceLevel.Claimed;
+
             updatedItems.Add(new CandidateSkillItem(
                 SkillId: catalogSkill.Id,
                 SkillName: catalogSkill.Name,
@@ -159,7 +172,7 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
                 Proficiency: input.Proficiency,
                 YearsUsed: normalizedYears,
                 LastUsedYear: input.LastUsedYear,
-                EvidenceLevel: evidenceLevel,
+                EvidenceLevel: resolvedLevel,
                 IsPrimary: input.IsPrimary));
         }
 
@@ -181,6 +194,8 @@ internal sealed class CandidateSkillsService : ICandidateSkillsService
             {
                 SkillCount = command.Skills.Count,
                 PrimaryCount = command.Skills.Count(s => s.IsPrimary),
+                BackedCount = updatedItems.Count(s => s.EvidenceLevel == SkillEvidenceLevel.Backed),
+                VerifiedCount = updatedItems.Count(s => s.EvidenceLevel == SkillEvidenceLevel.Verified),
                 profile.Completeness,
                 profile.OnboardingStep
             }));
