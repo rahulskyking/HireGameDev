@@ -231,9 +231,9 @@ public static class SkillEvidenceTextMatcher
 
         while (i < buffer.Length)
         {
-            var span = buffer.AsSpan(i);
-            var isHttps = span.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
-            var isHttp = !isHttps && span.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+            ReadOnlySpan<char> span = text.AsSpan(i);
+            var isHttps = span.StartsWith("https://".AsSpan(), StringComparison.OrdinalIgnoreCase);
+            var isHttp = !isHttps && span.StartsWith("http://".AsSpan(), StringComparison.OrdinalIgnoreCase);
 
             if (!isHttps && !isHttp)
             {
