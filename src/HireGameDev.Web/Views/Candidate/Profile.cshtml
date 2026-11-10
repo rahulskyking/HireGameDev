@@ -26,11 +26,27 @@
         </div>
     }
 
+    @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content"><p>@errorMessage</p></div>
+        </div>
+    }
+
     <!-- Profile Summary Header -->
     <section class="c-card" aria-labelledby="candidate-profile-heading">
         <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
             <div class="c-entity-head">
-                <span class="c-entity-mark c-entity-mark--accent">@initials</span>
+                @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                {
+                    <img src="@Url.Action("CandidateAvatar", "Media", new { candidateId = p.Id, v = p.UpdatedAt.UtcTicks })"
+                         alt="@p.FullName profile photo"
+                         class="c-avatar" />
+                }
+                else
+                {
+                    <span class="c-entity-mark c-entity-mark--accent" style="width: 56px; height: 56px; font-size: 18px;">@initials</span>
+                }
                 <div>
                     <h1 id="candidate-profile-heading" style="margin: 0; font-size: 24px;">@p.FullName</h1>
                     <p class="u-muted" style="margin: 4px 0 0 0;">@p.Headline</p>
@@ -68,6 +84,50 @@
         {
             <p style="margin: 8px 0 0 0; white-space: pre-line;">@p.Bio</p>
         }
+
+        <div class="c-avatar-uploader" style="margin-top: 12px;" data-avatar-uploader>
+            <div class="c-avatar-uploader__controls">
+                <span class="c-label" style="margin: 0;">
+                    Profile Photo
+                    @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                    {
+                        <span class="c-badge c-badge--success" style="margin-left: 6px;">+5% active</span>
+                    }
+                    else
+                    {
+                        <span class="c-badge c-badge--neutral" style="margin-left: 6px;">+5% completeness</span>
+                    }
+                </span>
+                <form asp-controller="Candidate"
+                      asp-action="UploadPhoto"
+                      method="post"
+                      enctype="multipart/form-data"
+                      style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px;">
+                    <input type="hidden" name="returnTo" value="profile" />
+                    <input name="avatarFile"
+                           type="file"
+                           class="c-file-input"
+                           aria-label="Choose profile photo"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                           data-avatar-input
+                           data-max-bytes="1048576"
+                           required />
+                    <button type="submit" class="c-btn c-btn--secondary c-btn--sm">
+                        @(string.IsNullOrWhiteSpace(p.PhotoPath) ? "Upload Photo" : "Replace Photo")
+                    </button>
+                </form>
+                <p class="c-hint" style="margin: 0;">JPG, PNG, or WebP up to 1 MB &middot; Cropped to 400&times;400 WebP &middot; EXIF metadata stripped.</p>
+                <p class="c-hint" style="margin: 0; color: var(--danger);" data-avatar-error role="alert" hidden></p>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+            {
+                <form asp-controller="Candidate" asp-action="RemovePhoto" method="post" style="margin: 0;">
+                    <input type="hidden" name="returnTo" value="profile" />
+                    <button type="submit" class="c-btn c-btn--ghost c-btn--sm">Remove Photo</button>
+                </form>
+            }
+        </div>
 
         <hr />
 

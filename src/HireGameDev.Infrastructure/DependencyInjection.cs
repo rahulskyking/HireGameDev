@@ -5,13 +5,17 @@ using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
+using HireGameDev.Application.Abstractions.Media;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
+using HireGameDev.Application.Abstractions.Storage;
 using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
+using HireGameDev.Infrastructure.Media;
 using HireGameDev.Infrastructure.Persistence;
 using HireGameDev.Infrastructure.Persistence.SeedData;
 using HireGameDev.Infrastructure.Services;
+using HireGameDev.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Http;
@@ -160,9 +164,32 @@ public static class DependencyInjection
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IAppSettingsSeeder, AppSettingsSeeder>();
         services.AddScoped<IConsentService, ConsentService>();
+
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        var storageProvider = (configuration[$"{StorageOptions.SectionName}:Provider"] ?? "Local").Trim();
+        if (storageProvider.Equals("Local", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+        }
+        else if (storageProvider.Equals("CloudflareR2", StringComparison.OrdinalIgnoreCase) ||
+                 storageProvider.Equals("R2", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                "Storage:Provider 'CloudflareR2' is reserved for the future S3-compatible CloudflareR2StorageService adapter (ADR-016). " +
+                "Use 'Local' in M1.6 until Cloudflare R2 credentials and adapter are enabled.");
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Unsupported Storage:Provider '{storageProvider}'. Expected 'Local' (or future 'CloudflareR2').");
+        }
+
+        services.AddSingleton<IImageProcessor, ImageSharpImageProcessor>();
+
         services.AddScoped<ICandidateCompletenessCalculator, CandidateCompletenessCalculator>();
         services.AddScoped<IEvidenceService, EvidenceService>();
         services.AddScoped<ICandidateProfileService, CandidateProfileService>();
+        services.AddScoped<ICandidatePhotoService, CandidatePhotoService>();
         services.AddScoped<ICandidateSkillsService, CandidateSkillsService>();
         services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();
         services.AddScoped<ICandidateProofService, CandidateProofService>();

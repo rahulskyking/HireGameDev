@@ -68,6 +68,13 @@
             </div>
         }
 
+        @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="c-alert c-alert--danger" role="alert">
+                <div class="c-alert__content"><p>@errorMessage</p></div>
+            </div>
+        }
+
         <ol class="c-stepper" aria-label="Candidate onboarding steps">
             @{
                 (short Step, string Label)[] steps =
@@ -105,11 +112,17 @@
 
     @if (Model.ActiveStep == 1)
     {
+        var existingProfile = Model.OnboardingState.Profile;
+        var hasSavedPhoto = existingProfile is not null && !string.IsNullOrWhiteSpace(existingProfile.PhotoPath);
+        var step1Initial = !string.IsNullOrWhiteSpace(Model.Step1.FullName)
+            ? char.ToUpperInvariant(Model.Step1.FullName.Trim()[0]).ToString()
+            : "D";
+
         <section class="c-card" aria-labelledby="step1-heading">
             <div class="c-card__header">
                 <div>
                     <h2 id="step1-heading" style="font-size: 22px; margin-bottom: 4px;">Step 1 &middot; Core Basics</h2>
-                    <p class="c-hint">Your discipline, role headline, and primary Indian city hub.</p>
+                    <p class="c-hint">Your discipline, role headline, primary Indian city hub, and optional profile photo.</p>
                 </div>
                 @if (Model.HasExistingProfile)
                 {
@@ -117,8 +130,48 @@
                 }
             </div>
 
-            <form asp-controller="Candidate" asp-action="SaveStep1" method="post" class="c-form" novalidate>
+            <form asp-controller="Candidate" asp-action="SaveStep1" method="post" enctype="multipart/form-data" class="c-form" novalidate>
                 <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
+
+                <div class="c-field">
+                    <label class="c-label" for="step1-avatar-file">Profile photo (optional &middot; +5 completeness points)</label>
+                    <div class="c-avatar-uploader" data-avatar-uploader>
+                        @if (hasSavedPhoto)
+                        {
+                            <img src="@Url.Action("CandidateAvatar", "Media", new { candidateId = existingProfile!.Id, v = existingProfile.UpdatedAt.UtcTicks })"
+                                 alt="@existingProfile.FullName profile photo"
+                                 class="c-avatar c-avatar--lg"
+                                 data-avatar-preview />
+                        }
+                        else
+                        {
+                            <span class="c-entity-mark c-entity-mark--accent"
+                                  style="width: 72px; height: 72px; font-size: 22px; border-radius: var(--radius-md);"
+                                  aria-hidden="true"
+                                  data-avatar-fallback>@step1Initial</span>
+                            <img src=""
+                                 alt="Selected profile photo preview"
+                                 class="c-avatar c-avatar--lg"
+                                 data-avatar-preview
+                                 hidden />
+                        }
+
+                        <div class="c-avatar-uploader__controls">
+                            <input id="step1-avatar-file"
+                                   name="Step1.AvatarFile"
+                                   type="file"
+                                   class="c-file-input"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                   data-avatar-input
+                                   data-max-bytes="1048576" />
+                            <p class="c-hint" style="margin: 0;">
+                                @(hasSavedPhoto ? "Choose a new file to replace your current photo when saving Step 1." : "JPG, PNG, or WebP up to 1 MB.")
+                                Auto-cropped to 400&times;400 WebP, EXIF stripped, and served only via authorized endpoints.
+                            </p>
+                            <p class="c-hint" style="margin: 0; color: var(--danger);" data-avatar-error role="alert" hidden></p>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="p-sg-grid-2">
                     <div class="c-field">
@@ -200,8 +253,8 @@
 
                 <div class="c-alert c-alert--info" role="note">
                     <div class="c-alert__content">
-                        <span class="c-alert__title">Photo &amp; Phone OTP Privacy</span>
-                        <p>Profile photo upload (+5 pts, <code>M1.6</code>) and E.164 phone OTP verification (+10 pts, <code>M1.7</code> — never shown to studios before shortlist) attach directly to your profile without blocking onboarding.</p>
+                        <span class="c-alert__title">Media &amp; Phone OTP Privacy</span>
+                        <p>Your profile photo (+5 pts) is stored privately outside public static directories and served strictly to you, admins, and authorized studios once your profile is discoverable (&ge; 70%). E.164 phone OTP verification (+10 pts, <code>M1.7</code>) remains hidden until shortlist.</p>
                     </div>
                 </div>
 
@@ -210,6 +263,17 @@
                     <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save &amp; Continue to Experience &rarr;</button>
                 </div>
             </form>
+
+            @if (hasSavedPhoto)
+            {
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <span class="c-hint" style="margin: 0;">Want to revert to your initial badge instead?</span>
+                    <form asp-controller="Candidate" asp-action="RemovePhoto" method="post" style="margin: 0;">
+                        <input type="hidden" name="returnTo" value="step1" />
+                        <button type="submit" class="c-btn c-btn--ghost c-btn--sm">Remove Current Photo</button>
+                    </form>
+                </div>
+            }
         </section>
     }
     else if (Model.ActiveStep == 2)

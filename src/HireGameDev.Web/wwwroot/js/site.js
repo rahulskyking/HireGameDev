@@ -668,4 +668,67 @@
 
   syncAccountRoleSelection();
   syncDisciplineSelection();
+
+  document.addEventListener('change', function (event) {
+    var fileInput = event.target.closest('[data-avatar-input]');
+    if (!fileInput) {
+      return;
+    }
+
+    var container = fileInput.closest('[data-avatar-uploader]');
+    var errorEl = container ? container.querySelector('[data-avatar-error]') : null;
+    var previewImg = container ? container.querySelector('[data-avatar-preview]') : null;
+    var fallbackEl = container ? container.querySelector('[data-avatar-fallback]') : null;
+
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) {
+      return;
+    }
+
+    var maxBytes = parseInt(fileInput.getAttribute('data-max-bytes') || '1048576', 10);
+    var nameLower = (file.name || '').toLowerCase();
+    var validExt =
+      nameLower.endsWith('.jpg') ||
+      nameLower.endsWith('.jpeg') ||
+      nameLower.endsWith('.png') ||
+      nameLower.endsWith('.webp');
+
+    if (!validExt) {
+      fileInput.value = '';
+      if (errorEl) {
+        errorEl.textContent = 'Only .jpg, .jpeg, .png, and .webp images are allowed (SVG and GIF are not supported).';
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    if (file.size > maxBytes) {
+      fileInput.value = '';
+      if (errorEl) {
+        errorEl.textContent = 'Selected image exceeds 1 MB. Choose an image 1 MB or smaller.';
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    if (previewImg && typeof URL !== 'undefined' && URL.createObjectURL) {
+      var prevUrl = previewImg.getAttribute('data-object-url');
+      if (prevUrl) {
+        URL.revokeObjectURL(prevUrl);
+      }
+
+      var nextUrl = URL.createObjectURL(file);
+      previewImg.setAttribute('data-object-url', nextUrl);
+      previewImg.src = nextUrl;
+      previewImg.hidden = false;
+      if (fallbackEl) {
+        fallbackEl.hidden = true;
+      }
+    }
+  });
 })();

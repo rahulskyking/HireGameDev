@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using HireGameDev.Application.Features.Candidates;
 using HireGameDev.Application.Features.ReferenceData;
 using HireGameDev.Domain.Enums;
+using Microsoft.AspNetCore.Http;
 
 namespace HireGameDev.Web.Models.Candidate;
 
@@ -59,6 +60,9 @@ public sealed class Step1BasicsInputModel
     [StringLength(1500, ErrorMessage = "Bio must be 1500 characters or fewer.")]
     [Display(Name = "Developer bio (optional)")]
     public string? Bio { get; set; }
+
+    [Display(Name = "Profile photo (optional)")]
+    public IFormFile? AvatarFile { get; set; }
 }
 
 public sealed class Step2ExperienceCoreInputModel

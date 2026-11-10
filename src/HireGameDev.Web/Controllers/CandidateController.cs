@@ -18,6 +18,7 @@ namespace HireGameDev.Web.Controllers;
 public sealed class CandidateController : Controller
 {
     private readonly ICandidateProfileService _profileService;
+    private readonly ICandidatePhotoService _photoService;
     private readonly ICandidateSkillsService _skillsService;
     private readonly ICandidateBackgroundService _backgroundService;
     private readonly ICandidateProofService _proofService;
@@ -26,6 +27,7 @@ public sealed class CandidateController : Controller
 
     public CandidateController(
         ICandidateProfileService profileService,
+        ICandidatePhotoService photoService,
         ICandidateSkillsService skillsService,
         ICandidateBackgroundService backgroundService,
         ICandidateProofService proofService,
@@ -33,6 +35,7 @@ public sealed class CandidateController : Controller
         IPortalNavigator portalNavigator)
     {
         _profileService = profileService;
+        _photoService = photoService;
         _skillsService = skillsService;
         _backgroundService = backgroundService;
         _proofService = proofService;
@@ -97,6 +100,7 @@ public sealed class CandidateController : Controller
     }
 
     [HttpPost("Onboarding/Step1")]
+    [RequestSizeLimit(ImageUploadRules.MaxMultipartRequestBytes)]
     public async Task<IActionResult> SaveStep1(
         [Bind(Prefix = "Step1")] Step1BasicsInputModel input,
         CancellationToken cancellationToken)
@@ -131,8 +135,99 @@ public sealed class CandidateController : Controller
             return View("Onboarding", failedVm);
         }
 
+        if (input.AvatarFile is not null && input.AvatarFile.Length > 0)
+        {
+            await using var avatarStream = input.AvatarFile.OpenReadStream();
+            var photoResult = await _photoService.UploadPhotoAsync(
+                new UploadCandidatePhotoCommand(
+                    UserId: userId,
+                    Content: avatarStream,
+                    FileName: input.AvatarFile.FileName,
+                    DeclaredContentType: input.AvatarFile.ContentType),
+                cancellationToken);
+
+            if (photoResult.IsFailure)
+            {
+                ModelState.AddModelError(string.Empty, photoResult.Error.Message);
+                var photoFailedState = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+                var photoFailedVm = await BuildWizardViewModelAsync(photoFailedState, 1, cancellationToken, step1Override: input);
+                return View("Onboarding", photoFailedVm);
+            }
+
+            TempData["StatusMessage"] = "Step 1 (Basics) and profile photo saved.";
+            return RedirectToAction(nameof(Onboarding), new { step = 2 });
+        }
+
         TempData["StatusMessage"] = "Step 1 (Basics) saved as draft.";
         return RedirectToAction(nameof(Onboarding), new { step = 2 });
+    }
+
+    [HttpPost("Profile/Photo")]
+    [RequestSizeLimit(ImageUploadRules.MaxMultipartRequestBytes)]
+    public async Task<IActionResult> UploadPhoto(
+        IFormFile? avatarFile,
+        string? returnTo = "profile",
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        if (avatarFile is null || avatarFile.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Select a JPG, PNG, or WebP image (up to 1 MB) before uploading.";
+            return RedirectAfterPhotoAction(returnTo);
+        }
+
+        await using var stream = avatarFile.OpenReadStream();
+        var result = await _photoService.UploadPhotoAsync(
+            new UploadCandidatePhotoCommand(
+                UserId: userId,
+                Content: stream,
+                FileName: avatarFile.FileName,
+                DeclaredContentType: avatarFile.ContentType),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            TempData["ErrorMessage"] = result.Error.Message;
+            return RedirectAfterPhotoAction(returnTo);
+        }
+
+        TempData["StatusMessage"] = $"Profile photo updated (completeness: {result.Value.Completeness}%).";
+        return RedirectAfterPhotoAction(returnTo);
+    }
+
+    [HttpPost("Profile/Photo/Remove")]
+    public async Task<IActionResult> RemovePhoto(
+        string? returnTo = "profile",
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var result = await _photoService.RemovePhotoAsync(userId, cancellationToken);
+        if (result.IsFailure)
+        {
+            TempData["ErrorMessage"] = result.Error.Message;
+            return RedirectAfterPhotoAction(returnTo);
+        }
+
+        TempData["StatusMessage"] = $"Profile photo removed (completeness: {result.Value.Completeness}%).";
+        return RedirectAfterPhotoAction(returnTo);
+    }
+
+    private IActionResult RedirectAfterPhotoAction(string? returnTo)
+    {
+        if (string.Equals(returnTo, "step1", StringComparison.OrdinalIgnoreCase))
+        {
+            return RedirectToAction(nameof(Onboarding), new { step = 1 });
+        }
+
+        return RedirectToAction(nameof(Profile));
     }
 
     [HttpPost("Onboarding/Step2")]
