@@ -46,6 +46,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<ResumeParseLog> ResumeParseLogs => Set<ResumeParseLog>();
 
+    public DbSet<StudioProfile> StudioProfiles => Set<StudioProfile>();
+
+    public DbSet<StudioMember> StudioMembers => Set<StudioMember>();
+
+    public DbSet<StudioTitle> StudioTitles => Set<StudioTitle>();
+
+    public DbSet<StudioSkill> StudioSkills => Set<StudioSkill>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

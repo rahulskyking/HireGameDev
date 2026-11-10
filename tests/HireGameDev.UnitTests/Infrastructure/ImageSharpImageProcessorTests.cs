@@ -55,7 +55,7 @@ public sealed class ImageSharpImageProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_StudioLogo_PreservesAspectRatioWithin400x400Webp()
+    public async Task ProcessAsync_StudioLogo_PreservesAspectRatioWithin256x256Webp()
     {
         using var sourceStream = new MemoryStream();
         using (var logoImage = new Image<Rgba32>(800, 300, new Rgba32(250, 220, 40, 255)))
@@ -72,8 +72,8 @@ public sealed class ImageSharpImageProcessorTests
             Preset: ImageUploadPreset.StudioLogo));
 
         Assert.True(result.IsSuccess, result.Error.Message);
-        Assert.Equal(400, result.Value.Width);
-        Assert.Equal(150, result.Value.Height);
+        Assert.Equal(256, result.Value.Width);
+        Assert.Equal(96, result.Value.Height);
     }
 
     [Fact]

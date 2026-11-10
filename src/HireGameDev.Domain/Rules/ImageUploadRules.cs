@@ -20,7 +20,7 @@ public static class ImageUploadRules
     public const int MinPixelDimension = 32;
     public const int MaxPixelDimension = 4096;
     public const int CandidateAvatarSizePx = 400;
-    public const int StudioLogoSizePx = 400;
+    public const int StudioLogoSizePx = 256;
 
     public static readonly IReadOnlyList<string> AllowedExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 

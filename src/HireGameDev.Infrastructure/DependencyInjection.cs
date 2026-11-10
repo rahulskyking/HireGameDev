@@ -9,6 +9,7 @@ using HireGameDev.Application.Abstractions.Media;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Application.Abstractions.Storage;
+using HireGameDev.Application.Abstractions.Studios;
 using HireGameDev.Infrastructure.Email;
 using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Media;
@@ -216,6 +217,10 @@ public static class DependencyInjection
         services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();
         services.AddScoped<ICandidateProofService, CandidateProofService>();
         services.AddScoped<ICandidateResumeImportService, CandidateResumeImportService>();
+
+        services.AddScoped<IStudioProfileService, StudioProfileService>();
+        services.AddScoped<IStudioLogoService, StudioLogoService>();
+        services.AddScoped<IStudioTeamService, StudioTeamService>();
 
         return services;
     }
