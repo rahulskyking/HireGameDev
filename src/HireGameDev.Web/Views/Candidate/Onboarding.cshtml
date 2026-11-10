@@ -119,10 +119,42 @@
             : "D";
 
         <section class="c-card" aria-labelledby="step1-heading">
-            <div class="c-card__header">
-                <div>
-                    <h2 id="step1-heading" style="font-size: 22px; margin-bottom: 4px;">Step 1 &middot; Core Basics</h2>
-                    <p class="c-hint">Your discipline, role headline, primary Indian city hub, and optional profile photo.</p>
+            <div class="c-card__header" style="align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div class="c-entity-head">
+                    <button type="button"
+                            id="step1-header-avatar"
+                            class="c-avatar-edit"
+                            data-modal-open="step1-photo-modal"
+                            aria-label="Edit profile photo"
+                            title="Edit profile photo (+5 completeness points)">
+                        @if (hasSavedPhoto)
+                        {
+                            <img src="@Url.Action("CandidateAvatar", "Media", new { candidateId = existingProfile!.Id, v = existingProfile.UpdatedAt.UtcTicks })"
+                                 alt="@existingProfile.FullName profile photo"
+                                 class="c-avatar c-avatar--lg"
+                                 data-avatar-header-img />
+                        }
+                        else
+                        {
+                            <span class="c-entity-mark c-entity-mark--accent c-avatar--lg"
+                                  aria-hidden="true"
+                                  data-avatar-header-fallback>@step1Initial</span>
+                            <img src=""
+                                 alt="Selected profile photo preview"
+                                 class="c-avatar c-avatar--lg"
+                                 data-avatar-header-img
+                                 hidden />
+                        }
+                        <span class="c-avatar-edit__badge" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11.5 2.5a1.77 1.77 0 0 1 2.5 2.5L5.5 13.5 2 14l.5-3.5 9-8z" />
+                            </svg>
+                        </span>
+                    </button>
+                    <div>
+                        <h2 id="step1-heading" style="font-size: 22px; margin-bottom: 4px;">Step 1 &middot; Core Basics</h2>
+                        <p class="c-hint" style="margin: 0;">Your discipline, role headline, and primary Indian city hub. Click the avatar icon to add or edit your photo (+5 pts).</p>
+                    </div>
                 </div>
                 @if (Model.HasExistingProfile)
                 {
@@ -132,46 +164,6 @@
 
             <form asp-controller="Candidate" asp-action="SaveStep1" method="post" enctype="multipart/form-data" class="c-form" novalidate>
                 <div asp-validation-summary="ModelOnly" class="c-alert c-alert--danger" role="alert"></div>
-
-                <div class="c-field">
-                    <label class="c-label" for="step1-avatar-file">Profile photo (optional &middot; +5 completeness points)</label>
-                    <div class="c-avatar-uploader" data-avatar-uploader>
-                        @if (hasSavedPhoto)
-                        {
-                            <img src="@Url.Action("CandidateAvatar", "Media", new { candidateId = existingProfile!.Id, v = existingProfile.UpdatedAt.UtcTicks })"
-                                 alt="@existingProfile.FullName profile photo"
-                                 class="c-avatar c-avatar--lg"
-                                 data-avatar-preview />
-                        }
-                        else
-                        {
-                            <span class="c-entity-mark c-entity-mark--accent"
-                                  style="width: 72px; height: 72px; font-size: 22px; border-radius: var(--radius-md);"
-                                  aria-hidden="true"
-                                  data-avatar-fallback>@step1Initial</span>
-                            <img src=""
-                                 alt="Selected profile photo preview"
-                                 class="c-avatar c-avatar--lg"
-                                 data-avatar-preview
-                                 hidden />
-                        }
-
-                        <div class="c-avatar-uploader__controls">
-                            <input id="step1-avatar-file"
-                                   name="Step1.AvatarFile"
-                                   type="file"
-                                   class="c-file-input"
-                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                                   data-avatar-input
-                                   data-max-bytes="1048576" />
-                            <p class="c-hint" style="margin: 0;">
-                                @(hasSavedPhoto ? "Choose a new file to replace your current photo when saving Step 1." : "JPG, PNG, or WebP up to 1 MB.")
-                                Auto-cropped to 400&times;400 WebP, EXIF stripped, and served only via authorized endpoints.
-                            </p>
-                            <p class="c-hint" style="margin: 0; color: var(--danger);" data-avatar-error role="alert" hidden></p>
-                        </div>
-                    </div>
-                </div>
 
                 <div class="p-sg-grid-2">
                     <div class="c-field">
@@ -262,17 +254,169 @@
                     <span class="c-hint">Step 1 of 5</span>
                     <button type="submit" class="c-btn c-btn--primary c-btn--lg">Save &amp; Continue to Experience &rarr;</button>
                 </div>
+
+                @if (!Model.HasExistingProfile)
+                {
+                    <dialog id="step1-photo-modal"
+                            class="c-modal c-avatar-modal"
+                            aria-labelledby="step1-photo-modal-title"
+                            data-avatar-uploader
+                            data-avatar-header-sync="step1-header-avatar">
+                        <div class="c-modal__header">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <h2 id="step1-photo-modal-title" class="c-modal__title">Profile photo</h2>
+                                <span class="c-badge c-badge--neutral">+5% pts</span>
+                            </div>
+                            <button type="button" class="c-modal__close" data-modal-close aria-label="Close">&times;</button>
+                        </div>
+
+                        <div class="c-modal__body c-avatar-modal__body">
+                            <div class="c-avatar-modal__stage">
+                                <span class="c-entity-mark c-entity-mark--accent c-avatar--xl"
+                                      aria-hidden="true"
+                                      data-avatar-fallback>@step1Initial</span>
+                                <img src=""
+                                     alt="Selected profile photo preview"
+                                     class="c-avatar c-avatar--xl"
+                                     data-avatar-preview
+                                     hidden />
+                            </div>
+
+                            <p class="c-avatar-modal__filename" data-avatar-filename hidden></p>
+                            <p class="c-hint" style="margin: 0; text-align: center;">
+                                JPG, PNG, or WebP &middot; Up to 1 MB &middot; Cropped to 400&times;400 WebP &middot; EXIF metadata stripped
+                            </p>
+                            <p class="c-avatar-modal__error" data-avatar-error role="alert" hidden></p>
+
+                            <input id="step1-inline-avatar-input"
+                                   name="Step1.AvatarFile"
+                                   type="file"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                   hidden
+                                   data-avatar-input
+                                   data-max-bytes="1048576" />
+                        </div>
+
+                        <div class="c-modal__footer c-avatar-modal__footer">
+                            <div>
+                                <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-avatar-clear hidden>Clear</button>
+                            </div>
+                            <div class="c-btn-group">
+                                <label for="step1-inline-avatar-input" class="c-btn c-btn--secondary c-btn--sm" style="cursor: pointer; margin: 0;">
+                                    Choose photo
+                                </label>
+                                <button type="button"
+                                        class="c-btn c-btn--primary c-btn--sm"
+                                        data-modal-close
+                                        data-avatar-save-btn
+                                        disabled>
+                                    Apply photo
+                                </button>
+                            </div>
+                        </div>
+                    </dialog>
+                }
             </form>
 
-            @if (hasSavedPhoto)
+            @if (Model.HasExistingProfile)
             {
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                    <span class="c-hint" style="margin: 0;">Want to revert to your initial badge instead?</span>
-                    <form asp-controller="Candidate" asp-action="RemovePhoto" method="post" style="margin: 0;">
-                        <input type="hidden" name="returnTo" value="step1" />
-                        <button type="submit" class="c-btn c-btn--ghost c-btn--sm">Remove Current Photo</button>
-                    </form>
-                </div>
+                <dialog id="step1-photo-modal"
+                        class="c-modal c-avatar-modal"
+                        aria-labelledby="step1-photo-modal-title"
+                        data-avatar-uploader
+                        data-avatar-modal-reset-on-close>
+                    <div class="c-modal__header">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h2 id="step1-photo-modal-title" class="c-modal__title">Profile photo</h2>
+                            @if (hasSavedPhoto)
+                            {
+                                <span class="c-badge c-badge--success">+5% active</span>
+                            }
+                            else
+                            {
+                                <span class="c-badge c-badge--neutral">+5% pts</span>
+                            }
+                        </div>
+                        <button type="button" class="c-modal__close" data-modal-close aria-label="Close">&times;</button>
+                    </div>
+
+                    <div class="c-modal__body c-avatar-modal__body">
+                        <div class="c-avatar-modal__stage">
+                            @if (hasSavedPhoto)
+                            {
+                                var step1AvatarUrl = Url.Action("CandidateAvatar", "Media", new { candidateId = existingProfile!.Id, v = existingProfile.UpdatedAt.UtcTicks });
+                                <img src="@step1AvatarUrl"
+                                     data-original-src="@step1AvatarUrl"
+                                     alt="@existingProfile.FullName profile photo"
+                                     class="c-avatar c-avatar--xl"
+                                     data-avatar-preview />
+                            }
+                            else
+                            {
+                                <span class="c-entity-mark c-entity-mark--accent c-avatar--xl"
+                                      aria-hidden="true"
+                                      data-avatar-fallback>@step1Initial</span>
+                                <img src=""
+                                     alt="Selected profile photo preview"
+                                     class="c-avatar c-avatar--xl"
+                                     data-avatar-preview
+                                     hidden />
+                            }
+                        </div>
+
+                        <p class="c-avatar-modal__filename" data-avatar-filename hidden></p>
+                        <p class="c-hint" style="margin: 0; text-align: center;">
+                            JPG, PNG, or WebP &middot; Up to 1 MB &middot; Cropped to 400&times;400 WebP &middot; EXIF metadata stripped
+                        </p>
+                        <p class="c-avatar-modal__error" data-avatar-error role="alert" hidden></p>
+
+                        <form id="step1-photo-upload-form"
+                              asp-controller="Candidate"
+                              asp-action="UploadPhoto"
+                              method="post"
+                              enctype="multipart/form-data">
+                            <input type="hidden" name="returnTo" value="step1" />
+                            <input id="step1-modal-avatar-input"
+                                   name="avatarFile"
+                                   type="file"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                   hidden
+                                   data-avatar-input
+                                   data-max-bytes="1048576" />
+                        </form>
+                    </div>
+
+                    <div class="c-modal__footer c-avatar-modal__footer">
+                        <div>
+                            @if (hasSavedPhoto)
+                            {
+                                <form asp-controller="Candidate" asp-action="RemovePhoto" method="post" style="margin: 0;">
+                                    <input type="hidden" name="returnTo" value="step1" />
+                                    <button type="submit" class="c-btn c-btn--ghost c-btn--sm">
+                                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right: 4px;">
+                                            <polyline points="2.5 4 13.5 4" />
+                                            <path d="M6 4V2.5h4V4m-5 0v9.5h6V4" />
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </form>
+                            }
+                        </div>
+
+                        <div class="c-btn-group">
+                            <label for="step1-modal-avatar-input" class="c-btn c-btn--secondary c-btn--sm" style="cursor: pointer; margin: 0;">
+                                @(hasSavedPhoto ? "Change photo" : "Add photo")
+                            </label>
+                            <button type="submit"
+                                    form="step1-photo-upload-form"
+                                    class="c-btn c-btn--primary c-btn--sm"
+                                    data-avatar-save-btn
+                                    disabled>
+                                Save photo
+                            </button>
+                        </div>
+                    </div>
+                </dialog>
             }
         </section>
     }

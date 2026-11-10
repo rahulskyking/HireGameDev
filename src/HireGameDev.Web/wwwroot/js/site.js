@@ -502,6 +502,9 @@
     }
 
     if (event.target.tagName === 'DIALOG' && event.target.classList.contains('c-modal')) {
+      if (event.clientX === 0 && event.clientY === 0) {
+        return;
+      }
       var rect = event.target.getBoundingClientRect();
       var inDialog =
         rect.top <= event.clientY &&
@@ -669,6 +672,89 @@
   syncAccountRoleSelection();
   syncDisciplineSelection();
 
+  function resetAvatarUploaderState(container, clearFileInput) {
+    if (!container) {
+      return;
+    }
+
+    var fileInput = container.querySelector('[data-avatar-input]');
+    var errorEl = container.querySelector('[data-avatar-error]');
+    var previewImg = container.querySelector('[data-avatar-preview]');
+    var fallbackEl = container.querySelector('[data-avatar-fallback]');
+    var filenameEl = container.querySelector('[data-avatar-filename]');
+    var saveBtn = container.querySelector('[data-avatar-save-btn]');
+    var clearBtn = container.querySelector('[data-avatar-clear]');
+
+    if (clearFileInput && fileInput) {
+      fileInput.value = '';
+    }
+
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = '';
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+    }
+
+    if (clearBtn) {
+      clearBtn.hidden = true;
+    }
+
+    if (previewImg) {
+      var prevUrl = previewImg.getAttribute('data-object-url');
+      if (prevUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+        URL.revokeObjectURL(prevUrl);
+        previewImg.removeAttribute('data-object-url');
+      }
+
+      var originalSrc = previewImg.getAttribute('data-original-src');
+      if (originalSrc) {
+        previewImg.src = originalSrc;
+        previewImg.hidden = false;
+        if (fallbackEl) {
+          fallbackEl.hidden = true;
+        }
+      } else {
+        previewImg.removeAttribute('src');
+        previewImg.hidden = true;
+        if (fallbackEl) {
+          fallbackEl.hidden = false;
+        }
+      }
+    }
+
+    var headerSyncId = container.getAttribute('data-avatar-header-sync');
+    if (headerSyncId && clearFileInput) {
+      var headerHost = document.getElementById(headerSyncId);
+      if (headerHost) {
+        var headerImg = headerHost.querySelector('[data-avatar-header-img]');
+        var headerFallback = headerHost.querySelector('[data-avatar-header-fallback]');
+        if (headerImg) {
+          headerImg.removeAttribute('src');
+          headerImg.hidden = true;
+        }
+        if (headerFallback) {
+          headerFallback.hidden = false;
+        }
+      }
+    }
+  }
+
+  document.addEventListener('click', function (event) {
+    var clearBtn = event.target.closest('[data-avatar-clear]');
+    if (clearBtn) {
+      var container = clearBtn.closest('[data-avatar-uploader]');
+      resetAvatarUploaderState(container, true);
+    }
+  });
+
   document.addEventListener('change', function (event) {
     var fileInput = event.target.closest('[data-avatar-input]');
     if (!fileInput) {
@@ -676,9 +762,16 @@
     }
 
     var container = fileInput.closest('[data-avatar-uploader]');
-    var errorEl = container ? container.querySelector('[data-avatar-error]') : null;
-    var previewImg = container ? container.querySelector('[data-avatar-preview]') : null;
-    var fallbackEl = container ? container.querySelector('[data-avatar-fallback]') : null;
+    if (!container) {
+      return;
+    }
+
+    var errorEl = container.querySelector('[data-avatar-error]');
+    var previewImg = container.querySelector('[data-avatar-preview]');
+    var fallbackEl = container.querySelector('[data-avatar-fallback]');
+    var filenameEl = container.querySelector('[data-avatar-filename]');
+    var saveBtn = container.querySelector('[data-avatar-save-btn]');
+    var clearBtn = container.querySelector('[data-avatar-clear]');
 
     if (errorEl) {
       errorEl.hidden = true;
@@ -687,6 +780,7 @@
 
     var file = fileInput.files && fileInput.files[0];
     if (!file) {
+      resetAvatarUploaderState(container, false);
       return;
     }
 
@@ -699,7 +793,7 @@
       nameLower.endsWith('.webp');
 
     if (!validExt) {
-      fileInput.value = '';
+      resetAvatarUploaderState(container, true);
       if (errorEl) {
         errorEl.textContent = 'Only .jpg, .jpeg, .png, and .webp images are allowed (SVG and GIF are not supported).';
         errorEl.hidden = false;
@@ -708,12 +802,26 @@
     }
 
     if (file.size > maxBytes) {
-      fileInput.value = '';
+      resetAvatarUploaderState(container, true);
       if (errorEl) {
         errorEl.textContent = 'Selected image exceeds 1 MB. Choose an image 1 MB or smaller.';
         errorEl.hidden = false;
       }
       return;
+    }
+
+    if (filenameEl) {
+      var kb = Math.max(1, Math.round(file.size / 1024));
+      filenameEl.textContent = file.name + ' · ' + kb + ' KB';
+      filenameEl.hidden = false;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = false;
+    }
+
+    if (clearBtn) {
+      clearBtn.hidden = false;
     }
 
     if (previewImg && typeof URL !== 'undefined' && URL.createObjectURL) {
@@ -729,6 +837,29 @@
       if (fallbackEl) {
         fallbackEl.hidden = true;
       }
+
+      var headerSyncId = container.getAttribute('data-avatar-header-sync');
+      if (headerSyncId) {
+        var headerHost = document.getElementById(headerSyncId);
+        if (headerHost) {
+          var headerImg = headerHost.querySelector('[data-avatar-header-img]');
+          var headerFallback = headerHost.querySelector('[data-avatar-header-fallback]');
+          if (headerImg) {
+            headerImg.src = nextUrl;
+            headerImg.hidden = false;
+          }
+          if (headerFallback) {
+            headerFallback.hidden = true;
+          }
+        }
+      }
     }
   });
+
+  var resettableAvatarDialogs = document.querySelectorAll('dialog[data-avatar-modal-reset-on-close]');
+  for (var dIdx = 0; dIdx < resettableAvatarDialogs.length; dIdx++) {
+    resettableAvatarDialogs[dIdx].addEventListener('close', function (e) {
+      resetAvatarUploaderState(e.currentTarget, true);
+    });
+  }
 })();
