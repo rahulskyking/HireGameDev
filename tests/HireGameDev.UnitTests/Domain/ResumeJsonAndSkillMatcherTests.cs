@@ -121,11 +121,17 @@ public sealed class ResumeJsonAndSkillMatcherTests
         Assert.Equal(2, ueMatch!.SkillId);
         Assert.Equal(SkillTaxonomyMatchKind.ExactNameOrAlias, ueMatch.MatchKind);
 
-        // Compact punctuation-normalized ("NodeJS" -> "Node.js")
+        // Exact slug match ("NodeJS" -> slug "nodejs")
         var nodeMatch = ResumeSkillTaxonomyMatcher.MatchSingle("NodeJS", SampleCatalog);
         Assert.NotNull(nodeMatch);
         Assert.Equal(7, nodeMatch!.SkillId);
-        Assert.Equal(SkillTaxonomyMatchKind.NormalizedToken, nodeMatch.MatchKind);
+        Assert.Equal(SkillTaxonomyMatchKind.ExactNameOrAlias, nodeMatch.MatchKind);
+
+        // Compact punctuation/space-normalized ("UnrealEngine" -> "Unreal Engine" / "unreal-engine")
+        var compactUnrealMatch = ResumeSkillTaxonomyMatcher.MatchSingle("UnrealEngine", SampleCatalog);
+        Assert.NotNull(compactUnrealMatch);
+        Assert.Equal(2, compactUnrealMatch!.SkillId);
+        Assert.Equal(SkillTaxonomyMatchKind.NormalizedToken, compactUnrealMatch.MatchKind);
 
         // Trigram similarity ("Unrel Engine" typo -> "Unreal Engine")
         var typoMatch = ResumeSkillTaxonomyMatcher.MatchSingle("Unrel Engine", SampleCatalog);
