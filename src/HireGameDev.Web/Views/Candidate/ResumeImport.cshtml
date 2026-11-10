@@ -118,9 +118,9 @@
                            class="c-input"
                            data-resume-pdf-input
                            data-max-bytes="@ResumePdfUploadRules.MaxPdfUploadBytes"
-                           @(quotaExhausted ? "disabled" : null) />
+                           disabled="@(quotaExhausted ? "disabled" : null)" />
                     <p class="c-hint" style="margin-top: 6px;">
-                        Text-selectable PDFs only (at least @ResumePdfUploadRules.MinExtractedCharacters characters). Scanned image PDFs are rejected without counting against your daily quota.
+                        Text-selectable PDFs only (at least @ResumePdfUploadRules.MinExtractedTextChars characters). Scanned image PDFs are rejected without counting against your daily quota.
                     </p>
                 </div>
 
@@ -129,7 +129,7 @@
                     <button type="submit"
                             class="c-btn c-btn--primary"
                             data-resume-pdf-submit
-                            @(quotaExhausted ? "disabled" : null)>
+                            disabled="@(quotaExhausted ? "disabled" : null)">
                         @(Model.HasParsedDraft ? "Re-parse Another PDF" : "Extract & Review Draft")
                     </button>
                 </div>
