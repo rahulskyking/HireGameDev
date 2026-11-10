@@ -705,6 +705,62 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.ToTable("portfolio_link_skills", (string)null);
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ResumeParseLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<int?>("InputChars")
+                        .HasColumnType("integer")
+                        .HasColumnName("input_chars");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_resume_parse_logs");
+
+                    b.HasIndex(new[] { "UserId", "CreatedAt" }, "ix_parse_user_day")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_parse_user_day");
+
+                    b.ToTable("resume_parse_logs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_resume_parse_logs_duration_ms", "duration_ms IS NULL OR duration_ms >= 0");
+
+                            t.HasCheckConstraint("ck_resume_parse_logs_input_chars", "input_chars IS NULL OR input_chars >= 0");
+
+                            t.HasCheckConstraint("ck_resume_parse_logs_source", "source IN ('pdf', 'linkedin_pdf')");
+
+                            t.HasCheckConstraint("ck_resume_parse_logs_status", "status IN ('ok', 'failed', 'rejected')");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.ShippedTitle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1374,6 +1430,16 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("PortfolioLink");
 
                     b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ResumeParseLog", b =>
+                {
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_resume_parse_logs_users_user_id");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.ShippedTitle", b =>
