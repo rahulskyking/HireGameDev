@@ -44,6 +44,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<PortfolioLinkSkill> PortfolioLinkSkills => Set<PortfolioLinkSkill>();
 
+    public DbSet<ResumeParseLog> ResumeParseLogs => Set<ResumeParseLog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

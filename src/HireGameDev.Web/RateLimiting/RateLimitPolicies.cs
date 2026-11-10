@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,6 +19,12 @@ public static class RateLimitPolicies
     /// Blueprint Section 13.A: 5 attempts per hour per client IP for Register and External Registration flows.
     /// </summary>
     public const string AuthRegister = "auth-register";
+
+    /// <summary>
+    /// Blueprint Section 5 &amp; 13.A: Burst guard (10 requests per 15 minutes per user/IP) on Resume AI PDF parse uploads,
+    /// layered ahead of the database-backed daily quota (<c>limits.resume_parse_per_day = 5</c>).
+    /// </summary>
+    public const string ResumeParse = "resume-parse";
 
     public static IServiceCollection AddHireGameDevNetworkingAndRateLimiting(
         this IServiceCollection services,
@@ -142,9 +149,32 @@ public static class RateLimitPolicies
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+
+            options.AddPolicy(ResumeParse, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: BuildUserOrClientPartitionKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(15),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
         });
 
         return services;
+    }
+
+    private static string BuildUserOrClientPartitionKey(HttpContext httpContext)
+    {
+        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            return $"user:{userId}";
+        }
+
+        return $"ip:{BuildClientPartitionKey(httpContext)}";
     }
 
     private static string BuildClientPartitionKey(HttpContext httpContext)

@@ -14,6 +14,7 @@ using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Media;
 using HireGameDev.Infrastructure.Persistence;
 using HireGameDev.Infrastructure.Persistence.SeedData;
+using HireGameDev.Infrastructure.ResumeAi;
 using HireGameDev.Infrastructure.Services;
 using HireGameDev.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication;
@@ -185,6 +186,26 @@ public static class DependencyInjection
         }
 
         services.AddSingleton<IImageProcessor, ImageSharpImageProcessor>();
+        services.AddSingleton<IResumePdfTextExtractor, PdfPigResumeTextExtractor>();
+
+        services.Configure<ResumeAiOptions>(configuration.GetSection(ResumeAiOptions.SectionName));
+        var resumeAiProvider = (configuration[$"{ResumeAiOptions.SectionName}:Provider"] ?? "Dev").Trim();
+        if (resumeAiProvider.Equals("Dev", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IResumeLlmClient, DevResumeLlmClient>();
+        }
+        else if (resumeAiProvider.Equals("Gemini", StringComparison.OrdinalIgnoreCase) ||
+                 resumeAiProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"ResumeAi:Provider '{resumeAiProvider}' is reserved for the paid, zero-training production LLM adapter (ADR-013 & Blueprint Section 13.F). " +
+                "Use 'Dev' during Phase 1 development until production paid API credentials are configured.");
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Unsupported ResumeAi:Provider '{resumeAiProvider}'. Expected 'Dev' (or future paid 'Gemini' / 'OpenAI').");
+        }
 
         services.AddScoped<ICandidateCompletenessCalculator, CandidateCompletenessCalculator>();
         services.AddScoped<IEvidenceService, EvidenceService>();
@@ -193,6 +214,7 @@ public static class DependencyInjection
         services.AddScoped<ICandidateSkillsService, CandidateSkillsService>();
         services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();
         services.AddScoped<ICandidateProofService, CandidateProofService>();
+        services.AddScoped<ICandidateResumeImportService, CandidateResumeImportService>();
 
         return services;
     }
