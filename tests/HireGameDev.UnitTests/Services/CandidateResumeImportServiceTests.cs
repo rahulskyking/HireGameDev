@@ -353,7 +353,7 @@ public sealed class CandidateResumeImportServiceTests
                     Id = 4,
                     Name = "Blender",
                     Slug = "blender",
-                    Category = SkillCategory.DccTool,
+                    Category = SkillCategory.ArtTool,
                     Aliases = [],
                     IsActive = true
                 });

@@ -15,8 +15,8 @@ public sealed class ResumeJsonAndSkillMatcherTests
         new(4, "C++", "cpp", SkillCategory.Language, ["CPP"]),
         new(5, "C", "c", SkillCategory.Language, []),
         new(6, "Go", "go", SkillCategory.Language, ["Golang"]),
-        new(7, "Node.js", "nodejs", SkillCategory.Tool, ["Node"]),
-        new(8, "Blender", "blender", SkillCategory.DccTool, ["Blender 3D"])
+        new(7, "Node.js", "nodejs", SkillCategory.Devops, ["Node"]),
+        new(8, "Blender", "blender", SkillCategory.ArtTool, ["Blender 3D"])
     ];
 
     [Fact]
