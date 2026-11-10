@@ -38,6 +38,10 @@ public sealed class ResumeDraftConfirmInputModel
 
     public string? Headline { get; set; }
 
+    public bool ApplyBio { get; set; }
+
+    public string? Bio { get; set; }
+
     public bool ApplyYearsExperience { get; set; }
 
     public decimal? YearsExperience { get; set; }

@@ -185,7 +185,7 @@
                                    name="Review.FullName"
                                    value="@r.FullName"
                                    class="c-input"
-                                   maxlength="120"
+                                   maxlength="80"
                                    placeholder="Aarav Sharma" />
                         </div>
 
@@ -242,12 +242,12 @@
                 </section>
             }
 
-            <!-- Headline & Experience Summary -->
+            <!-- Headline, Bio & Experience Summary -->
             <section class="c-card" aria-labelledby="import-summary-heading">
                 <div class="c-card__header">
                     <div>
-                        <h2 id="import-summary-heading" style="font-size: 20px; margin: 0 0 4px 0;">Headline &amp; Total Experience</h2>
-                        <p class="c-hint" style="margin: 0;">Toggle whether to update your profile headline and years of game/software experience.</p>
+                        <h2 id="import-summary-heading" style="font-size: 20px; margin: 0 0 4px 0;">Headline, Summary &amp; Total Experience</h2>
+                        <p class="c-hint" style="margin: 0;">Toggle whether to update your profile headline, professional bio (+5 pts), and years of experience (stated or computed from non-overlapping role dates).</p>
                     </div>
                 </div>
 
@@ -285,6 +285,21 @@
                                class="c-input"
                                placeholder="e.g. 3.5" />
                     </div>
+                </div>
+
+                <div class="c-field" style="margin-top: 12px;">
+                    <label class="c-check" style="margin-bottom: 8px;">
+                        <input type="checkbox"
+                               name="Review.ApplyBio"
+                               value="true"
+                               checked="@(r.ApplyBio ? "checked" : null)" />
+                        <span><strong>Apply Professional Summary / Bio</strong> (up to 1500 characters &middot; +5 completeness pts)</span>
+                    </label>
+                    <textarea name="Review.Bio"
+                              rows="3"
+                              maxlength="1500"
+                              class="c-textarea"
+                              placeholder="Short summary of the genres, engines, and systems you specialize in...">@r.Bio</textarea>
                 </div>
             </section>
 

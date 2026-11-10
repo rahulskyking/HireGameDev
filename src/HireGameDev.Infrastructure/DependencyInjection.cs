@@ -194,17 +194,18 @@ public static class DependencyInjection
         {
             services.AddScoped<IResumeLlmClient, DevResumeLlmClient>();
         }
-        else if (resumeAiProvider.Equals("Gemini", StringComparison.OrdinalIgnoreCase) ||
-                 resumeAiProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        else if (resumeAiProvider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
         {
-            throw new NotSupportedException(
-                $"ResumeAi:Provider '{resumeAiProvider}' is reserved for the paid, zero-training production LLM adapter (ADR-013 & Blueprint Section 13.F). " +
-                "Use 'Dev' during Phase 1 development until production paid API credentials are configured.");
+            services.AddHttpClient<IResumeLlmClient, GeminiResumeLlmClient>();
+        }
+        else if (resumeAiProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IResumeLlmClient, OpenAiResumeLlmClient>();
         }
         else
         {
             throw new InvalidOperationException(
-                $"Unsupported ResumeAi:Provider '{resumeAiProvider}'. Expected 'Dev' (or future paid 'Gemini' / 'OpenAI').");
+                $"Unsupported ResumeAi:Provider '{resumeAiProvider}'. Expected 'Dev', 'Gemini', or 'OpenAI'.");
         }
 
         services.AddScoped<ICandidateCompletenessCalculator, CandidateCompletenessCalculator>();

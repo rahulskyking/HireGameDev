@@ -28,6 +28,13 @@ internal sealed class ApplyCandidateResumeDraftCommandValidator : AbstractValida
                 .WithMessage("Years of experience must be between 0 and 50 in 0.5-year increments.");
         });
 
+        When(x => x.ApplyBio, () =>
+        {
+            RuleFor(x => x.Bio)
+                .Must(b => !string.IsNullOrWhiteSpace(b) && b.Trim().Length <= 1500)
+                .WithMessage("Summary / bio must be between 1 and 1500 characters when selected for import.");
+        });
+
         RuleFor(x => x.Skills)
             .NotNull()
             .Must(s => s.Count <= CandidateProfileRules.MaxCandidateSkills)

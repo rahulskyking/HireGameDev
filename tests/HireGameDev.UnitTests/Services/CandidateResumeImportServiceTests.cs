@@ -231,6 +231,119 @@ public sealed class CandidateResumeImportServiceTests
         Assert.Equal(5, nextDayQuota.RemainingToday);
     }
 
+    [Fact]
+    public async Task ParseResumePdfAsync_HandlesTwoColumnLinkedInMultiRolePdf_AndInfersDatesEnginesPlatformsDisciplineAndCity()
+    {
+        await using var harness = await ResumeImportTestHarness.CreateAsync();
+        var service = harness.CreateService();
+
+        await using var linkedInPdf = CreateTwoColumnLinkedInPdfStream(
+            leftSidebarLines:
+            [
+                "Contact",
+                "rohan.art@gmail.com",
+                "www.linkedin.com/in/rohankulkarni (LinkedIn)",
+                "Top Skills",
+                "Blender",
+                "Unity"
+            ],
+            rightMainLines:
+            [
+                "Rohan Kulkarni",
+                "3D Environment Artist",
+                "Bangalore, Karnataka, India",
+                "Summary",
+                "3D Environment Artist crafting modular worlds, trim sheets, and optimized PBR assets in Blender and Unity.",
+                "Experience",
+                "Rockstar India",
+                "3 years 6 months",
+                "Senior Environment Artist",
+                "June 2024 - Present (2 years 5 months)",
+                "Bangalore, Karnataka, India",
+                "• Built modular architectural kits and shader setups in Blender and Unity; shipped \"Red Dead Online\" updates for PC, PS5, and Xbox.",
+                "Environment Artist",
+                "May 2023 - May 2024 (1 year 1 month)",
+                "Bangalore, Karnataka, India",
+                "• Modeled hero props and foliage assets in Blender.",
+                "Education",
+                "MIT Institute of Design",
+                "B.Des, Game Art & Design",
+                "2019 - 2023",
+                "Page 1 of 1"
+            ]);
+
+        var result = await service.ParseResumePdfAsync(new ParseCandidateResumeCommand(
+            UserId: harness.UserId,
+            PdfStream: linkedInPdf,
+            FileName: "Profile.pdf"));
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        var draft = result.Value;
+
+        Assert.Equal(ResumeParseSource.LinkedinPdf, draft.Source);
+        Assert.Equal("Rohan Kulkarni", draft.SuggestedFullName);
+        Assert.Equal("3D Environment Artist", draft.Headline);
+        Assert.Equal(DisciplineCategory.Art, draft.SuggestedDiscipline);
+        Assert.Equal(1, draft.SuggestedCityId); // "Bangalore" -> canonical Bengaluru (Id = 1)
+        Assert.NotNull(draft.Bio);
+
+        // Merged May 2023 -> Oct 2026 = 42 months = 3.5 years (computed automatically without "X years of experience" text!)
+        Assert.Equal(3.5m, draft.YearsExperience);
+
+        // Both sub-roles under the LinkedIn multi-role block must resolve CompanyName = "Rockstar India" (never "3 years 6 months"!)
+        Assert.Equal(2, draft.Experiences.Count);
+        Assert.All(draft.Experiences, e => Assert.Equal("Rockstar India", e.CompanyName));
+        Assert.DoesNotContain(draft.Experiences, e => (e.Description ?? string.Empty).Contains("Karnataka, India", StringComparison.OrdinalIgnoreCase));
+
+        // Per-skill YearsUsed and LastUsedYear inferred from dated roles!
+        var blenderSkill = Assert.Single(draft.MatchedSkills, s => s.SkillName == "Blender");
+        Assert.Equal(3.5m, blenderSkill.YearsUsed);
+        Assert.Equal((short)2026, blenderSkill.LastUsedYear);
+        Assert.True(blenderSkill.SuggestedPrimary);
+
+        // Education parsed from LinkedIn 3-line block!
+        var edu = Assert.Single(draft.Education);
+        Assert.Equal("MIT Institute of Design", edu.Institution);
+        Assert.Equal("B.Des", edu.Degree);
+        Assert.Equal((short)2019, edu.StartYear);
+        Assert.Equal((short)2023, edu.EndYear);
+
+        // Quoted shipped game inside Experience bullet extracted with matched Unity engine & PC/Console platforms!
+        var shipped = Assert.Single(draft.ShippedTitles);
+        Assert.Equal("Red Dead Online", shipped.GameName);
+        Assert.Equal("Rockstar India", shipped.StudioName);
+        Assert.Equal(1, shipped.MatchedEngineSkillId); // Unity
+        Assert.NotNull(shipped.Platforms);
+        Assert.Contains("pc", shipped.Platforms!);
+        Assert.Contains("console", shipped.Platforms!);
+    }
+
+    private static MemoryStream CreateTwoColumnLinkedInPdfStream(
+        IReadOnlyList<string> leftSidebarLines,
+        IReadOnlyList<string> rightMainLines)
+    {
+        using var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4); // 595 x 842 pt
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        var leftY = 790.0;
+        foreach (var line in leftSidebarLines)
+        {
+            page.AddText(line, 9.5, new PdfPoint(25, leftY), font);
+            leftY -= 16.0;
+        }
+
+        var rightY = 790.0;
+        foreach (var line in rightMainLines)
+        {
+            page.AddText(line, 10.5, new PdfPoint(225, rightY), font);
+            rightY -= 16.0;
+        }
+
+        var bytes = builder.Build();
+        return new MemoryStream(bytes, writable: false);
+    }
+
     private static MemoryStream CreatePdfStream(IReadOnlyList<string> lines)
     {
         using var builder = new PdfDocumentBuilder();
@@ -315,6 +428,7 @@ public sealed class CandidateResumeImportServiceTests
                 State = "Karnataka",
                 StateCode = "KA",
                 CountryCode = "IN",
+                Aliases = ["Bangalore"],
                 IsHub = true,
                 SortOrder = 1,
                 IsActive = true

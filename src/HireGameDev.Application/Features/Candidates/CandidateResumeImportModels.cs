@@ -20,7 +20,8 @@ public sealed record ExtractedResumePdfDocument(
 public sealed record SanitizedResumeSkillExtraction(
     string Name,
     decimal? YearsUsed,
-    short? LastUsedYear);
+    short? LastUsedYear,
+    bool IsPrimary = false);
 
 public sealed record SanitizedResumeExperienceExtraction(
     string CompanyName,
@@ -41,7 +42,10 @@ public sealed record SanitizedResumeShippedTitleExtraction(
     string GameName,
     string? StudioName,
     string? Role,
-    short? ReleaseYear);
+    short? ReleaseYear,
+    string? EngineName = null,
+    IReadOnlyList<string>? Platforms = null,
+    int? MatchedEngineSkillId = null);
 
 public sealed record SanitizedResumeExtractionPayload(
     string? Headline,
@@ -49,7 +53,11 @@ public sealed record SanitizedResumeExtractionPayload(
     IReadOnlyList<SanitizedResumeSkillExtraction> Skills,
     IReadOnlyList<SanitizedResumeExperienceExtraction> Experiences,
     IReadOnlyList<SanitizedResumeEducationExtraction> Education,
-    IReadOnlyList<SanitizedResumeShippedTitleExtraction> ShippedTitles);
+    IReadOnlyList<SanitizedResumeShippedTitleExtraction> ShippedTitles,
+    string? FullName = null,
+    string? Bio = null,
+    DisciplineCategory? PrimaryDiscipline = null,
+    string? City = null);
 
 public sealed record ResumeDraftMatchedSkill(
     int SkillId,
@@ -60,7 +68,8 @@ public sealed record ResumeDraftMatchedSkill(
     SkillProficiency SuggestedProficiency,
     decimal? YearsUsed,
     short? LastUsedYear,
-    string RawExtractedName);
+    string RawExtractedName,
+    bool SuggestedPrimary = false);
 
 public sealed record ResumeImportDraft(
     ResumeParseSource Source,
@@ -72,7 +81,11 @@ public sealed record ResumeImportDraft(
     IReadOnlyList<SanitizedResumeExperienceExtraction> Experiences,
     IReadOnlyList<SanitizedResumeEducationExtraction> Education,
     IReadOnlyList<SanitizedResumeShippedTitleExtraction> ShippedTitles,
-    ResumeParseQuotaStatus QuotaAfterParse);
+    ResumeParseQuotaStatus QuotaAfterParse,
+    string? SuggestedFullName = null,
+    string? Bio = null,
+    DisciplineCategory? SuggestedDiscipline = null,
+    int? SuggestedCityId = null);
 
 public sealed record ParseCandidateResumeCommand(
     Guid UserId,
@@ -118,7 +131,9 @@ public sealed record ApplyCandidateResumeDraftCommand(
     IReadOnlyList<ConfirmImportedSkillInput> Skills,
     IReadOnlyList<ConfirmImportedExperienceInput> Experiences,
     IReadOnlyList<ConfirmImportedEducationInput> Education,
-    IReadOnlyList<ConfirmImportedShippedTitleInput> ShippedTitles);
+    IReadOnlyList<ConfirmImportedShippedTitleInput> ShippedTitles,
+    bool ApplyBio = false,
+    string? Bio = null);
 
 public sealed record ApplyCandidateResumeResult(
     int AddedSkillCount,

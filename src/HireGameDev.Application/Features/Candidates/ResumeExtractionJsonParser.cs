@@ -12,10 +12,14 @@ namespace HireGameDev.Application.Features.Candidates;
 public static class ResumeExtractionJsonParser
 {
     public const int MaxRawJsonLength = 65_536;
+    private const int MinFullNameLength = 2;
+    private const int MaxFullNameLength = 80;
     private const int MinHeadlineLength = 3;
     private const int MaxHeadlineLength = 80;
+    private const int MaxBioLength = 1500;
+    private const int MaxCityLength = 80;
     private const int MaxSkillNameLength = 80;
-    private const int MaxRawSkills = 40;
+    private const int MaxRawSkills = 45;
     private const int MaxCompanyOrTitleLength = 160;
     private const int MaxInstitutionLength = 200;
     private const int MaxDegreeOrFieldLength = 160;
@@ -69,7 +73,13 @@ public static class ResumeExtractionJsonParser
                 return false;
             }
 
+            var fullName = ParseSanitizedFullName(root);
             var headline = ParseSanitizedHeadline(root);
+            var bio = ParseSanitizedBio(root);
+            var primaryDiscipline = ResumeSignalEnricher.TryParseExplicitDiscipline(
+                TryGetOptionalString(root, "primary_discipline"));
+            var city = TruncateClean(TryGetOptionalString(root, "city"), MaxCityLength);
+
             var yearsExperience = ParseHalfYearDecimal(
                 root,
                 "years_experience",
@@ -87,10 +97,36 @@ public static class ResumeExtractionJsonParser
                 Skills: skills,
                 Experiences: experiences,
                 Education: education,
-                ShippedTitles: shippedTitles);
+                ShippedTitles: shippedTitles,
+                FullName: fullName,
+                Bio: bio,
+                PrimaryDiscipline: primaryDiscipline,
+                City: city);
 
             return true;
         }
+    }
+
+    private static string? ParseSanitizedFullName(JsonElement root)
+    {
+        var raw = TryGetOptionalString(root, "full_name");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var cleaned = CollapseWhitespace(StripRedactionPlaceholders(raw));
+        if (cleaned.Length < MinFullNameLength)
+        {
+            return null;
+        }
+
+        if (cleaned.Length > MaxFullNameLength)
+        {
+            cleaned = cleaned[..MaxFullNameLength].TrimEnd();
+        }
+
+        return cleaned.Length >= MinFullNameLength ? cleaned : null;
     }
 
     private static string? ParseSanitizedHeadline(JsonElement root)
@@ -113,6 +149,28 @@ public static class ResumeExtractionJsonParser
         }
 
         return cleaned.Length >= MinHeadlineLength ? cleaned : null;
+    }
+
+    private static string? ParseSanitizedBio(JsonElement root)
+    {
+        var raw = TryGetOptionalString(root, "bio") ?? TryGetOptionalString(root, "summary");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var cleaned = CollapseWhitespace(StripRedactionPlaceholders(raw));
+        if (cleaned.Length < 10)
+        {
+            return null;
+        }
+
+        if (cleaned.Length > MaxBioLength)
+        {
+            cleaned = cleaned[..MaxBioLength].TrimEnd();
+        }
+
+        return cleaned.Length >= 10 ? cleaned : null;
     }
 
     private static IReadOnlyList<SanitizedResumeSkillExtraction> ParseSkills(
@@ -140,7 +198,7 @@ public static class ResumeExtractionJsonParser
                 var strName = CollapseWhitespace(StripRedactionPlaceholders(item.GetString() ?? string.Empty));
                 if (strName.Length is >= 1 and <= MaxSkillNameLength && seenNames.Add(strName))
                 {
-                    list.Add(new SanitizedResumeSkillExtraction(strName, null, null));
+                    list.Add(new SanitizedResumeSkillExtraction(strName, null, null, false));
                 }
 
                 continue;
@@ -175,7 +233,9 @@ public static class ResumeExtractionJsonParser
                 CandidateProfileRules.MinSkillLastUsedYear,
                 maxAllowedYear);
 
-            list.Add(new SanitizedResumeSkillExtraction(name, yearsUsed, lastUsedYear));
+            var isPrimary = TryGetOptionalBool(item, "is_primary");
+
+            list.Add(new SanitizedResumeSkillExtraction(name, yearsUsed, lastUsedYear, isPrimary));
         }
 
         return list;
@@ -228,20 +288,10 @@ public static class ResumeExtractionJsonParser
             }
             else if (TryParseYearMonthOrYear(rawEnd, 1970, maxYear, out var parsedEnd))
             {
-                if (parsedEnd >= startDate)
-                {
-                    endDate = parsedEnd;
-                }
-                else
-                {
-                    // Guard against inverted dates from noisy PDF layouts.
-                    endDate = startDate;
-                }
+                endDate = parsedEnd >= startDate ? parsedEnd : startDate;
             }
             else
             {
-                // Unparseable non-null end token: keep row editable as non-current with startDate fallback
-                // rather than violating ck_candidate_experiences_current_end_date.
                 isCurrent = true;
             }
 
@@ -370,11 +420,37 @@ public static class ResumeExtractionJsonParser
                 CandidateProfileRules.MinShippedTitleReleaseYear,
                 maxReleaseYear);
 
+            var engineName = TruncateClean(TryGetOptionalString(item, "engine"), MaxSkillNameLength);
+
+            var rawPlatforms = new List<string>();
+            if (TryGetArray(item, "platforms", out var platArray))
+            {
+                foreach (var platEl in platArray.EnumerateArray())
+                {
+                    if (platEl.ValueKind == JsonValueKind.String)
+                    {
+                        var val = platEl.GetString();
+                        if (!string.IsNullOrWhiteSpace(val))
+                        {
+                            rawPlatforms.Add(val);
+                        }
+                    }
+                }
+            }
+            else if (TryGetOptionalString(item, "platforms") is string platCsv && !string.IsNullOrWhiteSpace(platCsv))
+            {
+                rawPlatforms.AddRange(platCsv.Split([',', '/', '|', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
+
+            var normalizedPlatforms = ResumeSignalEnricher.NormalizeGamePlatforms(rawPlatforms);
+
             list.Add(new SanitizedResumeShippedTitleExtraction(
                 GameName: game,
                 StudioName: studio,
                 Role: role,
-                ReleaseYear: year));
+                ReleaseYear: year,
+                EngineName: engineName,
+                Platforms: normalizedPlatforms));
         }
 
         return list;
@@ -404,6 +480,22 @@ public static class ResumeExtractionJsonParser
             JsonValueKind.String => prop.GetString(),
             JsonValueKind.Null or JsonValueKind.Undefined => null,
             _ => null
+        };
+    }
+
+    private static bool TryGetOptionalBool(JsonElement obj, string propertyName)
+    {
+        if (!obj.TryGetProperty(propertyName, out var prop))
+        {
+            return false;
+        }
+
+        return prop.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => bool.TryParse(prop.GetString(), out var b) && b,
+            _ => false
         };
     }
 
@@ -438,7 +530,6 @@ public static class ResumeExtractionJsonParser
             return null;
         }
 
-        // Snap to nearest 0.5-year increment required by CandidateProfileRules.
         var halfSteps = decimal.Round(raw * 2.0m, 0, MidpointRounding.AwayFromZero);
         var snapped = halfSteps / 2.0m;
         return Math.Clamp(snapped, min, max);
@@ -504,12 +595,38 @@ public static class ResumeExtractionJsonParser
             }
         }
 
+        // Format "MM/YYYY" or "MM-YYYY"
+        if ((trimmed.Length == 7 || trimmed.Length == 6) && (trimmed.Contains('/') || trimmed.Contains('-')))
+        {
+            var sep = trimmed.Contains('/') ? '/' : '-';
+            var parts = trimmed.Split(sep, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2 &&
+                int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var m2) &&
+                int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var y2) &&
+                y2 >= minYear && y2 <= maxYear && m2 is >= 1 and <= 12)
+            {
+                date = new DateOnly(y2, m2, 1);
+                return true;
+            }
+        }
+
         // Format "YYYY-MM-DD"
         if (trimmed.Length == 10 &&
             DateOnly.TryParseExact(trimmed, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fullDate) &&
             fullDate.Year >= minYear && fullDate.Year <= maxYear)
         {
             date = new DateOnly(fullDate.Year, fullDate.Month, 1);
+            return true;
+        }
+
+        // Format "Month YYYY" (e.g. "Jun 2023" or "September 2021")
+        var spaceParts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (spaceParts.Length == 2 &&
+            TryParseMonthPrefix(spaceParts[0], out var monthNum) &&
+            int.TryParse(spaceParts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var namedYear) &&
+            namedYear >= minYear && namedYear <= maxYear)
+        {
+            date = new DateOnly(namedYear, monthNum, 1);
             return true;
         }
 
@@ -523,6 +640,30 @@ public static class ResumeExtractionJsonParser
         }
 
         return false;
+    }
+
+    private static bool TryParseMonthPrefix(string rawMonth, out int month)
+    {
+        var clean = rawMonth.TrimEnd('.', ',');
+        var prefix = clean.Length >= 3 ? clean[..3].ToLowerInvariant() : clean.ToLowerInvariant();
+        month = prefix switch
+        {
+            "jan" => 1,
+            "feb" => 2,
+            "mar" => 3,
+            "apr" => 4,
+            "may" => 5,
+            "jun" => 6,
+            "jul" => 7,
+            "aug" => 8,
+            "sep" => 9,
+            "oct" => 10,
+            "nov" => 11,
+            "dec" => 12,
+            _ => 0
+        };
+
+        return month > 0;
     }
 
     private static bool IsPresentToken(string raw)

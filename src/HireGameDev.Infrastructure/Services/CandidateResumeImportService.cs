@@ -218,11 +218,103 @@ internal sealed class CandidateResumeImportService : ICandidateResumeImportServi
 
         // 6. Match extracted skills against active taxonomy (name, aliases, pg_trgm similarity); keep unmatched as suggestions.
         var activeSkills = await _referenceDataService.GetActiveSkillsAsync(cancellationToken: cancellationToken);
+        var activeSkillById = activeSkills.ToDictionary(s => s.Id);
         var catalogEntries = activeSkills
             .Select(s => new ResumeCatalogSkillEntry(s.Id, s.Name, s.Slug, s.Category, s.Aliases))
             .ToArray();
+        var engineCatalogEntries = catalogEntries
+            .Where(s => s.Category == SkillCategory.Engine)
+            .ToArray();
 
-        var matchedById = new Dictionary<int, ResumeDraftMatchedSkill>();
+        var todayDate = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+        var currentYear = (short)Math.Clamp(_clock.UtcNow.Year, CandidateProfileRules.MinSkillLastUsedYear, CandidateProfileRules.MaxSkillLastUsedYear);
+
+        // Compute total YearsExperience from merged non-overlapping work roles when not explicitly stated in text.
+        var resolvedYearsExperience = sanitized.YearsExperience;
+        if (!resolvedYearsExperience.HasValue && sanitized.Experiences.Count > 0)
+        {
+            var nonInternRoles = sanitized.Experiences
+                .Where(e => !e.Title.Contains("intern", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var sourceRoles = nonInternRoles.Count > 0 ? nonInternRoles : sanitized.Experiences.ToList();
+            var roleIntervals = sourceRoles
+                .Select(e => (e.StartDate, End: e.IsCurrent ? todayDate : (e.EndDate ?? todayDate)))
+                .ToArray();
+            resolvedYearsExperience = ResumeSignalEnricher.ComputeMergedExperienceYears(roleIntervals);
+        }
+
+        // Enrich Shipped Titles with matched EngineSkillId, normalized platforms, and date-correlated studio/role suggestions.
+        var enrichedShippedTitles = new List<SanitizedResumeShippedTitleExtraction>(sanitized.ShippedTitles.Count);
+        foreach (var rawTitle in sanitized.ShippedTitles)
+        {
+            int? matchedEngineId = null;
+            if (!string.IsNullOrWhiteSpace(rawTitle.EngineName))
+            {
+                matchedEngineId = ResumeSkillTaxonomyMatcher.MatchSingle(rawTitle.EngineName, engineCatalogEntries)?.SkillId;
+            }
+
+            if (!matchedEngineId.HasValue)
+            {
+                var titleContext = $"{rawTitle.GameName} {rawTitle.Role}";
+                foreach (var eng in engineCatalogEntries)
+                {
+                    if (SkillEvidenceTextMatcher.ContainsAnySkillTerm(titleContext, eng.Name, eng.Aliases))
+                    {
+                        matchedEngineId = eng.SkillId;
+                        break;
+                    }
+                }
+            }
+
+            var suggestedStudio = rawTitle.StudioName;
+            var suggestedRole = rawTitle.Role;
+            if ((string.IsNullOrWhiteSpace(suggestedStudio) || string.IsNullOrWhiteSpace(suggestedRole)) &&
+                sanitized.Experiences.Count > 0)
+            {
+                SanitizedResumeExperienceExtraction? correlatedExp = null;
+                if (rawTitle.ReleaseYear.HasValue)
+                {
+                    var ry = rawTitle.ReleaseYear.Value;
+                    correlatedExp = sanitized.Experiences.FirstOrDefault(e =>
+                        e.StartDate.Year <= ry &&
+                        ((e.IsCurrent && currentYear >= ry) || (e.EndDate.HasValue && e.EndDate.Value.Year >= ry)));
+                }
+                else if (sanitized.Experiences.Count == 1)
+                {
+                    correlatedExp = sanitized.Experiences[0];
+                }
+
+                if (correlatedExp is not null)
+                {
+                    if (string.IsNullOrWhiteSpace(suggestedStudio))
+                    {
+                        suggestedStudio = correlatedExp.CompanyName;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(suggestedRole))
+                    {
+                        suggestedRole = correlatedExp.Title;
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(suggestedRole) &&
+                !string.IsNullOrWhiteSpace(sanitized.Headline) &&
+                sanitized.Headline.Length <= 120)
+            {
+                suggestedRole = sanitized.Headline;
+            }
+
+            enrichedShippedTitles.Add(rawTitle with
+            {
+                StudioName = suggestedStudio,
+                Role = suggestedRole,
+                Platforms = ResumeSignalEnricher.NormalizeGamePlatforms(rawTitle.Platforms),
+                MatchedEngineSkillId = matchedEngineId
+            });
+        }
+
+        var matchedById = new Dictionary<int, (ResumeDraftMatchedSkill DraftSkill, bool LlmMarkedPrimary)>();
         var unmatchedSuggestions = new List<string>();
         var seenUnmatched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -234,33 +326,154 @@ internal sealed class CandidateResumeImportService : ICandidateResumeImportServi
                 var suggestedProficiency = SuggestProficiencyFromYears(rawSkill.YearsUsed);
                 if (matchedById.TryGetValue(match.SkillId, out var existing))
                 {
-                    var mergedYears = MaxNullable(existing.YearsUsed, rawSkill.YearsUsed);
-                    var mergedLastYear = MaxNullable(existing.LastUsedYear, rawSkill.LastUsedYear);
-                    matchedById[match.SkillId] = existing with
-                    {
-                        YearsUsed = mergedYears,
-                        LastUsedYear = mergedLastYear,
-                        SuggestedProficiency = SuggestProficiencyFromYears(mergedYears)
-                    };
+                    var mergedYears = MaxNullable(existing.DraftSkill.YearsUsed, rawSkill.YearsUsed);
+                    var mergedLastYear = MaxNullable(existing.DraftSkill.LastUsedYear, rawSkill.LastUsedYear);
+                    matchedById[match.SkillId] = (
+                        existing.DraftSkill with
+                        {
+                            YearsUsed = mergedYears,
+                            LastUsedYear = mergedLastYear,
+                            SuggestedProficiency = SuggestProficiencyFromYears(mergedYears)
+                        },
+                        existing.LlmMarkedPrimary || rawSkill.IsPrimary);
                 }
                 else if (matchedById.Count < CandidateProfileRules.MaxCandidateSkills)
                 {
-                    matchedById[match.SkillId] = new ResumeDraftMatchedSkill(
-                        SkillId: match.SkillId,
-                        SkillName: match.SkillName,
-                        SkillSlug: match.SkillSlug,
-                        Category: match.Category,
-                        MatchKind: match.MatchKind,
-                        SuggestedProficiency: suggestedProficiency,
-                        YearsUsed: rawSkill.YearsUsed,
-                        LastUsedYear: rawSkill.LastUsedYear,
-                        RawExtractedName: rawSkill.Name);
+                    matchedById[match.SkillId] = (
+                        new ResumeDraftMatchedSkill(
+                            SkillId: match.SkillId,
+                            SkillName: match.SkillName,
+                            SkillSlug: match.SkillSlug,
+                            Category: match.Category,
+                            MatchKind: match.MatchKind,
+                            SuggestedProficiency: suggestedProficiency,
+                            YearsUsed: rawSkill.YearsUsed,
+                            LastUsedYear: rawSkill.LastUsedYear,
+                            RawExtractedName: rawSkill.Name),
+                        rawSkill.IsPrimary);
                 }
             }
             else if (seenUnmatched.Add(rawSkill.Name))
             {
                 unmatchedSuggestions.Add(rawSkill.Name);
             }
+        }
+
+        // Infer per-skill YearsUsed, LastUsedYear, Proficiency, and top-5 Primary relevance from dated roles & shipped titles!
+        var scoredSkills = new List<(ResumeDraftMatchedSkill Skill, int PrimaryScore)>(matchedById.Count);
+        foreach (var (skillId, entry) in matchedById)
+        {
+            var draftSkill = entry.DraftSkill;
+            IReadOnlyList<string> aliases = activeSkillById.TryGetValue(skillId, out var fullSkill)
+                ? fullSkill.Aliases
+                : [];
+
+            var matchingIntervals = new List<(DateOnly Start, DateOnly End)>();
+            short? latestEvidenceYear = null;
+
+            foreach (var exp in sanitized.Experiences)
+            {
+                var expText = $"{exp.Title} {exp.Description}";
+                if (SkillEvidenceTextMatcher.ContainsAnySkillTerm(expText, draftSkill.SkillName, aliases))
+                {
+                    var expEnd = exp.IsCurrent ? todayDate : (exp.EndDate ?? exp.StartDate);
+                    matchingIntervals.Add((exp.StartDate, expEnd));
+                    var roleLastYear = (short)Math.Clamp(
+                        exp.IsCurrent ? currentYear : expEnd.Year,
+                        CandidateProfileRules.MinSkillLastUsedYear,
+                        currentYear);
+                    latestEvidenceYear = MaxNullable(latestEvidenceYear, roleLastYear);
+                }
+            }
+
+            foreach (var st in enrichedShippedTitles)
+            {
+                var isEngineMatch = st.MatchedEngineSkillId == skillId;
+                var titleText = $"{st.GameName} {st.Role} {st.EngineName}";
+                if (isEngineMatch || SkillEvidenceTextMatcher.ContainsAnySkillTerm(titleText, draftSkill.SkillName, aliases))
+                {
+                    if (st.ReleaseYear.HasValue)
+                    {
+                        latestEvidenceYear = MaxNullable(latestEvidenceYear, st.ReleaseYear.Value);
+                    }
+                }
+            }
+
+            var inferredYears = draftSkill.YearsUsed ?? ResumeSignalEnricher.ComputeMergedExperienceYears(matchingIntervals);
+            var inferredLastYear = draftSkill.LastUsedYear ?? latestEvidenceYear;
+            var updatedProficiency = SuggestProficiencyFromYears(inferredYears);
+
+            var primaryScore = 0;
+            if (!string.IsNullOrWhiteSpace(sanitized.Headline) &&
+                SkillEvidenceTextMatcher.ContainsAnySkillTerm(sanitized.Headline, draftSkill.SkillName, aliases))
+            {
+                primaryScore += 60;
+            }
+
+            if (entry.LlmMarkedPrimary)
+            {
+                primaryScore += 35;
+            }
+
+            if (draftSkill.Category is SkillCategory.Engine or SkillCategory.Language)
+            {
+                primaryScore += 15;
+            }
+            else if (draftSkill.Category is SkillCategory.ArtTool or SkillCategory.DesignAudioTool)
+            {
+                primaryScore += 10;
+            }
+
+            if (matchingIntervals.Count > 0 || latestEvidenceYear.HasValue)
+            {
+                primaryScore += 20;
+            }
+
+            if (inferredYears.HasValue)
+            {
+                primaryScore += (int)Math.Min(30m, inferredYears.Value * 3m);
+            }
+
+            scoredSkills.Add((
+                draftSkill with
+                {
+                    YearsUsed = inferredYears,
+                    LastUsedYear = inferredLastYear,
+                    SuggestedProficiency = updatedProficiency
+                },
+                primaryScore));
+        }
+
+        var topPrimaryIds = scoredSkills
+            .OrderByDescending(x => x.PrimaryScore)
+            .ThenBy(x => x.Skill.Category)
+            .ThenBy(x => x.Skill.SkillName, StringComparer.OrdinalIgnoreCase)
+            .Take(CandidateProfileRules.MaxPrimarySkills)
+            .Select(x => x.Skill.SkillId)
+            .ToHashSet();
+
+        var orderedMatchedSkills = scoredSkills
+            .Select(x => x.Skill with { SuggestedPrimary = topPrimaryIds.Contains(x.Skill.SkillId) })
+            .OrderByDescending(s => s.SuggestedPrimary)
+            .ThenBy(s => s.Category)
+            .ThenBy(s => s.SkillName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        // Infer primary discipline & Indian city ID for first-time profiles.
+        var suggestedDiscipline = sanitized.PrimaryDiscipline ??
+            ResumeSignalEnricher.InferPrimaryDiscipline(
+                sanitized.Headline,
+                sanitized.Experiences.Select(e => e.Title).ToArray(),
+                orderedMatchedSkills.Select(s => s.Category).ToArray());
+
+        int? suggestedCityId = null;
+        if (!string.IsNullOrWhiteSpace(sanitized.City))
+        {
+            var activeCities = await _referenceDataService.GetActiveCitiesAsync(cancellationToken);
+            var cityCatalog = activeCities
+                .Select(c => new ResumeCityCatalogEntry(c.Id, c.Name, c.Slug, c.State, c.StateCode, c.Aliases, c.IsHub))
+                .ToArray();
+            suggestedCityId = ResumeSignalEnricher.MatchIndianCityId(sanitized.City, null, cityCatalog);
         }
 
         stopwatch.Stop();
@@ -290,11 +503,11 @@ internal sealed class CandidateResumeImportService : ICandidateResumeImportServi
                 InputChars = redactedCharCount,
                 DurationMs = elapsedMs,
                 PiiRedactions = redaction.TotalRedactions,
-                MatchedSkillCount = matchedById.Count,
+                MatchedSkillCount = orderedMatchedSkills.Length,
                 UnmatchedSkillCount = unmatchedSuggestions.Count,
                 ExperienceCount = sanitized.Experiences.Count,
                 EducationCount = sanitized.Education.Count,
-                ShippedTitleCount = sanitized.ShippedTitles.Count
+                ShippedTitleCount = enrichedShippedTitles.Count
             }));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -304,22 +517,21 @@ internal sealed class CandidateResumeImportService : ICandidateResumeImportServi
             UsedToday: quotaBefore.UsedToday + 1,
             RemainingToday: Math.Max(0, quotaBefore.DailyLimit - (quotaBefore.UsedToday + 1)));
 
-        var orderedMatchedSkills = matchedById.Values
-            .OrderBy(s => s.Category)
-            .ThenBy(s => s.SkillName, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
         return Result.Success(new ResumeImportDraft(
             Source: extracted.DetectedSource,
             ProviderName: _llmClient.ProviderName,
             Headline: sanitized.Headline,
-            YearsExperience: sanitized.YearsExperience,
+            YearsExperience: resolvedYearsExperience,
             MatchedSkills: orderedMatchedSkills,
             UnmatchedSkillSuggestions: unmatchedSuggestions,
             Experiences: sanitized.Experiences,
             Education: sanitized.Education,
-            ShippedTitles: sanitized.ShippedTitles,
-            QuotaAfterParse: quotaAfter));
+            ShippedTitles: enrichedShippedTitles,
+            QuotaAfterParse: quotaAfter,
+            SuggestedFullName: sanitized.FullName,
+            Bio: sanitized.Bio,
+            SuggestedDiscipline: suggestedDiscipline,
+            SuggestedCityId: suggestedCityId));
     }
 
     public async Task<Result<ApplyCandidateResumeResult>> ApplyImportedDraftAsync(
@@ -378,6 +590,11 @@ internal sealed class CandidateResumeImportService : ICandidateResumeImportServi
         if (command.ApplyHeadline && !string.IsNullOrWhiteSpace(command.Headline))
         {
             profile.Headline = command.Headline.Trim();
+        }
+
+        if (command.ApplyBio && !string.IsNullOrWhiteSpace(command.Bio))
+        {
+            profile.Bio = command.Bio.Trim();
         }
 
         if (command.ApplyYearsExperience && command.YearsExperience.HasValue)

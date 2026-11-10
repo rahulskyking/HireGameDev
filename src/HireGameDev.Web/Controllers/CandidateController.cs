@@ -329,7 +329,9 @@ public sealed class CandidateController : Controller
                     Headline: resolvedHeadline,
                     PrimaryCategory: normalized.PrimaryCategory,
                     CityId: normalized.CityId,
-                    Bio: null),
+                    Bio: normalized.ApplyBio && !string.IsNullOrWhiteSpace(normalized.Bio)
+                        ? normalized.Bio.Trim()
+                        : null),
                 cancellationToken);
 
             if (step1Result.IsFailure)
@@ -434,7 +436,9 @@ public sealed class CandidateController : Controller
                 Skills: selectedSkills,
                 Experiences: selectedExperiences,
                 Education: selectedEducation,
-                ShippedTitles: selectedTitles),
+                ShippedTitles: selectedTitles,
+                ApplyBio: normalized.ApplyBio && !string.IsNullOrWhiteSpace(normalized.Bio),
+                Bio: normalized.Bio),
             cancellationToken);
 
         if (applyResult.IsFailure)
@@ -476,16 +480,25 @@ public sealed class CandidateController : Controller
         }
         else if (draft is not null)
         {
+            var suggestedFullName = state.Profile?.FullName
+                ?? (!string.IsNullOrWhiteSpace(draft.SuggestedFullName) ? draft.SuggestedFullName : state.SuggestedFullName);
+
             review = new ResumeDraftConfirmInputModel
             {
-                FullName = state.Profile?.FullName ?? state.SuggestedFullName,
-                PrimaryCategory = state.Profile?.PrimaryCategory ?? DisciplineCategory.Programming,
-                CityId = state.Profile?.CityId ?? 0,
+                FullName = suggestedFullName,
+                PrimaryCategory = state.Profile?.PrimaryCategory
+                    ?? draft.SuggestedDiscipline
+                    ?? DisciplineCategory.Programming,
+                CityId = state.Profile?.CityId
+                    ?? draft.SuggestedCityId
+                    ?? 0,
                 ApplyHeadline = !string.IsNullOrWhiteSpace(draft.Headline),
                 Headline = draft.Headline,
+                ApplyBio = !string.IsNullOrWhiteSpace(draft.Bio),
+                Bio = draft.Bio,
                 ApplyYearsExperience = draft.YearsExperience.HasValue,
                 YearsExperience = draft.YearsExperience,
-                Skills = draft.MatchedSkills.Select((s, idx) => new ResumeDraftSkillRowInputModel
+                Skills = draft.MatchedSkills.Select(s => new ResumeDraftSkillRowInputModel
                 {
                     Include = true,
                     SkillId = s.SkillId,
@@ -496,7 +509,7 @@ public sealed class CandidateController : Controller
                     Proficiency = s.SuggestedProficiency,
                     YearsUsed = s.YearsUsed,
                     LastUsedYear = s.LastUsedYear,
-                    IsPrimary = idx < 3
+                    IsPrimary = s.SuggestedPrimary
                 }).ToList(),
                 UnmatchedSkillSuggestions = draft.UnmatchedSkillSuggestions.ToList(),
                 Experiences = draft.Experiences.Select(e => new ResumeDraftExperienceRowInputModel
@@ -525,7 +538,8 @@ public sealed class CandidateController : Controller
                     StudioName = st.StudioName ?? string.Empty,
                     Role = st.Role ?? string.Empty,
                     ReleaseYear = st.ReleaseYear,
-                    Platforms = []
+                    EngineSkillId = st.MatchedEngineSkillId,
+                    Platforms = st.Platforms?.ToList() ?? []
                 }).ToList()
             };
         }

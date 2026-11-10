@@ -153,4 +153,39 @@ public sealed class ResumeJsonAndSkillMatcherTests
         Assert.Null(ResumeSkillTaxonomyMatcher.MatchSingle("ProprietaryVoxelTool", SampleCatalog));
         Assert.Null(ResumeSkillTaxonomyMatcher.MatchSingle("CSS", SampleCatalog));
     }
+
+    [Fact]
+    public void ResumeSignalEnricher_MergesOverlappingRoleSpans_NormalizesPlatforms_AndInfersDisciplineAndCity()
+    {
+        var intervals = new (DateOnly Start, DateOnly End)[]
+        {
+            (new DateOnly(2021, 1, 1), new DateOnly(2023, 6, 1)),
+            (new DateOnly(2022, 6, 1), new DateOnly(2024, 6, 1))
+        };
+
+        // Jan 2021 -> Jun 2024 merged = 42 months = 3.5 years (not 4.5 years double-counted!).
+        Assert.Equal(3.5m, ResumeSignalEnricher.ComputeMergedExperienceYears(intervals));
+
+        var platforms = ResumeSignalEnricher.NormalizeGamePlatforms(
+            ["Steam", "PS5", "Nintendo Switch"],
+            "Released on Google Play, App Store (iPhone), and WebGL.");
+        Assert.Contains("pc", platforms);
+        Assert.Contains("console", platforms);
+        Assert.Contains("android", platforms);
+        Assert.Contains("ios", platforms);
+        Assert.Contains("web", platforms);
+
+        var artDiscipline = ResumeSignalEnricher.InferPrimaryDiscipline(
+            "3D Environment Artist",
+            ["Environment Artist"],
+            [SkillCategory.ArtTool, SkillCategory.Engine]);
+        Assert.Equal(DisciplineCategory.Art, artDiscipline);
+
+        var cities = new ResumeCityCatalogEntry[]
+        {
+            new(1, "Bengaluru", "bengaluru", "Karnataka", "KA", ["Bangalore"], true),
+            new(2, "Pune", "pune", "Maharashtra", "MH", [], true)
+        };
+        Assert.Equal(1, ResumeSignalEnricher.MatchIndianCityId("Bangalore, Karnataka", null, cities));
+    }
 }

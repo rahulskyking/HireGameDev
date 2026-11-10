@@ -1,21 +1,32 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Candidates;
 using HireGameDev.Domain.Rules;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.DocumentLayoutAnalysis;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 using UglyToad.PdfPig.Exceptions;
 
 namespace HireGameDev.Infrastructure.ResumeAi;
 
 /// <summary>
-/// Bounded, in-memory PDF text extractor backed by <c>PdfPig</c>.
+/// Bounded, in-memory PDF text extractor backed by <c>PdfPig</c> with 2-column &amp; LinkedIn sidebar layout segmentation.
 /// Validates <c>.pdf</c> extension, 2 MB byte ceiling, <c>%PDF-</c> magic-byte signature, and page-count bounds,
 /// without ever writing uploaded PDFs to disk.
 /// </summary>
 internal sealed class PdfPigResumeTextExtractor : IResumePdfTextExtractor
 {
+    private static readonly Regex PageNumberFooterRegex = new(
+        @"^\s*Page\s+\d+\s+of\s+\d+\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(250));
+
     public async Task<Result<ExtractedResumePdfDocument>> ExtractTextAsync(
         Stream pdfStream,
         string? fileName,
@@ -82,7 +93,7 @@ internal sealed class PdfPigResumeTextExtractor : IResumePdfTextExtractor
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var page = document.GetPage(p);
-                var pageText = ContentOrderTextExtractor.GetText(page, addDoubleNewline: true);
+                var pageText = ExtractStructuredPageText(page);
 
                 if (!string.IsNullOrWhiteSpace(pageText))
                 {
@@ -138,9 +149,185 @@ internal sealed class PdfPigResumeTextExtractor : IResumePdfTextExtractor
         }
         finally
         {
-            // Zero out raw PDF bytes in memory as soon as extraction finishes.
             Array.Clear(pdfBytes, 0, pdfBytes.Length);
         }
+    }
+
+    private static string ExtractStructuredPageText(Page page)
+    {
+        var fallbackText = CleanPaginationFooters(
+            ContentOrderTextExtractor.GetText(page, addDoubleNewline: true) ?? string.Empty);
+
+        try
+        {
+            var letters = page.Letters;
+            if (letters is null || letters.Count == 0)
+            {
+                return fallbackText;
+            }
+
+            var words = NearestNeighbourWordExtractor.Instance.GetWords(letters).ToList();
+            if (words.Count == 0)
+            {
+                return fallbackText;
+            }
+
+            var blocks = RecursiveXYCut.Instance.GetBlocks(words);
+            if (blocks is null || blocks.Count == 0)
+            {
+                return fallbackText;
+            }
+
+            var orderedBlocks = OrderBlocksMainColumnFirst(blocks, page.Width);
+            var layoutSb = new StringBuilder(fallbackText.Length + 64);
+
+            foreach (var block in orderedBlocks)
+            {
+                var blockLines = new List<string>(block.TextLines.Count);
+                foreach (var textLine in block.TextLines)
+                {
+                    var line = textLine.Text?.Trim();
+                    if (!string.IsNullOrWhiteSpace(line) && !PageNumberFooterRegex.IsMatch(line))
+                    {
+                        blockLines.Add(line);
+                    }
+                }
+
+                if (blockLines.Count == 0)
+                {
+                    continue;
+                }
+
+                if (layoutSb.Length > 0)
+                {
+                    layoutSb.AppendLine();
+                    layoutSb.AppendLine();
+                }
+
+                layoutSb.Append(string.Join('\n', blockLines));
+            }
+
+            var layoutText = layoutSb.ToString();
+            var fallbackChars = ResumePdfUploadRules.CountNonWhitespaceChars(fallbackText);
+            var layoutChars = ResumePdfUploadRules.CountNonWhitespaceChars(layoutText);
+
+            // Guard against sparse layout segmentation dropping content on unusual PDF font encodings.
+            if (fallbackChars > 0 && layoutChars < fallbackChars * 0.75)
+            {
+                return fallbackText;
+            }
+
+            return layoutText;
+        }
+        catch
+        {
+            return fallbackText;
+        }
+    }
+
+    /// <summary>
+    /// LinkedIn "Save to PDF" and 2-column resume templates place a narrow sidebar (~30% width) alongside
+    /// a wider main column (~65–70% width) containing Name, Headline, Summary, Experience, and Education.
+    /// Reading the wider main column top-to-bottom BEFORE the narrow sidebar prevents sidebar labels
+    /// (Contact / Top Skills / Certifications) from interleaving with or displacing Header &amp; Experience sections.
+    /// </summary>
+    private static IEnumerable<TextBlock> OrderBlocksMainColumnFirst(
+        IReadOnlyList<TextBlock> blocks,
+        double pageWidth)
+    {
+        if (blocks.Count <= 1 || pageWidth <= 0)
+        {
+            return blocks;
+        }
+
+        var leftSplitX = pageWidth * 0.37;
+        var rightSplitX = pageWidth * 0.63;
+
+        var leftSidebar = new List<TextBlock>();
+        var rightMain = new List<TextBlock>();
+        var fitsLeftSidebarLayout = true;
+
+        foreach (var b in blocks)
+        {
+            if (b.BoundingBox.Right <= leftSplitX)
+            {
+                leftSidebar.Add(b);
+            }
+            else if (b.BoundingBox.Left >= pageWidth * 0.28)
+            {
+                rightMain.Add(b);
+            }
+            else
+            {
+                fitsLeftSidebarLayout = false;
+                break;
+            }
+        }
+
+        if (fitsLeftSidebarLayout && leftSidebar.Count > 0 && rightMain.Count > 0)
+        {
+            return rightMain
+                .OrderByDescending(b => b.BoundingBox.Top)
+                .ThenBy(b => b.BoundingBox.Left)
+                .Concat(leftSidebar
+                    .OrderByDescending(b => b.BoundingBox.Top)
+                    .ThenBy(b => b.BoundingBox.Left));
+        }
+
+        var leftMain = new List<TextBlock>();
+        var rightSidebar = new List<TextBlock>();
+        var fitsRightSidebarLayout = true;
+
+        foreach (var b in blocks)
+        {
+            if (b.BoundingBox.Left >= rightSplitX)
+            {
+                rightSidebar.Add(b);
+            }
+            else if (b.BoundingBox.Right <= pageWidth * 0.72)
+            {
+                leftMain.Add(b);
+            }
+            else
+            {
+                fitsRightSidebarLayout = false;
+                break;
+            }
+        }
+
+        if (fitsRightSidebarLayout && rightSidebar.Count > 0 && leftMain.Count > 0)
+        {
+            return leftMain
+                .OrderByDescending(b => b.BoundingBox.Top)
+                .ThenBy(b => b.BoundingBox.Left)
+                .Concat(rightSidebar
+                    .OrderByDescending(b => b.BoundingBox.Top)
+                    .ThenBy(b => b.BoundingBox.Left));
+        }
+
+        return UnsupervisedReadingOrderDetector.Instance.Get(blocks);
+    }
+
+    private static string CleanPaginationFooters(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
+        var lines = raw.Split(['\r', '\n']);
+        var sb = new StringBuilder(raw.Length);
+        foreach (var line in lines)
+        {
+            if (PageNumberFooterRegex.IsMatch(line))
+            {
+                continue;
+            }
+
+            sb.AppendLine(line);
+        }
+
+        return sb.ToString().Trim();
     }
 
     private static async Task<Result<byte[]>> ReadBoundedBytesAsync(
