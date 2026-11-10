@@ -175,7 +175,7 @@ public static class ResumeSignalEnricher
 
                 foreach (var (keyword, platform) in PlatformKeywords)
                 {
-                    if (SkillEvidenceTextMatcher.ContainsSkillTerm(token, keyword))
+                    if (SkillEvidenceTextMatcher.ContainsWholeSkillTerm(token, keyword))
                     {
                         AddPlatform(platform);
                     }
@@ -187,13 +187,13 @@ public static class ResumeSignalEnricher
         {
             foreach (var (keyword, platform) in PlatformKeywords)
             {
-                if (SkillEvidenceTextMatcher.ContainsSkillTerm(contextText, keyword))
+                if (SkillEvidenceTextMatcher.ContainsWholeSkillTerm(contextText, keyword))
                 {
                     AddPlatform(platform);
                 }
             }
 
-            if (SkillEvidenceTextMatcher.ContainsSkillTerm(contextText, "mobile") &&
+            if (SkillEvidenceTextMatcher.ContainsWholeSkillTerm(contextText, "mobile") &&
                 !seen.Contains("android") &&
                 !seen.Contains("ios"))
             {
@@ -377,7 +377,7 @@ public static class ResumeSignalEnricher
     {
         for (var i = 0; i < terms.Length; i++)
         {
-            if (SkillEvidenceTextMatcher.ContainsSkillTerm(text, terms[i]))
+            if (SkillEvidenceTextMatcher.ContainsWholeSkillTerm(text, terms[i]))
             {
                 return true;
             }
