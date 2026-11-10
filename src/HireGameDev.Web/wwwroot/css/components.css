@@ -1618,3 +1618,72 @@
   align-items: center;
   gap: var(--space-3);
 }
+
+/* --------------------------------------------------------------------------
+   15. Resume AI Import (.c-resume-*)
+   -------------------------------------------------------------------------- */
+.c-resume-import-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface);
+}
+
+.c-resume-import-callout__copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.c-resume-privacy {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+@media (min-width: 860px) {
+  .c-resume-privacy {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.c-resume-privacy__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.c-resume-dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-strong);
+  background-color: var(--bg);
+}
+
+.c-repeat-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+

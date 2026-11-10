@@ -537,6 +537,19 @@
       if (hidden) {
         hidden.value = comboOption.getAttribute('data-value') || '';
       }
+      return;
+    }
+
+    var importToggleBtn = event.target.closest('[data-import-toggle-all]');
+    if (importToggleBtn) {
+      var group = importToggleBtn.closest('[data-import-group]');
+      if (group) {
+        var shouldCheck = importToggleBtn.getAttribute('data-import-toggle-all') === 'true';
+        var checks = group.querySelectorAll('[data-import-item-check]');
+        for (var idx = 0; idx < checks.length; idx++) {
+          checks[idx].checked = shouldCheck;
+        }
+      }
     }
   });
 
@@ -862,4 +875,66 @@
       resetAvatarUploaderState(e.currentTarget, true);
     });
   }
+
+  document.addEventListener('change', function (event) {
+    if (!event.target.matches('[data-resume-pdf-input]')) {
+      return;
+    }
+
+    var input = event.target;
+    var form = input.closest('[data-resume-pdf-uploader]');
+    if (!form) {
+      return;
+    }
+
+    var filenameBadge = form.querySelector('[data-resume-pdf-filename]');
+    var errorEl = form.querySelector('[data-resume-pdf-error]');
+    var submitBtn = form.querySelector('[data-resume-pdf-submit]');
+
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.hidden = true;
+    }
+
+    var file = input.files && input.files[0];
+    if (!file) {
+      if (filenameBadge) {
+        filenameBadge.textContent = '';
+        filenameBadge.hidden = true;
+      }
+      return;
+    }
+
+    var maxBytes = parseInt(input.getAttribute('data-max-bytes') || '2097152', 10);
+    var lowerName = (file.name || '').toLowerCase();
+    if (!lowerName.endsWith('.pdf')) {
+      input.value = '';
+      if (filenameBadge) filenameBadge.hidden = true;
+      if (errorEl) {
+        errorEl.textContent = 'Only .pdf files are supported for resume and LinkedIn import.';
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    if (file.size > maxBytes) {
+      input.value = '';
+      if (filenameBadge) filenameBadge.hidden = true;
+      if (errorEl) {
+        errorEl.textContent = 'Selected PDF exceeds 2 MB. Export a smaller PDF and try again.';
+        errorEl.hidden = false;
+      }
+      return;
+    }
+
+    if (filenameBadge) {
+      var kb = Math.max(1, Math.round(file.size / 1024));
+      filenameBadge.textContent = file.name + ' · ' + kb + ' KB';
+      filenameBadge.hidden = false;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+    }
+  });
 })();

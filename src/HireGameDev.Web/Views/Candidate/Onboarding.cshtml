@@ -75,6 +75,16 @@
             </div>
         }
 
+        <div class="c-resume-import-callout">
+            <div class="c-resume-import-callout__copy">
+                <span class="c-badge c-badge--accent">Fast Track</span>
+                <span>Have a resume or LinkedIn &ldquo;Save to PDF&rdquo; export? Pre-fill skills, work history, education, and shipped titles in one step — nothing saves until you review.</span>
+            </div>
+            <a asp-controller="Candidate" asp-action="ResumeImport" class="c-btn c-btn--secondary c-btn--sm">
+                Import Resume / LinkedIn PDF
+            </a>
+        </div>
+
         <ol class="c-stepper" aria-label="Candidate onboarding steps">
             @{
                 (short Step, string Label)[] steps =

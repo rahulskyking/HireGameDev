@@ -8,8 +8,10 @@ using HireGameDev.Domain.Rules;
 using HireGameDev.Web.Authorization;
 using HireGameDev.Web.Models.Candidate;
 using HireGameDev.Web.Portals;
+using HireGameDev.Web.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HireGameDev.Web.Controllers;
 
@@ -22,6 +24,7 @@ public sealed class CandidateController : Controller
     private readonly ICandidateSkillsService _skillsService;
     private readonly ICandidateBackgroundService _backgroundService;
     private readonly ICandidateProofService _proofService;
+    private readonly ICandidateResumeImportService _resumeImportService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
@@ -31,6 +34,7 @@ public sealed class CandidateController : Controller
         ICandidateSkillsService skillsService,
         ICandidateBackgroundService backgroundService,
         ICandidateProofService proofService,
+        ICandidateResumeImportService resumeImportService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
@@ -39,6 +43,7 @@ public sealed class CandidateController : Controller
         _skillsService = skillsService;
         _backgroundService = backgroundService;
         _proofService = proofService;
+        _resumeImportService = resumeImportService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -228,6 +233,323 @@ public sealed class CandidateController : Controller
         }
 
         return RedirectToAction(nameof(Profile));
+    }
+
+    [HttpGet("Resume/Import")]
+    public async Task<IActionResult> ResumeImport(CancellationToken cancellationToken)
+    {
+        if (TryBuildJobsPortalRedirect(out var portalRedirect))
+        {
+            return Redirect(portalRedirect);
+        }
+
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var vm = await BuildResumeImportViewModelAsync(userId, reviewOverride: null, draft: null, cancellationToken);
+        return View("ResumeImport", vm);
+    }
+
+    [HttpPost("Resume/Import/Parse")]
+    [EnableRateLimiting(RateLimitPolicies.ResumeParse)]
+    [RequestSizeLimit(ResumePdfUploadRules.MaxMultipartRequestBytes)]
+    public async Task<IActionResult> ParseResume(
+        IFormFile? resumePdf,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        if (resumePdf is null || resumePdf.Length == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select a Resume or LinkedIn PDF file (up to 2 MB) to import.");
+            var emptyVm = await BuildResumeImportViewModelAsync(userId, reviewOverride: null, draft: null, cancellationToken);
+            return View("ResumeImport", emptyVm);
+        }
+
+        if (resumePdf.Length > ResumePdfUploadRules.MaxPdfUploadBytes)
+        {
+            ModelState.AddModelError(string.Empty, "Resume PDF must be 2 MB or smaller.");
+            var largeVm = await BuildResumeImportViewModelAsync(userId, reviewOverride: null, draft: null, cancellationToken);
+            return View("ResumeImport", largeVm);
+        }
+
+        await using var pdfStream = resumePdf.OpenReadStream();
+        var parseResult = await _resumeImportService.ParseResumePdfAsync(
+            new ParseCandidateResumeCommand(
+                UserId: userId,
+                PdfStream: pdfStream,
+                FileName: resumePdf.FileName),
+            cancellationToken);
+
+        if (parseResult.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, parseResult.Error.Message);
+            var failedVm = await BuildResumeImportViewModelAsync(userId, reviewOverride: null, draft: null, cancellationToken);
+            return View("ResumeImport", failedVm);
+        }
+
+        var successVm = await BuildResumeImportViewModelAsync(
+            userId,
+            reviewOverride: null,
+            draft: parseResult.Value,
+            cancellationToken);
+
+        return View("ResumeImport", successVm);
+    }
+
+    [HttpPost("Resume/Import/Apply")]
+    public async Task<IActionResult> ApplyResumeImport(
+        [Bind(Prefix = "Review")] ResumeDraftConfirmInputModel? input,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var normalized = input ?? new ResumeDraftConfirmInputModel();
+        var state = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+
+        // If the candidate has not created their Step 1 profile yet, create it seamlessly from the Basics card.
+        if (state.Profile is null)
+        {
+            var resolvedHeadline = normalized.ApplyHeadline && !string.IsNullOrWhiteSpace(normalized.Headline)
+                ? normalized.Headline.Trim()
+                : $"{normalized.PrimaryCategory} Developer";
+
+            var step1Result = await _profileService.SaveStep1BasicsAsync(
+                new SaveCandidateBasicsCommand(
+                    UserId: userId,
+                    FullName: normalized.FullName,
+                    Headline: resolvedHeadline,
+                    PrimaryCategory: normalized.PrimaryCategory,
+                    CityId: normalized.CityId,
+                    Bio: null),
+                cancellationToken);
+
+            if (step1Result.IsFailure)
+            {
+                ModelState.AddModelError(string.Empty, step1Result.Error.Message);
+                var step1FailedVm = await BuildResumeImportViewModelAsync(
+                    userId,
+                    reviewOverride: normalized,
+                    draft: null,
+                    cancellationToken,
+                    preloadedState: state);
+                return View("ResumeImport", step1FailedVm);
+            }
+        }
+
+        var selectedSkills = new List<ConfirmImportedSkillInput>();
+        for (var i = 0; i < normalized.Skills.Count; i++)
+        {
+            var s = normalized.Skills[i];
+            if (!s.Include || s.SkillId <= 0)
+            {
+                continue;
+            }
+
+            selectedSkills.Add(new ConfirmImportedSkillInput(
+                SkillId: s.SkillId,
+                Proficiency: s.Proficiency,
+                YearsUsed: s.YearsUsed,
+                LastUsedYear: s.LastUsedYear,
+                IsPrimary: s.IsPrimary));
+        }
+
+        var selectedExperiences = new List<ConfirmImportedExperienceInput>();
+        for (var i = 0; i < normalized.Experiences.Count; i++)
+        {
+            var exp = normalized.Experiences[i];
+            if (!exp.Include)
+            {
+                continue;
+            }
+
+            if (!exp.StartDate.HasValue)
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    $"Work Experience #{i + 1}: Start date is required (or uncheck that entry).");
+                var dateErrVm = await BuildResumeImportViewModelAsync(userId, normalized, null, cancellationToken);
+                return View("ResumeImport", dateErrVm);
+            }
+
+            selectedExperiences.Add(new ConfirmImportedExperienceInput(
+                CompanyName: exp.CompanyName,
+                Title: exp.Title,
+                StartDate: exp.StartDate.Value,
+                EndDate: exp.IsCurrent ? null : exp.EndDate,
+                IsCurrent: exp.IsCurrent,
+                Description: exp.Description));
+        }
+
+        var selectedEducation = new List<ConfirmImportedEducationInput>();
+        for (var i = 0; i < normalized.Education.Count; i++)
+        {
+            var edu = normalized.Education[i];
+            if (!edu.Include)
+            {
+                continue;
+            }
+
+            selectedEducation.Add(new ConfirmImportedEducationInput(
+                Institution: edu.Institution,
+                Degree: edu.Degree,
+                Field: edu.Field,
+                StartYear: edu.StartYear,
+                EndYear: edu.EndYear));
+        }
+
+        var selectedTitles = new List<ConfirmImportedShippedTitleInput>();
+        for (var i = 0; i < normalized.ShippedTitles.Count; i++)
+        {
+            var title = normalized.ShippedTitles[i];
+            if (!title.Include)
+            {
+                continue;
+            }
+
+            selectedTitles.Add(new ConfirmImportedShippedTitleInput(
+                GameName: title.GameName,
+                StudioName: title.StudioName,
+                Role: title.Role,
+                Platforms: title.Platforms,
+                EngineSkillId: title.EngineSkillId,
+                ReleaseYear: title.ReleaseYear));
+        }
+
+        var applyResult = await _resumeImportService.ApplyImportedDraftAsync(
+            new ApplyCandidateResumeDraftCommand(
+                UserId: userId,
+                ApplyHeadline: normalized.ApplyHeadline && !string.IsNullOrWhiteSpace(normalized.Headline),
+                Headline: normalized.Headline,
+                ApplyYearsExperience: normalized.ApplyYearsExperience && normalized.YearsExperience.HasValue,
+                YearsExperience: normalized.YearsExperience,
+                Skills: selectedSkills,
+                Experiences: selectedExperiences,
+                Education: selectedEducation,
+                ShippedTitles: selectedTitles),
+            cancellationToken);
+
+        if (applyResult.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, applyResult.Error.Message);
+            var applyErrVm = await BuildResumeImportViewModelAsync(userId, normalized, null, cancellationToken);
+            return View("ResumeImport", applyErrVm);
+        }
+
+        var r = applyResult.Value;
+        TempData["StatusMessage"] =
+            $"Resume import applied: +{r.AddedSkillCount} skills, +{r.AddedExperienceCount} experience, " +
+            $"+{r.AddedEducationCount} education, +{r.AddedShippedTitleCount} shipped titles (completeness: {r.UpdatedCompleteness}%).";
+
+        return RedirectToAction(nameof(Profile));
+    }
+
+    private async Task<ResumeImportPageViewModel> BuildResumeImportViewModelAsync(
+        Guid userId,
+        ResumeDraftConfirmInputModel? reviewOverride,
+        ResumeImportDraft? draft,
+        CancellationToken cancellationToken,
+        CandidateOnboardingState? preloadedState = null)
+    {
+        var state = preloadedState ?? await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+        var quota = draft?.QuotaAfterParse ?? await _resumeImportService.GetQuotaStatusAsync(userId, cancellationToken);
+        var hasExistingProfile = state.Profile is not null;
+
+        IReadOnlyList<CityLookupItem> cities = hasExistingProfile
+            ? []
+            : await _referenceDataService.GetActiveCitiesAsync(cancellationToken);
+
+        var engineSkills = await _referenceDataService.GetActiveSkillsAsync(SkillCategory.Engine, cancellationToken);
+
+        ResumeDraftConfirmInputModel review;
+        if (reviewOverride is not null)
+        {
+            review = reviewOverride;
+        }
+        else if (draft is not null)
+        {
+            review = new ResumeDraftConfirmInputModel
+            {
+                FullName = state.Profile?.FullName ?? state.SuggestedFullName,
+                PrimaryCategory = state.Profile?.PrimaryCategory ?? DisciplineCategory.Programming,
+                CityId = state.Profile?.CityId ?? 0,
+                ApplyHeadline = !string.IsNullOrWhiteSpace(draft.Headline),
+                Headline = draft.Headline,
+                ApplyYearsExperience = draft.YearsExperience.HasValue,
+                YearsExperience = draft.YearsExperience,
+                Skills = draft.MatchedSkills.Select((s, idx) => new ResumeDraftSkillRowInputModel
+                {
+                    Include = true,
+                    SkillId = s.SkillId,
+                    SkillName = s.SkillName,
+                    Category = s.Category,
+                    MatchKind = s.MatchKind,
+                    RawExtractedName = s.RawExtractedName,
+                    Proficiency = s.SuggestedProficiency,
+                    YearsUsed = s.YearsUsed,
+                    LastUsedYear = s.LastUsedYear,
+                    IsPrimary = idx < 3
+                }).ToList(),
+                UnmatchedSkillSuggestions = draft.UnmatchedSkillSuggestions.ToList(),
+                Experiences = draft.Experiences.Select(e => new ResumeDraftExperienceRowInputModel
+                {
+                    Include = true,
+                    CompanyName = e.CompanyName,
+                    Title = e.Title,
+                    StartDate = e.StartDate,
+                    EndDate = e.EndDate,
+                    IsCurrent = e.IsCurrent,
+                    Description = e.Description
+                }).ToList(),
+                Education = draft.Education.Select(ed => new ResumeDraftEducationRowInputModel
+                {
+                    Include = true,
+                    Institution = ed.Institution,
+                    Degree = ed.Degree,
+                    Field = ed.Field,
+                    StartYear = ed.StartYear,
+                    EndYear = ed.EndYear
+                }).ToList(),
+                ShippedTitles = draft.ShippedTitles.Select(st => new ResumeDraftShippedTitleRowInputModel
+                {
+                    Include = true,
+                    GameName = st.GameName,
+                    StudioName = st.StudioName ?? string.Empty,
+                    Role = st.Role ?? string.Empty,
+                    ReleaseYear = st.ReleaseYear,
+                    Platforms = []
+                }).ToList()
+            };
+        }
+        else
+        {
+            review = new ResumeDraftConfirmInputModel
+            {
+                FullName = state.Profile?.FullName ?? state.SuggestedFullName,
+                PrimaryCategory = state.Profile?.PrimaryCategory ?? DisciplineCategory.Programming,
+                CityId = state.Profile?.CityId ?? 0
+            };
+        }
+
+        return new ResumeImportPageViewModel
+        {
+            HasExistingProfile = hasExistingProfile,
+            HasParsedDraft = draft is not null || reviewOverride is not null,
+            Quota = quota,
+            DetectedSource = draft?.Source,
+            ProviderName = draft?.ProviderName,
+            Cities = cities,
+            EngineSkills = engineSkills,
+            Review = review
+        };
     }
 
     [HttpPost("Onboarding/Step2")]
