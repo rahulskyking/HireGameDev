@@ -105,7 +105,7 @@ public sealed class StudioServicesTests
         Assert.Equal(1, created.MemberCount);
         Assert.Equal(3, created.Skills.Count);
         Assert.Single(created.Titles);
-        Assert.Equal(["pc", "console", "android", "ios"], created.Titles[0].Platforms);
+        Assert.Equal(new[] { "pc", "console", "android", "ios" }, created.Titles[0].Platforms);
 
         // 4. Attempting to create a second active owned studio for the same user fails (ADR-018 Decision #3).
         var duplicateOwnedResult = await harness.ProfileService.CreateStudioAsync(new CreateStudioProfileCommand(
@@ -425,7 +425,6 @@ public sealed class StudioServicesTests
                     Name = "Unreal Engine",
                     Slug = "unreal-engine",
                     Category = SkillCategory.Engine,
-                    SortOrder = 1,
                     IsActive = true
                 },
                 new Skill
@@ -434,7 +433,6 @@ public sealed class StudioServicesTests
                     Name = "Unity",
                     Slug = "unity",
                     Category = SkillCategory.Engine,
-                    SortOrder = 2,
                     IsActive = true
                 },
                 new Skill
@@ -443,7 +441,6 @@ public sealed class StudioServicesTests
                     Name = "Action RPG",
                     Slug = "action-rpg",
                     Category = SkillCategory.Genre,
-                    SortOrder = 1,
                     IsActive = true
                 },
                 new Skill
@@ -452,7 +449,6 @@ public sealed class StudioServicesTests
                     Name = "PC / Steam",
                     Slug = "pc-steam",
                     Category = SkillCategory.Platform,
-                    SortOrder = 1,
                     IsActive = true
                 },
                 new Skill
@@ -461,7 +457,6 @@ public sealed class StudioServicesTests
                     Name = "C#",
                     Slug = "csharp",
                     Category = SkillCategory.Language,
-                    SortOrder = 1,
                     IsActive = true
                 });
 

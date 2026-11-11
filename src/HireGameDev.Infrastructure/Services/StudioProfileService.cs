@@ -642,7 +642,7 @@ public sealed class StudioProfileService : IStudioProfileService
         var skillItems = await _dbContext.StudioSkills
             .AsNoTracking()
             .Where(ss => ss.StudioId == studio.Id && ss.Skill.IsActive)
-            .OrderBy(ss => ss.Skill.SortOrder)
+            .OrderBy(ss => ss.Skill.Category)
             .ThenBy(ss => ss.Skill.Name)
             .Select(ss => new StudioSkillItem(
                 ss.SkillId,
@@ -812,7 +812,6 @@ public sealed class StudioProfileService : IStudioProfileService
             .AsNoTracking()
             .Where(ss => ss.StudioId == studio.Id && ss.Skill.IsActive)
             .OrderBy(ss => ss.Skill.Category)
-            .ThenBy(ss => ss.Skill.SortOrder)
             .ThenBy(ss => ss.Skill.Name)
             .Select(ss => new StudioSkillItem(
                 ss.SkillId,

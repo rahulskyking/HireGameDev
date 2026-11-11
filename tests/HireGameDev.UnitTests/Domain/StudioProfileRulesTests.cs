@@ -114,14 +114,14 @@ public sealed class StudioProfileRulesTests
     public void TryNormalizeCultureTags_EnforcesAllowlistDeduplicationAndSixTagCap()
     {
         var ok = StudioProfileRules.TryNormalizeCultureTags(
-            ["remote_friendly", "NO_CRUNCH", "remote_friendly", "original_ip"],
+            new[] { "remote_friendly", "NO_CRUNCH", "remote_friendly", "original_ip" },
             out var normalized,
             out var err);
 
         Assert.True(ok, err);
-        Assert.Equal(["remote_friendly", "no_crunch", "original_ip"], normalized);
+        Assert.Equal(new[] { "remote_friendly", "no_crunch", "original_ip" }, normalized);
 
-        var unknownOk = StudioProfileRules.TryNormalizeCultureTags(["free_pizza"], out _, out var unknownErr);
+        var unknownOk = StudioProfileRules.TryNormalizeCultureTags(new[] { "free_pizza" }, out _, out var unknownErr);
         Assert.False(unknownOk);
         Assert.Contains("Unsupported culture tag", unknownErr, StringComparison.OrdinalIgnoreCase);
 
