@@ -488,7 +488,8 @@ public sealed class AccountController : Controller
         }
 
         var destinationPortal = targetRole == AccountType.Studio ? PortalSite.Studio : PortalSite.Jobs;
-        return Redirect(_portalNavigator.BuildPortalUrl(destinationPortal, HttpContext, "/"));
+        var destinationPath = targetRole == AccountType.Studio ? "/Studio" : "/Candidate/Profile";
+        return Redirect(_portalNavigator.BuildPortalUrl(destinationPortal, HttpContext, destinationPath));
     }
 
     [Authorize]
@@ -809,8 +810,8 @@ public sealed class AccountController : Controller
             State = state,
             ProfileInput = new UpdateProfileInputModel { DisplayName = state.DisplayName },
             PasswordInput = passwordInput ?? new ChangePasswordInputModel(),
-            JobsPortalUrl = _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/"),
-            StudioPortalUrl = _portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/")
+            JobsPortalUrl = _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Candidate/Profile"),
+            StudioPortalUrl = _portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/Studio")
         };
     }
 
@@ -884,12 +885,12 @@ public sealed class AccountController : Controller
 
             if (hasStudio && !hasCandidate)
             {
-                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/"));
+                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/Studio"));
             }
 
             if (hasCandidate)
             {
-                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/"));
+                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Candidate/Profile"));
             }
         }
 
@@ -902,13 +903,18 @@ public sealed class AccountController : Controller
 
             if (hasStudio && !hasCandidate)
             {
-                return Redirect("/for-studios");
+                return Redirect("/Studio");
             }
 
             if (hasCandidate)
             {
                 return Redirect("/Candidate/Profile");
             }
+        }
+
+        if (portal == PortalSite.Studio && hasStudio)
+        {
+            return Redirect("/Studio");
         }
 
         return RedirectToAction("Index", "Home");

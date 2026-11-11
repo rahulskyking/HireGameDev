@@ -1,0 +1,54 @@
+@model StudioWorkspacePageViewModel
+@{
+    ViewData["Title"] = "Create Studio Workspace";
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Studio Onboarding &middot; M1.9</span>
+        </div>
+        <h1>Set up your studio workspace</h1>
+        <p class="u-muted">
+            Create your studio profile to preview your public <code>/studios/{slug}</code> directory page, invite hiring teammates, and prepare for studio verification.
+        </p>
+
+        @if (Model.Memberships.Count > 0)
+        {
+            <div class="c-alert c-alert--info" role="note" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <p>
+                        You already collaborate on @Model.Memberships.Count studio workspace@(Model.Memberships.Count == 1 ? string.Empty : "s").
+                        <a asp-controller="Studio" asp-action="EditProfile">Return to active workspace</a> or create the studio you personally own below.
+                    </p>
+                </div>
+            </div>
+        }
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="c-alert c-alert--danger" role="alert" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <span class="c-alert__title">Please review the fields below</span>
+                    <div asp-validation-summary="All"></div>
+                </div>
+            </div>
+        }
+    </header>
+
+    <form asp-controller="Studio" asp-action="Onboarding" method="post" class="p-sg-stack" novalidate>
+        <partial name="_StudioFormFields" model="Model" />
+
+        <div class="c-card" style="padding: 16px 20px;">
+            <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                <p class="c-hint" style="margin: 0;">
+                    You can upload your studio logo, invite recruiters/viewers, and preview your page immediately after saving.
+                </p>
+                <button type="submit" class="c-btn c-btn--primary c-btn--lg">
+                    Create Studio Workspace &rarr;
+                </button>
+            </div>
+        </div>
+    </form>
+</div>

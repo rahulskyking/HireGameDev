@@ -937,4 +937,121 @@
       submitBtn.disabled = false;
     }
   });
+
+  function slugifyStudioName(raw) {
+    if (!raw) return '';
+    return raw
+      .toLowerCase()
+      .replace(/[&+]/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80)
+      .replace(/-+$/g, '');
+  }
+
+  var slugCheckTimer = null;
+
+  function scheduleStudioSlugCheck(slugInput) {
+    if (!slugInput || slugInput.readOnly) return;
+    var statusBadge = document.querySelector('[data-studio-slug-status]');
+    var previewEl = document.querySelector('[data-studio-slug-preview]');
+    var val = (slugInput.value || '').trim().toLowerCase();
+
+    if (previewEl) {
+      previewEl.textContent = val || 'your-studio';
+    }
+
+    if (!statusBadge) return;
+    if (slugCheckTimer) {
+      clearTimeout(slugCheckTimer);
+    }
+
+    if (val.length < 2) {
+      statusBadge.hidden = true;
+      statusBadge.textContent = '';
+      return;
+    }
+
+    var excludeId = slugInput.getAttribute('data-exclude-studio-id') || '';
+    slugCheckTimer = setTimeout(function () {
+      var url = '/Studio/Slug/Check?slug=' + encodeURIComponent(val);
+      if (excludeId) {
+        url += '&excludeStudioId=' + encodeURIComponent(excludeId);
+      }
+
+      fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      })
+        .then(function (resp) {
+          return resp.ok ? resp.json() : null;
+        })
+        .then(function (data) {
+          if (!data || !statusBadge) return;
+          statusBadge.hidden = false;
+          statusBadge.textContent = data.isAvailable ? 'Available ✓' : (data.reason || 'Unavailable');
+          statusBadge.classList.toggle('c-badge--success', !!data.isAvailable);
+          statusBadge.classList.toggle('c-badge--danger', !data.isAvailable);
+          statusBadge.classList.remove('c-badge--neutral');
+        })
+        .catch(function () {
+          // Non-blocking progressive enhancement.
+        });
+    }, 280);
+  }
+
+  document.addEventListener('input', function (event) {
+    if (event.target.matches('[data-studio-name-input]')) {
+      var slugField = document.querySelector('[data-studio-slug-input]');
+      if (slugField && !slugField.readOnly && slugField.getAttribute('data-slug-manual') !== 'true') {
+        slugField.value = slugifyStudioName(event.target.value);
+        scheduleStudioSlugCheck(slugField);
+      }
+      return;
+    }
+
+    if (event.target.matches('[data-studio-slug-input]')) {
+      var sField = event.target;
+      if (!sField.readOnly) {
+        sField.setAttribute('data-slug-manual', sField.value.trim().length > 0 ? 'true' : 'false');
+        scheduleStudioSlugCheck(sField);
+      }
+      return;
+    }
+
+    if (event.target.matches('[data-studio-desc-input]')) {
+      var descCounter = document.querySelector('[data-studio-desc-counter]');
+      if (descCounter) {
+        var len = (event.target.value || '').trim().length;
+        descCounter.textContent = len + ' / 3000 chars (min 100)';
+        descCounter.classList.toggle('c-badge--success', len >= 100 && len <= 3000);
+        descCounter.classList.toggle('c-badge--neutral', len < 100);
+      }
+    }
+  });
+
+  document.addEventListener('change', function (event) {
+    if (!event.target.matches('[data-culture-tag-check]')) {
+      return;
+    }
+
+    var picker = event.target.closest('[data-culture-picker]');
+    if (!picker) return;
+
+    var boxes = picker.querySelectorAll('[data-culture-tag-check]');
+    var checkedCount = 0;
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].checked) checkedCount++;
+    }
+
+    for (var j = 0; j < boxes.length; j++) {
+      boxes[j].disabled = !boxes[j].checked && checkedCount >= 6;
+    }
+
+    var badge = picker.querySelector('[data-culture-count-badge]');
+    if (badge) {
+      badge.textContent = checkedCount + ' / 6 selected';
+    }
+  });
 })();

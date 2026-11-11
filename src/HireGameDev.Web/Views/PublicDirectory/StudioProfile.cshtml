@@ -1,15 +1,284 @@
+@model PublicStudioPageViewModel
+@inject IPortalNavigator PortalNavigator
 @{
-    var slug = ViewData["StudioSlug"] as string ?? "studio";
-    ViewData["Title"] = $"Studio · {slug}";
+    var s = Model.Studio;
+    ViewData["Title"] = s.IsPreviewMode
+        ? $"{s.Name} (Preview) · Studio Directory"
+        : $"{s.Name} · Game Studio in {s.CityName ?? "India"}";
+
+    var monogram = StudioUiFormatters.BuildMonogram(s.Name);
+    var hasSafeWebsite = ExternalUrlRules.TryNormalizeHttpsUrl(s.Website, out var safeWebsiteUrl, out _);
+    var websiteHost = hasSafeWebsite && Uri.TryCreate(safeWebsiteUrl, UriKind.Absolute, out var parsedSite)
+        ? parsedSite.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) && parsedSite.Host.Length > 4
+            ? parsedSite.Host[4..]
+            : parsedSite.Host
+        : null;
+
+    var editWorkspaceUrl = PortalNavigator.BuildPortalUrl(
+        PortalSite.Studio,
+        Context,
+        $"/Studio/Profile/Edit?studioId={s.StudioId}");
+
+    var hasAnyStack = s.Engines.Count > 0 || s.Genres.Count > 0 || s.Platforms.Count > 0;
 }
 
-<section class="l-auth l-auth--wide" aria-labelledby="public-studio-heading">
-    <div class="c-empty">
-        <span class="c-badge c-badge--info">Public Studio Directory &middot; jobs.hiregamedev.com/studios/@slug</span>
-        <h1 id="public-studio-heading" class="c-empty__title">Studio profile not published yet</h1>
-        <p class="c-empty__desc">
-            Public studio pages (shipped titles, team size, Indian hub city, responsiveness badge, and live open roles) populate in Phase 1 (`M1.9`).
-        </p>
-        <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--primary">Back to Job Board</a>
+<div class="p-sg-stack">
+    @if (s.IsPreviewMode)
+    {
+        <div class="c-alert c-alert--info" role="status">
+            <div class="c-alert__content">
+                <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                    <div>
+                        <span class="c-alert__title">
+                            Studio Workspace Preview &middot; @s.VerificationStatus.ToDisplayLabel()
+                        </span>
+                        <p style="margin: 4px 0 0 0;">
+                            Only your studio team and HireGameDev admins can view this page right now. Anonymous visitors receive <code>404</code> until studio verification is approved.
+                        </p>
+                    </div>
+                    @if (s.ViewerMemberRole.HasValue)
+                    {
+                        <a href="@editWorkspaceUrl" class="c-btn c-btn--secondary c-btn--sm">
+                            Edit Studio Profile
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Studio Hero Card -->
+    <section class="c-card" aria-labelledby="public-studio-name">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div class="c-entity-head">
+                @if (!string.IsNullOrWhiteSpace(s.LogoUrl))
+                {
+                    <img src="@s.LogoUrl"
+                         alt="@s.Name logo"
+                         class="c-avatar c-avatar--lg" />
+                }
+                else
+                {
+                    <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@monogram</span>
+                }
+
+                <div>
+                    <div class="p-sg-row" style="gap: 8px;">
+                        <h1 id="public-studio-name" style="margin: 0; font-size: clamp(24px, 3.5vw, 30px);">@s.Name</h1>
+                        @if (s.IsVerified)
+                        {
+                            <span class="c-badge c-badge--success">
+                                <svg class="c-badge__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+                                Verified Studio
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="c-badge c-badge--neutral">Preview</span>
+                        }
+                    </div>
+                    <p class="u-muted" style="margin: 4px 0 0 0;">
+                        @s.StudioType.ToDisplayLabel()
+                        @if (!string.IsNullOrWhiteSpace(s.CityName))
+                        {
+                            <span>&middot; @s.CityName@(!string.IsNullOrWhiteSpace(s.CityState) ? $", {s.CityState}" : string.Empty)</span>
+                        }
+                        <span>&middot; @s.SizeBand.ToDisplayLabel()</span>
+                        @if (s.FoundedYear.HasValue)
+                        {
+                            <span>&middot; Founded @s.FoundedYear.Value</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            <div class="c-btn-group">
+                @if (hasSafeWebsite)
+                {
+                    <a href="@safeWebsiteUrl"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="c-btn c-btn--secondary c-btn--sm">
+                        @(websiteHost ?? "Official Website") &#8599;
+                    </a>
+                }
+                @if (s.ViewerMemberRole.HasValue)
+                {
+                    <a href="@editWorkspaceUrl" class="c-btn c-btn--ghost c-btn--sm">
+                        Manage Studio
+                    </a>
+                }
+            </div>
+        </div>
+
+        @if (s.CultureTags.Count > 0)
+        {
+            <div class="c-badge-row">
+                @foreach (var tagSlug in s.CultureTags)
+                {
+                    <span class="c-badge c-badge--accent">@StudioProfileRules.GetCultureTagLabel(tagSlug)</span>
+                }
+            </div>
+        }
+
+        <!-- Candidate-Facing Studio Responsiveness Strip -->
+        <div class="c-notification" style="margin-top: 12px;">
+            <div class="c-notification__body">
+                <strong>Applicant Responsiveness (90-Day Rolling)</strong>
+                @if (s.Apps90d >= 5 && s.ResponseRate90d.HasValue)
+                {
+                    <p class="c-hint" style="margin: 2px 0 0 0;">
+                        Responded to <strong>@s.ResponseRate90d.Value.ToString("0")%</strong> of @s.Apps90d applications
+                        @if (s.MedianFirstResponseHours.HasValue)
+                        {
+                            <span>&middot; Median first response in <strong>@s.MedianFirstResponseHours.Value.ToString("0.#")h</strong></span>
+                        }
+                    </p>
+                }
+                else
+                {
+                    <p class="c-hint" style="margin: 2px 0 0 0;">
+                        New on HireGameDev &middot; Public response-rate metrics automatically unlock once @s.Name receives 5+ applications.
+                    </p>
+                }
+            </div>
+            @if (s.Apps90d >= 5 && s.ResponseRate90d.HasValue)
+            {
+                <span class="c-badge @(s.ResponseRate90d.Value >= 75m ? "c-badge--success" : "c-badge--info")">
+                    @s.ResponseRate90d.Value.ToString("0")% response rate
+                </span>
+            }
+            else
+            {
+                <span class="c-badge c-badge--neutral">Metrics pending</span>
+            }
+        </div>
+    </section>
+
+    <div class="p-sg-grid-2" style="align-items: start;">
+        <!-- About Studio -->
+        <section class="c-card" aria-labelledby="studio-about-public-heading">
+            <h2 id="studio-about-public-heading" style="font-size: 20px; margin: 0 0 12px 0;">About @s.Name</h2>
+            @if (!string.IsNullOrWhiteSpace(s.Description))
+            {
+                <p style="margin: 0; white-space: pre-line; line-height: 1.65;">@s.Description</p>
+            }
+            else
+            {
+                <p class="c-hint" style="margin: 0;">Studio overview has not been added yet.</p>
+            }
+        </section>
+
+        <!-- Engines, Genres & Platforms -->
+        <section class="c-card" aria-labelledby="studio-stack-public-heading">
+            <h2 id="studio-stack-public-heading" style="font-size: 20px; margin: 0 0 12px 0;">Engines, Genres &amp; Platforms</h2>
+
+            @if (!hasAnyStack)
+            {
+                <p class="c-hint" style="margin: 0;">Tech stack and genres have not been listed yet.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack" style="gap: 14px;">
+                    @if (s.Engines.Count > 0)
+                    {
+                        <div>
+                            <span class="c-label" style="display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Game Engines</span>
+                            <div class="c-badge-row">
+                                @foreach (var engine in s.Engines)
+                                {
+                                    <span class="c-badge c-badge--accent">@engine.Name</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (s.Genres.Count > 0)
+                    {
+                        <div>
+                            <span class="c-label" style="display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Genres</span>
+                            <div class="c-badge-row">
+                                @foreach (var genre in s.Genres)
+                                {
+                                    <span class="c-badge c-badge--info">@genre.Name</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (s.Platforms.Count > 0)
+                    {
+                        <div>
+                            <span class="c-label" style="display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Target Platforms</span>
+                            <div class="c-badge-row">
+                                @foreach (var plat in s.Platforms)
+                                {
+                                    <span class="c-badge c-badge--neutral">@plat.Name</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
     </div>
-</section>
+
+    <!-- Shipped & Announced Titles -->
+    @if (s.Titles.Count > 0)
+    {
+        <section class="c-card" aria-labelledby="studio-titles-public-heading">
+            <div class="c-card__header">
+                <h2 id="studio-titles-public-heading" style="font-size: 20px; margin: 0;">Shipped &amp; Announced Games (@s.Titles.Count)</h2>
+            </div>
+
+            <div class="p-sg-grid-2">
+                @foreach (var title in s.Titles)
+                {
+                    var hasSafeStoreUrl = ExternalUrlRules.TryNormalizeHttpsUrl(title.StoreUrl, out var safeStoreUrl, out _);
+                    <article class="c-repeat-card">
+                        <div class="p-sg-row" style="justify-content: space-between; align-items: flex-start; gap: 8px;">
+                            <div>
+                                <strong style="font-size: 16px;">@title.GameName</strong>
+                                @if (title.ReleaseYear.HasValue)
+                                {
+                                    <span class="c-badge c-badge--neutral" style="margin-left: 6px;">@title.ReleaseYear.Value</span>
+                                }
+                            </div>
+
+                            @if (hasSafeStoreUrl)
+                            {
+                                <a href="@safeStoreUrl"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="c-btn c-btn--ghost c-btn--sm">
+                                    Store Page &#8599;
+                                </a>
+                            }
+                        </div>
+
+                        @if (title.Platforms.Count > 0)
+                        {
+                            <div class="c-badge-row" style="margin-top: 10px;">
+                                @foreach (var pSlug in title.Platforms)
+                                {
+                                    <span class="c-badge c-badge--neutral">@StudioUiFormatters.FormatPlatformLabel(pSlug)</span>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    <!-- Open Roles Section (Populates in M2.1) -->
+    <section class="c-card" aria-labelledby="studio-open-roles-heading">
+        <div class="c-card__header">
+            <h2 id="studio-open-roles-heading" style="font-size: 20px; margin: 0;">Open Roles at @s.Name</h2>
+            <span class="c-badge c-badge--neutral">0 active roles</span>
+        </div>
+        <p class="c-hint" style="margin: 0;">
+            @s.Name does not have active job postings right now. Structured salary-transparent roles publish here once posted in Phase 2 (<code>M2.1</code>).
+        </p>
+    </section>
+</div>

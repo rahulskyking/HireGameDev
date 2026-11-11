@@ -113,6 +113,13 @@
                        aria-current="@(Context.Request.Path.StartsWithSegments("/Candidate") ? "page" : null)">Profile</a>
                 }
 
+                @if (hasStudioRole && currentPortal != PortalSite.Jobs)
+                {
+                    <a class="c-nav-link"
+                       href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio"))"
+                       aria-current="@(Context.Request.Path.StartsWithSegments("/Studio") ? "page" : null)">Studio</a>
+                }
+
                 @if (isAuthenticated)
                 {
                     <a class="c-nav-link"
@@ -225,7 +232,17 @@
                 <nav class="c-mobile-drawer__links" aria-label="Mobile navigation">
                     <a class="c-nav-link" href="@landingUrl">Brand Home</a>
                     <a class="c-nav-link" href="@jobsUrl">Candidate Jobs Portal</a>
-                    <a class="c-nav-link" href="@studioUrl">Studio Hiring Workspace</a>
+                    <a class="c-nav-link" href="@studioUrl">For Studios</a>
+
+                    @if (hasCandidateRole)
+                    {
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile"))">Developer Profile</a>
+                    }
+
+                    @if (hasStudioRole)
+                    {
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio"))">Studio Workspace</a>
+                    }
 
                     @if (isAuthenticated)
                     {

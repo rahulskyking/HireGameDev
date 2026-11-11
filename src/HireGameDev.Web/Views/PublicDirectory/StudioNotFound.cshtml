@@ -1,0 +1,18 @@
+@{
+    var slug = ViewData["StudioSlug"] as string ?? "studio";
+    ViewData["Title"] = $"Studio Not Found · {slug}";
+}
+
+<section class="l-auth l-auth--wide" aria-labelledby="public-studio-notfound-heading">
+    <div class="c-empty">
+        <span class="c-badge c-badge--neutral">404 &middot; /studios/@slug</span>
+        <h1 id="public-studio-notfound-heading" class="c-empty__title">Studio page unavailable</h1>
+        <p class="c-empty__desc">
+            No verified studio page exists at <code>/studios/@slug</code>. Unverified studio workspaces remain private until studio verification is approved.
+        </p>
+        <div class="c-btn-group">
+            <a asp-controller="Home" asp-action="JobBoard" class="c-btn c-btn--primary">Browse Jobs</a>
+            <a asp-controller="Home" asp-action="Index" class="c-btn c-btn--secondary">Back to Home</a>
+        </div>
+    </div>
+</section>

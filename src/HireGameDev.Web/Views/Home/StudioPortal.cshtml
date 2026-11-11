@@ -23,11 +23,17 @@
         <div class="p-hero__cta">
             @if (hasStudioRole)
             {
-                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--primary c-btn--lg">Studio Account Settings</a>
+                <a asp-controller="Studio" asp-action="Index" class="c-btn c-btn--primary c-btn--lg">Open Studio Workspace</a>
+                <a asp-controller="Studio" asp-action="Team" class="c-btn c-btn--secondary c-btn--lg">Manage Team</a>
+                <a asp-controller="Account" asp-action="Manage" class="c-btn c-btn--ghost c-btn--lg">Account Settings</a>
             }
             else if (isAuthenticated)
             {
-                <a asp-controller="Account" asp-action="EnableRole" asp-route-role="Studio" class="c-btn c-btn--primary c-btn--lg">Enable Studio Workspace on Your Account</a>
+                <form asp-controller="Account" asp-action="EnableRole" method="post" class="u-inline-form">
+                    <input type="hidden" name="targetRole" value="@AccountType.Studio" />
+                    <input type="hidden" name="returnUrl" value="/Studio" />
+                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">Enable Studio Workspace on Your Account</button>
+                </form>
             }
             else
             {

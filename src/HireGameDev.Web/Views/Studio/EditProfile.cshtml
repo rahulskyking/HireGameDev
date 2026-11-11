@@ -1,0 +1,270 @@
+@model StudioWorkspacePageViewModel
+@{
+    var s = Model.Studio!;
+    ViewData["Title"] = $"{s.Name} · Studio Workspace";
+
+    var monogram = StudioUiFormatters.BuildMonogram(s.Name);
+    var hasLogo = !string.IsNullOrWhiteSpace(s.LogoUrl);
+    var currentLogoUrl = hasLogo ? $"{s.LogoUrl}?v={s.UpdatedAt.UtcTicks}" : null;
+
+    var verificationBadge = s.VerificationStatus switch
+    {
+        StudioVerificationStatus.Verified => ("Verified Studio", "c-badge--success"),
+        StudioVerificationStatus.Pending => ("Verification Pending", "c-badge--info"),
+        StudioVerificationStatus.Rejected => ("Verification Needs Changes", "c-badge--danger"),
+        _ => ("Unverified · Preview Only", "c-badge--neutral")
+    };
+}
+
+<div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="@(new StudioWorkspaceNavViewModel(s.Id, "profile", Model.OwnedActiveStudio, Model.Memberships))" />
+
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content"><p>@errorMessage</p></div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content">
+                <span class="c-alert__title">Could not save studio changes</span>
+                <div asp-validation-summary="All"></div>
+            </div>
+        </div>
+    }
+
+    <!-- Studio Summary Header -->
+    <section class="c-card" aria-labelledby="studio-workspace-heading">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div class="c-entity-head">
+                @if (s.CanEditProfile)
+                {
+                    <button type="button"
+                            class="c-avatar-edit"
+                            data-modal-open="studio-logo-modal"
+                            aria-label="Edit studio logo"
+                            title="Upload or change studio logo">
+                        @if (!string.IsNullOrWhiteSpace(currentLogoUrl))
+                        {
+                            <img src="@currentLogoUrl"
+                                 alt="@s.Name logo"
+                                 class="c-avatar c-avatar--lg" />
+                        }
+                        else
+                        {
+                            <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@monogram</span>
+                        }
+                        <span class="c-avatar-edit__badge" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11.5 2.5a1.77 1.77 0 0 1 2.5 2.5L5.5 13.5 2 14l.5-3.5 9-8z" />
+                            </svg>
+                        </span>
+                    </button>
+                }
+                else
+                {
+                    @if (!string.IsNullOrWhiteSpace(currentLogoUrl))
+                    {
+                        <img src="@currentLogoUrl"
+                             alt="@s.Name logo"
+                             class="c-avatar c-avatar--lg" />
+                    }
+                    else
+                    {
+                        <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@monogram</span>
+                    }
+                }
+
+                <div>
+                    <h1 id="studio-workspace-heading" style="margin: 0; font-size: 24px;">@s.Name</h1>
+                    <p class="u-muted" style="margin: 4px 0 0 0;">
+                        <code>/studios/@s.Slug</code>
+                        @if (!string.IsNullOrWhiteSpace(s.CityName))
+                        {
+                            <span>&middot; @s.CityName@(!string.IsNullOrWhiteSpace(s.CityState) ? $", {s.CityState}" : string.Empty)</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            <div class="c-btn-group">
+                <a asp-controller="Studio"
+                   asp-action="Team"
+                   asp-route-studioId="@s.Id"
+                   class="c-btn c-btn--secondary c-btn--sm">
+                    Team (@s.MemberCount)
+                </a>
+                <a asp-controller="Studio"
+                   asp-action="Preview"
+                   asp-route-studioId="@s.Id"
+                   target="_blank"
+                   rel="noopener"
+                   class="c-btn c-btn--primary c-btn--sm">
+                    @(s.VerificationStatus == StudioVerificationStatus.Verified ? "View Public Page" : "Preview Studio Page") &#8599;
+                </a>
+            </div>
+        </div>
+
+        <div class="c-badge-row">
+            <span class="c-badge @verificationBadge.Item2">@verificationBadge.Item1</span>
+            <span class="c-badge c-badge--accent">Your role: @s.CallerRole.ToDisplayLabel()</span>
+            <span class="c-badge c-badge--neutral">@s.StudioType.ToDisplayLabel()</span>
+            <span class="c-badge c-badge--neutral">@s.SizeBand.ToDisplayLabel()</span>
+            @if (s.FoundedYear.HasValue)
+            {
+                <span class="c-badge c-badge--neutral">Est. @s.FoundedYear.Value</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyEmailDomain))
+            {
+                <span class="c-badge c-badge--info">Domain: @s.CompanyEmailDomain</span>
+            }
+        </div>
+
+        @if (s.VerificationStatus != StudioVerificationStatus.Verified)
+        {
+            <div class="c-alert c-alert--info" role="note" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <span class="c-alert__title">Public Visibility &amp; Verification</span>
+                    <p>
+                        Your studio page at <code>/studios/@s.Slug</code> is currently visible in <strong>Preview Mode</strong> to your studio team and HireGameDev admins, and returns <code>404</code> to anonymous visitors until verified (<code>M1.10</code>).
+                        @if (!string.IsNullOrWhiteSpace(s.VerificationNotes))
+                        {
+                            <br /><strong>Reviewer note:</strong> @s.VerificationNotes
+                        }
+                    </p>
+                </div>
+            </div>
+        }
+
+        @if (!s.CanEditProfile)
+        {
+            <div class="c-alert c-alert--info" role="note" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <p>You have <strong>Viewer</strong> access to this studio workspace. Only the Studio Owner and Recruiters can edit studio details or upload a logo.</p>
+                </div>
+            </div>
+        }
+    </section>
+
+    <form asp-controller="Studio" asp-action="EditProfile" method="post" class="p-sg-stack" novalidate>
+        <partial name="_StudioFormFields" model="Model" />
+
+        @if (s.CanEditProfile)
+        {
+            <div class="c-card" style="padding: 16px 20px;">
+                <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                    <span class="c-hint">
+                        Last updated @s.UpdatedAt.ToString("dd MMM yyyy, HH:mm 'UTC'")
+                    </span>
+                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">
+                        Save Studio Profile
+                    </button>
+                </div>
+            </div>
+        }
+    </form>
+
+    @if (s.CanEditProfile)
+    {
+        <dialog id="studio-logo-modal"
+                class="c-modal c-avatar-modal"
+                aria-labelledby="studio-logo-modal-title"
+                data-avatar-uploader
+                data-avatar-modal-reset-on-close>
+            <div class="c-modal__header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h2 id="studio-logo-modal-title" class="c-modal__title">Studio logo</h2>
+                    <span class="c-badge c-badge--neutral">256&times;256 WebP</span>
+                </div>
+                <button type="button" class="c-modal__close" data-modal-close aria-label="Close">&times;</button>
+            </div>
+
+            <div class="c-modal__body c-avatar-modal__body">
+                <div class="c-avatar-modal__stage">
+                    @if (!string.IsNullOrWhiteSpace(currentLogoUrl))
+                    {
+                        <img src="@currentLogoUrl"
+                             data-original-src="@currentLogoUrl"
+                             alt="@s.Name studio logo"
+                             class="c-avatar c-avatar--xl"
+                             data-avatar-preview />
+                    }
+                    else
+                    {
+                        <span class="c-entity-mark c-entity-mark--accent c-avatar--xl"
+                              aria-hidden="true"
+                              data-avatar-fallback>@monogram</span>
+                        <img src=""
+                             alt="Selected studio logo preview"
+                             class="c-avatar c-avatar--xl"
+                             data-avatar-preview
+                             hidden />
+                    }
+                </div>
+
+                <p class="c-avatar-modal__filename" data-avatar-filename hidden></p>
+                <p class="c-hint" style="margin: 0; text-align: center;">
+                    PNG, JPEG, or WebP &middot; Up to 1 MB &middot; Normalized to 256&times;256 WebP &middot; Metadata stripped
+                </p>
+                <p class="c-avatar-modal__error" data-avatar-error role="alert" hidden></p>
+
+                <form id="studio-logo-upload-form"
+                      asp-controller="Studio"
+                      asp-action="UploadLogo"
+                      method="post"
+                      enctype="multipart/form-data">
+                    <input type="hidden" name="studioId" value="@s.Id" />
+                    <input id="studio-modal-logo-input"
+                           name="logo"
+                           type="file"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                           hidden
+                           data-avatar-input
+                           data-max-bytes="1048576" />
+                </form>
+            </div>
+
+            <div class="c-modal__footer c-avatar-modal__footer">
+                <div>
+                    @if (hasLogo)
+                    {
+                        <form asp-controller="Studio" asp-action="RemoveLogo" method="post" style="margin: 0;">
+                            <input type="hidden" name="studioId" value="@s.Id" />
+                            <button type="submit" class="c-btn c-btn--ghost c-btn--sm">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right: 4px;">
+                                    <polyline points="2.5 4 13.5 4" />
+                                    <path d="M6 4V2.5h4V4m-5 0v9.5h6V4" />
+                                </svg>
+                                Remove
+                            </button>
+                        </form>
+                    }
+                </div>
+
+                <div class="c-btn-group">
+                    <label for="studio-modal-logo-input" class="c-btn c-btn--secondary c-btn--sm" style="cursor: pointer; margin: 0;">
+                        @(hasLogo ? "Change logo" : "Choose logo")
+                    </label>
+                    <button type="submit"
+                            form="studio-logo-upload-form"
+                            class="c-btn c-btn--primary c-btn--sm"
+                            data-avatar-save-btn
+                            disabled>
+                        Save logo
+                    </button>
+                </div>
+            </div>
+        </dialog>
+    }
+</div>

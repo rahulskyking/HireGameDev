@@ -1,0 +1,185 @@
+@model StudioTeamPageViewModel
+@{
+    var team = Model.Team;
+    ViewData["Title"] = $"{team.StudioName} · Team & Roles";
+}
+
+<div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="@(new StudioWorkspaceNavViewModel(team.StudioId, "team", Model.OwnedActiveStudio, Model.Memberships))" />
+
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content"><p>@errorMessage</p></div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content">
+                <span class="c-alert__title">Could not update studio team</span>
+                <div asp-validation-summary="All"></div>
+            </div>
+        </div>
+    }
+
+    <header class="p-sg-section">
+        <div class="p-hero__eyebrow">
+            <span class="p-hero__dot" aria-hidden="true"></span>
+            <span>Studio Workspace RBAC</span>
+        </div>
+        <h1>@team.StudioName &middot; Team</h1>
+        <p class="u-muted">
+            Manage who can edit your studio profile, post roles, review applicants, or view pipelines in read-only mode.
+        </p>
+    </header>
+
+    <div class="p-sg-grid-3">
+        <div class="c-card" style="padding: 16px;">
+            <strong style="font-size: 14px;">Owner</strong>
+            <p class="c-hint" style="margin: 6px 0 0 0;">Full control: studio profile, logo, URL slug (pre-verification), verification submission, and team membership.</p>
+        </div>
+        <div class="c-card" style="padding: 16px;">
+            <strong style="font-size: 14px;">Recruiter</strong>
+            <p class="c-hint" style="margin: 6px 0 0 0;">Can edit studio profile, logo, titles, and skills, and manage job postings &amp; applicant pipelines.</p>
+        </div>
+        <div class="c-card" style="padding: 16px;">
+            <strong style="font-size: 14px;">Viewer</strong>
+            <p class="c-hint" style="margin: 6px 0 0 0;">Read-only workspace access and preview access to unpublished studio pages (ideal for leads &amp; interviewers).</p>
+        </div>
+    </div>
+
+    @if (team.CanManageTeam)
+    {
+        <section class="c-card" aria-labelledby="add-teammate-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="add-teammate-heading" style="font-size: 20px; margin: 0;">Add Teammate</h2>
+                    <p class="c-hint" style="margin: 4px 0 0 0;">
+                        Add an existing HireGameDev user by their verified email address. If they currently only have a Candidate account, Studio access is enabled automatically.
+                    </p>
+                </div>
+                <span class="c-badge c-badge--neutral">@team.Members.Count / @StudioProfileRules.MaxTeamMembers seats</span>
+            </div>
+
+            <form asp-controller="Studio" asp-action="AddTeamMember" method="post" class="c-form" novalidate>
+                <input type="hidden" name="studioId" value="@team.StudioId" />
+
+                <div class="p-sg-grid-3" style="align-items: end;">
+                    <div class="c-field">
+                        <label class="c-label" for="team-add-email">Verified Account Email</label>
+                        <input id="team-add-email"
+                               type="email"
+                               name="AddMember.Email"
+                               value="@Model.AddMember.Email"
+                               class="c-input"
+                               required
+                               placeholder="colleague@yourstudio.com" />
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label" for="team-add-role">Workspace Role</label>
+                        <select id="team-add-role" name="AddMember.MemberRole" class="c-select">
+                            <option value="@StudioMemberRole.Recruiter" selected="@(Model.AddMember.MemberRole == StudioMemberRole.Recruiter ? "selected" : null)">Recruiter (Can edit &amp; hire)</option>
+                            <option value="@StudioMemberRole.Viewer" selected="@(Model.AddMember.MemberRole == StudioMemberRole.Viewer ? "selected" : null)">Viewer (Read-only)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <button type="submit"
+                                class="c-btn c-btn--primary"
+                                disabled="@(team.Members.Count >= StudioProfileRules.MaxTeamMembers ? "disabled" : null)">
+                            + Add to Studio Team
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+    }
+
+    <section class="c-card" aria-labelledby="team-roster-heading">
+        <div class="c-card__header">
+            <h2 id="team-roster-heading" style="font-size: 20px; margin: 0;">Active Team Members (@team.Members.Count)</h2>
+            <span class="c-badge c-badge--accent">Your role: @team.CallerRole.ToDisplayLabel()</span>
+        </div>
+
+        <div class="c-table-wrap">
+            <table class="c-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Member</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Joined</th>
+                        @if (team.CanManageTeam)
+                        {
+                            <th scope="col" style="text-align: right;">Actions</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var member in team.Members)
+                    {
+                        var roleBadgeClass = member.MemberRole switch
+                        {
+                            StudioMemberRole.Owner => "c-badge--accent",
+                            StudioMemberRole.Recruiter => "c-badge--info",
+                            _ => "c-badge--neutral"
+                        };
+
+                        <tr>
+                            <td>
+                                <strong>@member.DisplayName</strong>
+                                @if (member.IsOwner)
+                                {
+                                    <span class="c-badge c-badge--neutral" style="margin-left: 6px;">Primary Owner</span>
+                                }
+                            </td>
+                            <td><code>@member.Email</code></td>
+                            <td><span class="c-badge @roleBadgeClass">@member.MemberRole.ToDisplayLabel()</span></td>
+                            <td>@((member.AcceptedAt ?? member.InvitedAt).ToString("dd MMM yyyy"))</td>
+                            @if (team.CanManageTeam)
+                            {
+                                <td style="text-align: right;">
+                                    @if (member.IsOwner)
+                                    {
+                                        <span class="c-hint">Protected owner seat</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="p-sg-row" style="justify-content: flex-end; gap: 8px;">
+                                            <form asp-controller="Studio" asp-action="UpdateTeamMemberRole" method="post" class="p-sg-row" style="gap: 6px;">
+                                                <input type="hidden" name="studioId" value="@team.StudioId" />
+                                                <input type="hidden" name="targetUserId" value="@member.UserId" />
+                                                <select name="newRole" class="c-select" style="width: auto; min-width: 120px; padding-top: 4px; padding-bottom: 4px;" aria-label="Role for @member.DisplayName">
+                                                    <option value="@StudioMemberRole.Recruiter" selected="@(member.MemberRole == StudioMemberRole.Recruiter ? "selected" : null)">Recruiter</option>
+                                                    <option value="@StudioMemberRole.Viewer" selected="@(member.MemberRole == StudioMemberRole.Viewer ? "selected" : null)">Viewer</option>
+                                                </select>
+                                                <button type="submit" class="c-btn c-btn--secondary c-btn--sm">Update</button>
+                                            </form>
+
+                                            <form asp-controller="Studio" asp-action="RemoveTeamMember" method="post">
+                                                <input type="hidden" name="studioId" value="@team.StudioId" />
+                                                <input type="hidden" name="targetUserId" value="@member.UserId" />
+                                                <button type="submit" class="c-btn c-btn--ghost c-btn--sm">Remove</button>
+                                            </form>
+                                        </div>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

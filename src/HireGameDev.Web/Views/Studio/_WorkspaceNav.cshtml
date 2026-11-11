@@ -1,0 +1,64 @@
+@model StudioWorkspaceNavViewModel
+@{
+    var activeStudioId = Model.ActiveStudioId;
+    var activeTab = Model.ActiveTab;
+    var ownedStudio = Model.OwnedActiveStudio;
+    var memberships = Model.Memberships;
+}
+
+@if (memberships.Count > 1 || (memberships.Count > 0 && ownedStudio is null))
+{
+    <div class="c-card" style="padding: 12px 16px;">
+        <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+            <div class="p-sg-row" style="gap: 8px;">
+                <span class="c-label" style="margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Active Workspace:</span>
+                @foreach (var m in memberships)
+                {
+                    var isCurrent = activeStudioId.HasValue && m.StudioId == activeStudioId.Value;
+                    <a asp-controller="Studio"
+                       asp-action="@(activeTab == "team" ? "Team" : "EditProfile")"
+                       asp-route-studioId="@m.StudioId"
+                       class="c-btn c-btn--sm @(isCurrent ? "c-btn--primary" : "c-btn--secondary")">
+                        @m.Name
+                        <span class="c-badge c-badge--neutral" style="margin-left: 4px;">@m.MemberRole.ToDisplayLabel()</span>
+                    </a>
+                }
+            </div>
+
+            @if (ownedStudio is null)
+            {
+                <a asp-controller="Studio" asp-action="Onboarding" class="c-btn c-btn--ghost c-btn--sm">
+                    + Found Your Own Studio
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@if (activeStudioId.HasValue)
+{
+    <nav class="c-btn-group" aria-label="Studio workspace sections">
+        <a asp-controller="Studio"
+           asp-action="EditProfile"
+           asp-route-studioId="@activeStudioId.Value"
+           aria-current="@(activeTab == "profile" ? "page" : null)"
+           class="c-btn c-btn--sm @(activeTab == "profile" ? "c-btn--primary" : "c-btn--secondary")">
+            Studio Profile
+        </a>
+        <a asp-controller="Studio"
+           asp-action="Team"
+           asp-route-studioId="@activeStudioId.Value"
+           aria-current="@(activeTab == "team" ? "page" : null)"
+           class="c-btn c-btn--sm @(activeTab == "team" ? "c-btn--primary" : "c-btn--secondary")">
+            Team &amp; Roles
+        </a>
+        <a asp-controller="Studio"
+           asp-action="Preview"
+           asp-route-studioId="@activeStudioId.Value"
+           target="_blank"
+           rel="noopener"
+           class="c-btn c-btn--ghost c-btn--sm">
+            Preview Public Page &#8599;
+        </a>
+    </nav>
+}

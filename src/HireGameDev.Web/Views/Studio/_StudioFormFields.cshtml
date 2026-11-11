@@ -1,0 +1,510 @@
+@model StudioWorkspacePageViewModel
+@{
+    var studio = Model.Studio;
+    var form = Model.Form;
+    var isReadOnly = studio is not null && !studio.CanEditProfile;
+    var canEditSlug = Model.IsOnboarding || (studio is not null && studio.CanEditSlug);
+
+    var selectedCity = Model.Cities.FirstOrDefault(c => c.Id == form.CityId);
+    var selectedCityLabel = selectedCity is not null
+        ? $"{selectedCity.Name}, {selectedCity.StateCode}"
+        : string.Empty;
+
+    var selectedSkillIds = (form.SkillIds ?? Enumerable.Empty<int>()).ToHashSet();
+    var selectedCultureSlugs = (form.CultureTags ?? Enumerable.Empty<string>())
+        .Select(t => t.Trim().ToLowerInvariant())
+        .ToHashSet(StringComparer.Ordinal);
+
+    var studioTypes = new[]
+    {
+        StudioType.Indie,
+        StudioType.GameStudio,
+        StudioType.Outsourcing,
+        StudioType.Publisher,
+        StudioType.Other
+    };
+
+    var sizeBands = new[]
+    {
+        StudioSizeBand.Band1To10,
+        StudioSizeBand.Band11To50,
+        StudioSizeBand.Band51To200,
+        StudioSizeBand.Band200Plus
+    };
+}
+
+@if (form.StudioId.HasValue)
+{
+    <input type="hidden" name="Form.StudioId" value="@form.StudioId.Value" />
+}
+
+<!-- 1. Studio Identity & HQ -->
+<section class="c-card" aria-labelledby="studio-identity-heading">
+    <div class="c-card__header">
+        <div>
+            <h2 id="studio-identity-heading" style="font-size: 20px; margin: 0;">1. Studio Identity &amp; HQ</h2>
+            <p class="c-hint" style="margin: 4px 0 0 0;">Core details candidates see first on your studio page and structured job cards.</p>
+        </div>
+    </div>
+
+    <div class="p-sg-grid-2">
+        <div class="c-field">
+            <label class="c-label" for="studio-name-input">Studio Name <span aria-hidden="true">*</span></label>
+            <input id="studio-name-input"
+                   type="text"
+                   name="Form.Name"
+                   value="@form.Name"
+                   class="c-input"
+                   minlength="@StudioProfileRules.MinStudioNameLength"
+                   maxlength="@StudioProfileRules.MaxStudioNameLength"
+                   required
+                   readonly="@(isReadOnly ? "readonly" : null)"
+                   placeholder="e.g. Nodding Heads Games"
+                   data-studio-name-input />
+            <p class="c-hint">2–100 characters. Official studio or company name.</p>
+        </div>
+
+        <div class="c-field">
+            <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                <label class="c-label" for="studio-slug-input" style="margin: 0;">Public URL Slug <span aria-hidden="true">*</span></label>
+                @if (!canEditSlug && studio is not null)
+                {
+                    <span class="c-badge c-badge--neutral">
+                        @(studio.VerificationStatus is StudioVerificationStatus.Pending or StudioVerificationStatus.Verified
+                            ? "Locked after verification submission"
+                            : "Owner-only field")
+                    </span>
+                }
+                else
+                {
+                    <span class="c-badge c-badge--neutral" data-studio-slug-status hidden></span>
+                }
+            </div>
+            <input id="studio-slug-input"
+                   type="text"
+                   name="Form.Slug"
+                   value="@form.Slug"
+                   class="c-input"
+                   maxlength="@StudioProfileRules.MaxStudioSlugLength"
+                   readonly="@(!canEditSlug || isReadOnly ? "readonly" : null)"
+                   placeholder="e.g. nodding-heads-games"
+                   data-studio-slug-input
+                   data-exclude-studio-id="@(studio?.Id.ToString() ?? string.Empty)"
+                   data-slug-manual="@(!string.IsNullOrWhiteSpace(form.Slug) ? "true" : "false")" />
+            <p class="c-hint">
+                Public URL: <code>/studios/<span data-studio-slug-preview>@(string.IsNullOrWhiteSpace(form.Slug) ? "your-studio" : form.Slug)</span></code>
+                @if (canEditSlug && !isReadOnly)
+                {
+                    <span>&middot; Editable while unverified; locks once verification is submitted or approved.</span>
+                }
+            </p>
+        </div>
+    </div>
+
+    <div class="p-sg-grid-3" style="margin-top: 12px;">
+        <div class="c-field">
+            <label class="c-label" for="studio-type-select">Studio Type <span aria-hidden="true">*</span></label>
+            <select id="studio-type-select"
+                    name="Form.StudioType"
+                    class="c-select"
+                    disabled="@(isReadOnly ? "disabled" : null)">
+                @foreach (var st in studioTypes)
+                {
+                    <option value="@st" selected="@(form.StudioType == st ? "selected" : null)">@st.ToDisplayLabel()</option>
+                }
+            </select>
+        </div>
+
+        <div class="c-field">
+            <label class="c-label" for="studio-size-select">Team Size <span aria-hidden="true">*</span></label>
+            <select id="studio-size-select"
+                    name="Form.SizeBand"
+                    class="c-select"
+                    disabled="@(isReadOnly ? "disabled" : null)">
+                @foreach (var sb in sizeBands)
+                {
+                    <option value="@sb" selected="@(form.SizeBand == sb ? "selected" : null)">@sb.ToDisplayLabel()</option>
+                }
+            </select>
+        </div>
+
+        <div class="c-field">
+            <label class="c-label" for="studio-founded-input">Founded Year (optional)</label>
+            <input id="studio-founded-input"
+                   type="number"
+                   name="Form.FoundedYear"
+                   value="@form.FoundedYear"
+                   class="c-input"
+                   min="@StudioProfileRules.MinFoundedYear"
+                   max="@StudioProfileRules.MaxFoundedYear"
+                   readonly="@(isReadOnly ? "readonly" : null)"
+                   placeholder="e.g. 2017" />
+        </div>
+    </div>
+
+    <div class="p-sg-grid-2" style="margin-top: 12px;">
+        <div class="c-field" data-combobox>
+            <label class="c-label" for="studio-city-search">Primary HQ City (India) <span aria-hidden="true">*</span></label>
+            <input id="studio-city-search"
+                   class="c-input"
+                   type="text"
+                   value="@selectedCityLabel"
+                   placeholder="Search Indian city (Bengaluru, Pune, Hyderabad, Mumbai, Chennai...)"
+                   autocomplete="off"
+                   readonly="@(isReadOnly ? "readonly" : null)"
+                   data-combobox-input />
+            <input type="hidden" name="Form.CityId" value="@form.CityId" data-combobox-value />
+            @if (!isReadOnly)
+            {
+                <ul class="c-combobox__list" role="listbox" aria-label="Indian cities" style="max-height: 200px; overflow-y: auto;">
+                    @foreach (var city in Model.Cities)
+                    {
+                        var isSelected = city.Id == form.CityId;
+                        var displayLabel = $"{city.Name}, {city.StateCode}";
+                        var aliasKeywords = string.Join(' ', city.Aliases) + " " + city.State + " " + (city.MetroGroup ?? string.Empty);
+                        <li class="c-combobox__option"
+                            role="option"
+                            aria-selected="@(isSelected ? "true" : "false")"
+                            data-combobox-option
+                            data-value="@city.Id"
+                            data-label="@displayLabel"
+                            data-search-keywords="@aliasKeywords">
+                            <span>@city.Name, @city.State</span>
+                            <span class="c-combobox__option-meta">@(city.IsHub ? $"Gaming Hub · {city.StateCode}" : city.StateCode)</span>
+                        </li>
+                    }
+                </ul>
+                <p class="c-combobox__empty" data-combobox-empty hidden>No matching Indian city found.</p>
+            }
+            <p class="c-hint">Select the primary Indian city for your studio or remote-first headquarters.</p>
+        </div>
+
+        <div class="c-field">
+            <label class="c-label" for="studio-website-input">Official Website / Storefront (optional)</label>
+            <input id="studio-website-input"
+                   type="url"
+                   name="Form.Website"
+                   value="@form.Website"
+                   class="c-input"
+                   maxlength="500"
+                   readonly="@(isReadOnly ? "readonly" : null)"
+                   placeholder="https://yourstudio.com" />
+            <p class="c-hint">Must start with <code>https://</code>. Domain match accelerates studio verification in <code>M1.10</code>.</p>
+        </div>
+    </div>
+
+    <div class="c-field" style="margin-top: 12px;">
+        <label class="c-label" for="studio-gstin-input">Indian GSTIN (optional — Indie Friendly)</label>
+        <input id="studio-gstin-input"
+               type="text"
+               name="Form.Gstin"
+               value="@form.Gstin"
+               class="c-input"
+               maxlength="20"
+               readonly="@(isReadOnly ? "readonly" : null)"
+               placeholder="e.g. 27ABCDE1234F1Z5 (leave blank for unregistered indie teams)" />
+        <p class="c-hint">Optional 15-character GSTIN. Unregistered indie teams can verify via Steam/Play Store/itch.io pages, LinkedIn, or MCA/CIN in <code>M1.10</code>.</p>
+    </div>
+</section>
+
+<!-- 2. Studio Overview & Culture -->
+<section class="c-card" aria-labelledby="studio-about-heading">
+    <div class="c-card__header">
+        <div>
+            <h2 id="studio-about-heading" style="font-size: 20px; margin: 0;">2. About &amp; Work Culture</h2>
+            <p class="c-hint" style="margin: 4px 0 0 0;">Tell developers what kind of games you build, how your team collaborates, and why engineers/artists love working with you.</p>
+        </div>
+    </div>
+
+    <div class="c-field">
+        <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+            <label class="c-label" for="studio-desc-input" style="margin: 0;">Studio Description <span aria-hidden="true">*</span></label>
+            <span class="c-badge c-badge--neutral" data-studio-desc-counter>
+                @((form.Description ?? string.Empty).Trim().Length) / @StudioProfileRules.MaxDescriptionLength chars (min @StudioProfileRules.MinOnboardingDescriptionLength)
+            </span>
+        </div>
+        <textarea id="studio-desc-input"
+                  name="Form.Description"
+                  class="c-textarea"
+                  rows="6"
+                  minlength="@StudioProfileRules.MinOnboardingDescriptionLength"
+                  maxlength="@StudioProfileRules.MaxDescriptionLength"
+                  required
+                  readonly="@(isReadOnly ? "readonly" : null)"
+                  placeholder="Describe your studio's vision, current or shipped projects, engineering/art practices, and remote or studio-floor setup (100–3,000 characters)..."
+                  data-studio-desc-input>@form.Description</textarea>
+    </div>
+
+    <fieldset class="c-field" style="border: 0; padding: 0; margin: 16px 0 0 0;" data-culture-picker>
+        <div class="p-sg-row" style="justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+            <legend class="c-label" style="margin: 0;">Culture &amp; Perks (up to @StudioProfileRules.MaxCultureTags tags)</legend>
+            <span class="c-badge c-badge--neutral" data-culture-count-badge>
+                @selectedCultureSlugs.Count / @StudioProfileRules.MaxCultureTags selected
+            </span>
+        </div>
+        <div class="p-sg-grid-3">
+            @foreach (var tag in StudioProfileRules.AllowedCultureTags)
+            {
+                var isChecked = selectedCultureSlugs.Contains(tag.Slug);
+                var disableUnchecked = isReadOnly || (!isChecked && selectedCultureSlugs.Count >= StudioProfileRules.MaxCultureTags);
+                <label class="c-check">
+                    <input type="checkbox"
+                           name="Form.CultureTags"
+                           value="@tag.Slug"
+                           checked="@(isChecked ? "checked" : null)"
+                           disabled="@(disableUnchecked ? "disabled" : null)"
+                           data-culture-tag-check />
+                    <span>@tag.Label</span>
+                </label>
+            }
+        </div>
+    </fieldset>
+</section>
+
+<!-- 3. Engines, Genres & Platforms -->
+<section class="c-card" aria-labelledby="studio-stack-heading">
+    <div class="c-card__header">
+        <div>
+            <h2 id="studio-stack-heading" style="font-size: 20px; margin: 0;">3. Engines, Genres &amp; Target Platforms</h2>
+            <p class="c-hint" style="margin: 4px 0 0 0;">Select at least <strong>1 game engine</strong> so HireGameDev can match relevant engineers, technical artists, and designers.</p>
+        </div>
+    </div>
+
+    <div class="p-sg-stack">
+        <fieldset class="c-field" style="border: 0; padding: 0; margin: 0;">
+            <legend class="c-label" style="margin-bottom: 8px;">
+                Game Engines <span aria-hidden="true">*</span>
+                <span class="c-badge c-badge--accent" style="margin-left: 6px;">At least 1 required</span>
+            </legend>
+            <div class="p-sg-grid-3">
+                @foreach (var skill in Model.EngineSkills)
+                {
+                    var checkedAttr = selectedSkillIds.Contains(skill.Id) ? "checked" : null;
+                    <label class="c-check">
+                        <input type="checkbox"
+                               name="Form.SkillIds"
+                               value="@skill.Id"
+                               checked="@checkedAttr"
+                               disabled="@(isReadOnly ? "disabled" : null)" />
+                        <span>@skill.Name</span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+
+        @if (Model.GenreSkills.Count > 0)
+        {
+            <hr />
+            <fieldset class="c-field" style="border: 0; padding: 0; margin: 0;">
+                <legend class="c-label" style="margin-bottom: 8px;">Genres (optional)</legend>
+                <div class="p-sg-grid-3">
+                    @foreach (var skill in Model.GenreSkills)
+                    {
+                        var checkedAttr = selectedSkillIds.Contains(skill.Id) ? "checked" : null;
+                        <label class="c-check">
+                            <input type="checkbox"
+                                   name="Form.SkillIds"
+                                   value="@skill.Id"
+                                   checked="@checkedAttr"
+                                   disabled="@(isReadOnly ? "disabled" : null)" />
+                            <span>@skill.Name</span>
+                        </label>
+                    }
+                </div>
+            </fieldset>
+        }
+
+        @if (Model.PlatformSkills.Count > 0)
+        {
+            <hr />
+            <fieldset class="c-field" style="border: 0; padding: 0; margin: 0;">
+                <legend class="c-label" style="margin-bottom: 8px;">Target Platforms (optional)</legend>
+                <div class="p-sg-grid-3">
+                    @foreach (var skill in Model.PlatformSkills)
+                    {
+                        var checkedAttr = selectedSkillIds.Contains(skill.Id) ? "checked" : null;
+                        <label class="c-check">
+                            <input type="checkbox"
+                                   name="Form.SkillIds"
+                                   value="@skill.Id"
+                                   checked="@checkedAttr"
+                                   disabled="@(isReadOnly ? "disabled" : null)" />
+                            <span>@skill.Name</span>
+                        </label>
+                    }
+                </div>
+            </fieldset>
+        }
+    </div>
+</section>
+
+<!-- 4. Shipped & Announced Titles -->
+<section class="c-card"
+         aria-labelledby="studio-titles-heading"
+         data-repeat-section
+         data-repeat-prefix="Form.Titles"
+         data-repeat-max="@StudioProfileRules.MaxStudioTitles"
+         data-repeat-template="hgd-studio-title-template">
+    <div class="c-card__header" style="align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <h2 id="studio-titles-heading" style="font-size: 20px; margin: 0;">
+                4. Shipped &amp; Announced Games
+                <span class="c-badge c-badge--neutral" data-repeat-count>@form.Titles.Count / @StudioProfileRules.MaxStudioTitles</span>
+            </h2>
+            <p class="c-hint" style="margin: 4px 0 0 0;">Optional. Showcase released titles, Steam Early Access games, mobile hits, or public co-dev credits.</p>
+        </div>
+
+        @if (!isReadOnly)
+        {
+            <button type="button"
+                    class="c-btn c-btn--secondary c-btn--sm"
+                    data-repeat-add
+                    disabled="@(form.Titles.Count >= StudioProfileRules.MaxStudioTitles ? "disabled" : null)">
+                + Add Game Title
+            </button>
+        }
+    </div>
+
+    <p class="c-hint" data-repeat-empty hidden="@(form.Titles.Count > 0 ? "hidden" : null)">
+        No studio titles listed yet. Click <strong>+ Add Game Title</strong> to highlight shipped or announced games (unannounced/stealth studios can skip this).
+    </p>
+
+    <div class="p-sg-stack" data-repeat-items>
+        @for (var i = 0; i < form.Titles.Count; i++)
+        {
+            var t = form.Titles[i];
+            var selectedPlatforms = (t.Platforms ?? Enumerable.Empty<string>())
+                .Select(p => p.Trim().ToLowerInvariant())
+                .ToHashSet(StringComparer.Ordinal);
+
+            <article class="c-repeat-card" data-repeat-card>
+                <input type="hidden" name="Form.Titles[@i].Id" value="@t.Id" data-field="Id" />
+
+                <div class="c-card__header" style="padding: 0 0 12px 0; margin-bottom: 12px; align-items: center;">
+                    <strong style="font-size: 14px;">Game Title <span data-card-index>#@(i + 1)</span></strong>
+                    @if (!isReadOnly)
+                    {
+                        <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+                    }
+                </div>
+
+                <div class="p-sg-grid-3">
+                    <div class="c-field">
+                        <label class="c-label">Game Name</label>
+                        <input type="text"
+                               class="c-input"
+                               name="Form.Titles[@i].GameName"
+                               value="@t.GameName"
+                               maxlength="@StudioProfileRules.MaxTitleGameNameLength"
+                               readonly="@(isReadOnly ? "readonly" : null)"
+                               placeholder="e.g. Raji: An Ancient Epic"
+                               data-field="GameName" />
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label">Release / Target Year</label>
+                        <input type="number"
+                               class="c-input"
+                               name="Form.Titles[@i].ReleaseYear"
+                               value="@t.ReleaseYear"
+                               min="@StudioProfileRules.MinTitleReleaseYear"
+                               max="@StudioProfileRules.MaxTitleReleaseYear"
+                               readonly="@(isReadOnly ? "readonly" : null)"
+                               placeholder="2024"
+                               data-field="ReleaseYear" />
+                    </div>
+
+                    <div class="c-field">
+                        <label class="c-label">Store / Official Page (optional)</label>
+                        <input type="url"
+                               class="c-input"
+                               name="Form.Titles[@i].StoreUrl"
+                               value="@t.StoreUrl"
+                               maxlength="500"
+                               readonly="@(isReadOnly ? "readonly" : null)"
+                               placeholder="https://store.steampowered.com/app/..."
+                               data-field="StoreUrl" />
+                    </div>
+                </div>
+
+                <div class="c-field" style="margin-top: 12px;">
+                    <span class="c-label">Platforms</span>
+                    <div class="p-sg-row" style="gap: 14px;">
+                        @foreach (var plat in StudioUiFormatters.PlatformOptions)
+                        {
+                            var isPlatChecked = selectedPlatforms.Contains(plat.Slug);
+                            <label class="c-check">
+                                <input type="checkbox"
+                                       name="Form.Titles[@i].Platforms"
+                                       value="@plat.Slug"
+                                       checked="@(isPlatChecked ? "checked" : null)"
+                                       disabled="@(isReadOnly ? "disabled" : null)"
+                                       data-field="Platforms" />
+                                <span>@plat.Label</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+</section>
+
+@if (!isReadOnly)
+{
+    <template id="hgd-studio-title-template">
+        <article class="c-repeat-card" data-repeat-card>
+            <input type="hidden" value="" data-field="Id" />
+
+            <div class="c-card__header" style="padding: 0 0 12px 0; margin-bottom: 12px; align-items: center;">
+                <strong style="font-size: 14px;">Game Title <span data-card-index>#1</span></strong>
+                <button type="button" class="c-btn c-btn--ghost c-btn--sm" data-repeat-remove>Remove</button>
+            </div>
+
+            <div class="p-sg-grid-3">
+                <div class="c-field">
+                    <label class="c-label">Game Name</label>
+                    <input type="text"
+                           class="c-input"
+                           maxlength="@StudioProfileRules.MaxTitleGameNameLength"
+                           placeholder="e.g. Raji: An Ancient Epic"
+                           data-field="GameName" />
+                </div>
+
+                <div class="c-field">
+                    <label class="c-label">Release / Target Year</label>
+                    <input type="number"
+                           class="c-input"
+                           min="@StudioProfileRules.MinTitleReleaseYear"
+                           max="@StudioProfileRules.MaxTitleReleaseYear"
+                           placeholder="2024"
+                           data-field="ReleaseYear" />
+                </div>
+
+                <div class="c-field">
+                    <label class="c-label">Store / Official Page (optional)</label>
+                    <input type="url"
+                           class="c-input"
+                           maxlength="500"
+                           placeholder="https://store.steampowered.com/app/..."
+                           data-field="StoreUrl" />
+                </div>
+            </div>
+
+            <div class="c-field" style="margin-top: 12px;">
+                <span class="c-label">Platforms</span>
+                <div class="p-sg-row" style="gap: 14px;">
+                    @foreach (var plat in StudioUiFormatters.PlatformOptions)
+                    {
+                        <label class="c-check">
+                            <input type="checkbox"
+                                   value="@plat.Slug"
+                                   data-field="Platforms" />
+                            <span>@plat.Label</span>
+                        </label>
+                    }
+                </div>
+            </div>
+        </article>
+    </template>
+}
