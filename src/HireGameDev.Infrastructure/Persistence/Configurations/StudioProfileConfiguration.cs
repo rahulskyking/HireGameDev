@@ -138,11 +138,13 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
             .HasColumnType("text");
 
         builder.Property(s => s.Apps90d)
+            .HasColumnName("apps_90d")
             .HasColumnType("integer")
             .HasDefaultValueSql("0")
             .IsRequired();
 
         builder.Property(s => s.ResponseRate90d)
+            .HasColumnName("response_rate_90d")
             .HasColumnType("numeric(5,2)");
 
         builder.Property(s => s.MedianFirstResponseHours)
