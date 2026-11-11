@@ -38,6 +38,12 @@ public sealed record StudioTitleInput(
     IReadOnlyList<string> Platforms,
     string? StoreUrl);
 
+public sealed record StudioPendingIdentityChange(
+    string ProposedName,
+    string ProposedSlug,
+    string? ProposedGstin,
+    DateTimeOffset RequestedAt);
+
 public sealed record StudioProfileDetail(
     Guid Id,
     Guid OwnerUserId,
@@ -66,6 +72,7 @@ public sealed record StudioProfileDetail(
     DateTimeOffset? VerificationSubmittedAt,
     IReadOnlyList<string> VerificationProofUrls,
     string? VerificationApplicantNotes,
+    StudioPendingIdentityChange? PendingIdentityChange,
     DateTimeOffset? VerifiedAt,
     string? VerificationNotes,
     int Apps90d,

@@ -145,4 +145,38 @@ public sealed class StudioVerificationRulesTests
             proofUrlCount: 0);
         Assert.False(missingEngine.CanSubmit);
     }
+
+    [Fact]
+    public void TryValidateIdentityChangeRequest_RequiresActualChangeAndValidFormats()
+    {
+        var noChange = StudioVerificationRules.TryValidateIdentityChangeRequest(
+            currentName: "Monsoon Pixel",
+            currentSlug: "monsoon-pixel",
+            currentGstin: null,
+            rawProposedName: "  Monsoon Pixel ",
+            rawProposedSlug: "monsoon-pixel",
+            rawProposedGstin: "",
+            out _,
+            out _,
+            out _,
+            out var noChangeErr);
+        Assert.False(noChange);
+        Assert.NotNull(noChangeErr);
+
+        var validIncorporation = StudioVerificationRules.TryValidateIdentityChangeRequest(
+            currentName: "Monsoon Pixel",
+            currentSlug: "monsoon-pixel",
+            currentGstin: null,
+            rawProposedName: "Monsoon Pixel Studios Pvt Ltd",
+            rawProposedSlug: "monsoon-pixel-studios",
+            rawProposedGstin: "29abcde1234f1z5",
+            out var normalizedName,
+            out var normalizedSlug,
+            out var normalizedGstin,
+            out var validErr);
+        Assert.True(validIncorporation, validErr);
+        Assert.Equal("Monsoon Pixel Studios Pvt Ltd", normalizedName);
+        Assert.Equal("monsoon-pixel-studios", normalizedSlug);
+        Assert.Equal("29ABCDE1234F1Z5", normalizedGstin);
+    }
 }

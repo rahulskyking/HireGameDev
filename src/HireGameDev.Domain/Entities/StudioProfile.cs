@@ -47,6 +47,14 @@ public sealed class StudioProfile : IAuditableEntity, ISoftDeletable
 
     public string? VerificationApplicantNotes { get; set; }
 
+    public string? PendingIdentityName { get; set; }
+
+    public string? PendingIdentitySlug { get; set; }
+
+    public string? PendingIdentityGstin { get; set; }
+
+    public DateTimeOffset? PendingIdentityRequestedAt { get; set; }
+
     public DateTimeOffset? VerifiedAt { get; set; }
 
     public Guid? VerifiedBy { get; set; }

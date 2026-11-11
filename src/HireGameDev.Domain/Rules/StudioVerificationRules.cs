@@ -29,6 +29,7 @@ public static class StudioVerificationRules
 {
     public const int MaxProofUrls = 5;
     public const int MaxApplicantNotesLength = 1000;
+    public const int MinIdentityChangeNotesLength = 10;
     public const int MinAdminReasonLength = 10;
     public const int MaxAdminReasonLength = 500;
     public const int MinRejectionFeedbackLength = 10;
@@ -210,6 +211,63 @@ public static class StudioVerificationRules
         }
 
         normalizedNotes = trimmed;
+        return true;
+    }
+
+    public static bool TryValidateIdentityChangeRequest(
+        string currentName,
+        string currentSlug,
+        string? currentGstin,
+        string? rawProposedName,
+        string? rawProposedSlug,
+        string? rawProposedGstin,
+        out string normalizedName,
+        out string normalizedSlug,
+        out string? normalizedGstin,
+        out string? errorMessage)
+    {
+        normalizedName = string.Empty;
+        normalizedSlug = string.Empty;
+        normalizedGstin = null;
+        errorMessage = null;
+
+        var trimmedName = rawProposedName?.Trim() ?? string.Empty;
+        if (trimmedName.Length < StudioProfileRules.MinStudioNameLength ||
+            trimmedName.Length > StudioProfileRules.MaxStudioNameLength)
+        {
+            errorMessage = $"Proposed studio name must be between {StudioProfileRules.MinStudioNameLength} and {StudioProfileRules.MaxStudioNameLength} characters.";
+            return false;
+        }
+
+        var effectiveRawSlug = string.IsNullOrWhiteSpace(rawProposedSlug)
+            ? currentSlug
+            : rawProposedSlug;
+
+        if (!StudioProfileRules.TryNormalizeSlug(effectiveRawSlug, out var validSlug, out var slugErr))
+        {
+            errorMessage = slugErr;
+            return false;
+        }
+
+        if (!StudioProfileRules.TryNormalizeGstin(rawProposedGstin, out var validGstin, out var gstinErr))
+        {
+            errorMessage = gstinErr;
+            return false;
+        }
+
+        var nameChanged = !string.Equals(currentName, trimmedName, StringComparison.Ordinal);
+        var slugChanged = !string.Equals(currentSlug, validSlug, StringComparison.OrdinalIgnoreCase);
+        var gstinChanged = !string.Equals(currentGstin ?? string.Empty, validGstin ?? string.Empty, StringComparison.Ordinal);
+
+        if (!nameChanged && !slugChanged && !gstinChanged)
+        {
+            errorMessage = "Update at least one verified identity field (Studio Name, URL Slug, or GSTIN) before submitting a re-verification request.";
+            return false;
+        }
+
+        normalizedName = trimmedName;
+        normalizedSlug = validSlug;
+        normalizedGstin = validGstin;
         return true;
     }
 

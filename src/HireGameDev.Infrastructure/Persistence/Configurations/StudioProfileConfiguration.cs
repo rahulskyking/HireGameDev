@@ -62,6 +62,18 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
                 "verification_applicant_notes IS NULL OR char_length(verification_applicant_notes) <= 1000");
 
             t.HasCheckConstraint(
+                "ck_studio_profiles_pending_identity_consistency",
+                "(pending_identity_requested_at IS NULL AND pending_identity_name IS NULL AND pending_identity_slug IS NULL AND pending_identity_gstin IS NULL) OR (verification_status = 'verified' AND pending_identity_requested_at IS NOT NULL AND pending_identity_name IS NOT NULL AND char_length(btrim(pending_identity_name)) BETWEEN 2 AND 100 AND pending_identity_slug IS NOT NULL)");
+
+            t.HasCheckConstraint(
+                "ck_studio_profiles_pending_identity_slug",
+                @"pending_identity_slug IS NULL OR (char_length(pending_identity_slug) BETWEEN 2 AND 100 AND pending_identity_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')");
+
+            t.HasCheckConstraint(
+                "ck_studio_profiles_pending_identity_gstin",
+                @"pending_identity_gstin IS NULL OR pending_identity_gstin ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'");
+
+            t.HasCheckConstraint(
                 "ck_studio_profiles_verification_notes_len",
                 "verification_notes IS NULL OR char_length(verification_notes) <= 2000");
 
@@ -150,6 +162,22 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
             .HasColumnName("verification_applicant_notes")
             .HasColumnType("text");
 
+        builder.Property(s => s.PendingIdentityName)
+            .HasColumnName("pending_identity_name")
+            .HasColumnType("text");
+
+        builder.Property(s => s.PendingIdentitySlug)
+            .HasColumnName("pending_identity_slug")
+            .HasColumnType("citext");
+
+        builder.Property(s => s.PendingIdentityGstin)
+            .HasColumnName("pending_identity_gstin")
+            .HasColumnType("text");
+
+        builder.Property(s => s.PendingIdentityRequestedAt)
+            .HasColumnName("pending_identity_requested_at")
+            .HasColumnType("timestamptz");
+
         builder.Property(s => s.VerifiedAt)
             .HasColumnType("timestamptz");
 
@@ -230,5 +258,14 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
                 "ix_studio_profiles_verification_queue")
             .HasFilter("deleted_at IS NULL")
             .HasDatabaseName("ix_studio_profiles_verification_queue");
+
+        builder.HasIndex(s => s.PendingIdentitySlug, "ux_studio_profiles_pending_identity_slug")
+            .IsUnique()
+            .HasFilter("deleted_at IS NULL AND pending_identity_slug IS NOT NULL")
+            .HasDatabaseName("ux_studio_profiles_pending_identity_slug");
+
+        builder.HasIndex(s => s.PendingIdentityRequestedAt, "ix_studio_profiles_pending_identity_queue")
+            .HasFilter("deleted_at IS NULL AND pending_identity_requested_at IS NOT NULL")
+            .HasDatabaseName("ix_studio_profiles_pending_identity_queue");
     }
 }

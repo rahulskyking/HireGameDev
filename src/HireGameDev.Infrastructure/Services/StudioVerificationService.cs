@@ -8,6 +8,7 @@ using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Studios;
 using HireGameDev.Domain.Constants;
+using HireGameDev.Domain.Entities;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Domain.Rules;
 using HireGameDev.Infrastructure.Identity;
@@ -129,7 +130,7 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             return Result.Failure<StudioVerificationWorkspaceModel>(
                 Error.Conflict(
                     "StudioVerification.AlreadyVerified",
-                    "This studio workspace is already verified."));
+                    "This studio workspace is already verified. Use the Controlled Identity Update form to request a Name, Slug, or GSTIN change."));
         }
 
         if (studio.VerificationStatus == StudioVerificationStatus.Pending)
@@ -243,8 +244,220 @@ internal sealed class StudioVerificationService : IStudioVerificationService
 
         if (owner is not null && !string.IsNullOrWhiteSpace(owner.Email))
         {
-            await TrySendSubmissionEmailAsync(owner, studio.Name, studio.Slug, cancellationToken);
+            await TrySendSubmissionEmailAsync(
+                owner,
+                studio.Name,
+                studio.Slug,
+                isIdentityChange: false,
+                cancellationToken);
         }
+
+        return await BuildWorkspaceModelAsync(studio.Id, callerMember.MemberRole, cancellationToken);
+    }
+
+    public async Task<Result<StudioVerificationWorkspaceModel>> RequestIdentityChangeAsync(
+        RequestStudioIdentityChangeCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (command.ActorUserId == Guid.Empty || command.StudioId == Guid.Empty)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation("StudioVerification.InvalidIdentity", "Valid studio and user identifiers are required."));
+        }
+
+        var studio = await _dbContext.StudioProfiles
+            .FirstOrDefaultAsync(s => s.Id == command.StudioId && s.DeletedAt == null, cancellationToken);
+
+        if (studio is null)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.NotFound("Studio.NotFound", "Studio workspace was not found."));
+        }
+
+        var callerMember = await _dbContext.StudioMembers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                m => m.StudioId == studio.Id && m.UserId == command.ActorUserId,
+                cancellationToken);
+
+        if (callerMember is null || !StudioProfileRules.CanSubmitVerification(callerMember.MemberRole))
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Forbidden(
+                    "StudioVerification.OwnerOnly",
+                    "Only the studio Owner can request a verified identity update."));
+        }
+
+        if (studio.VerificationStatus != StudioVerificationStatus.Verified)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Conflict(
+                    "StudioVerification.NotVerified",
+                    "Controlled identity re-verification is for verified studios. While unverified or rejected, you can edit Studio Name, Slug, and GSTIN directly on your Studio Profile."));
+        }
+
+        if (studio.PendingIdentityRequestedAt.HasValue)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Conflict(
+                    "StudioVerification.IdentityChangeAlreadyPending",
+                    "An identity re-verification request is already pending admin review. Cancel the pending request first if you need to revise it."));
+        }
+
+        if (!StudioVerificationRules.TryValidateIdentityChangeRequest(
+                currentName: studio.Name,
+                currentSlug: studio.Slug,
+                currentGstin: studio.Gstin,
+                rawProposedName: command.ProposedName,
+                rawProposedSlug: command.ProposedSlug,
+                rawProposedGstin: command.ProposedGstin,
+                out var proposedName,
+                out var proposedSlug,
+                out var proposedGstin,
+                out var identityError))
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation("StudioVerification.InvalidIdentityChange", identityError!));
+        }
+
+        if (!StudioVerificationRules.TryNormalizeProofUrls(command.ProofUrls, out var normalizedProofUrls, out var proofUrlError))
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation("StudioVerification.InvalidProofUrls", proofUrlError!));
+        }
+
+        if (!StudioVerificationRules.TryNormalizeApplicantNotes(command.ApplicantNotes, out var normalizedNotes, out var notesError))
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation("StudioVerification.InvalidApplicantNotes", notesError!));
+        }
+
+        if (normalizedNotes is null || normalizedNotes.Length < StudioVerificationRules.MinIdentityChangeNotesLength)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation(
+                    "StudioVerification.IdentityNotesRequired",
+                    $"Briefly explain why your verified identity is changing (at least {StudioVerificationRules.MinIdentityChangeNotesLength} characters — e.g. legal incorporation, GSTIN registration, or studio rebrand)."));
+        }
+
+        var slugChanged = !string.Equals(studio.Slug, proposedSlug, StringComparison.OrdinalIgnoreCase);
+        if (slugChanged)
+        {
+            var slugTaken = await IsSlugTakenOrReservedAsync(proposedSlug, studio.Id, cancellationToken);
+            if (slugTaken)
+            {
+                return Result.Failure<StudioVerificationWorkspaceModel>(
+                    Error.Conflict(
+                        "StudioProfile.SlugTaken",
+                        $"The proposed URL slug '{proposedSlug}' is already in use or reserved."));
+            }
+        }
+
+        var now = _clock.UtcNow;
+        studio.PendingIdentityName = proposedName;
+        studio.PendingIdentitySlug = proposedSlug;
+        studio.PendingIdentityGstin = proposedGstin;
+        studio.PendingIdentityRequestedAt = now;
+        studio.VerificationProofUrls = normalizedProofUrls;
+        studio.VerificationApplicantNotes = normalizedNotes;
+
+        _auditLogger.Enqueue(new AuditLogEntry(
+            Action: "studio.identity_change.requested",
+            EntityType: "studio_profile",
+            EntityId: studio.Id.ToString(),
+            ActorType: AuditActorType.User,
+            ActorUserId: command.ActorUserId,
+            BeforeData: new { studio.Name, studio.Slug, studio.Gstin },
+            AfterData: new
+            {
+                ProposedName = proposedName,
+                ProposedSlug = proposedSlug,
+                ProposedGstin = proposedGstin,
+                ProofUrlCount = normalizedProofUrls.Length
+            }));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var owner = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == studio.OwnerUserId, cancellationToken);
+
+        if (owner is not null && !string.IsNullOrWhiteSpace(owner.Email))
+        {
+            await TrySendSubmissionEmailAsync(
+                owner,
+                studio.Name,
+                studio.Slug,
+                isIdentityChange: true,
+                cancellationToken);
+        }
+
+        return await BuildWorkspaceModelAsync(studio.Id, callerMember.MemberRole, cancellationToken);
+    }
+
+    public async Task<Result<StudioVerificationWorkspaceModel>> CancelIdentityChangeAsync(
+        CancelStudioIdentityChangeCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (command.ActorUserId == Guid.Empty || command.StudioId == Guid.Empty)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Validation("StudioVerification.InvalidIdentity", "Valid studio and user identifiers are required."));
+        }
+
+        var studio = await _dbContext.StudioProfiles
+            .FirstOrDefaultAsync(s => s.Id == command.StudioId && s.DeletedAt == null, cancellationToken);
+
+        if (studio is null)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.NotFound("Studio.NotFound", "Studio workspace was not found."));
+        }
+
+        var callerMember = await _dbContext.StudioMembers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                m => m.StudioId == studio.Id && m.UserId == command.ActorUserId,
+                cancellationToken);
+
+        if (callerMember is null || !StudioProfileRules.CanSubmitVerification(callerMember.MemberRole))
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Forbidden(
+                    "StudioVerification.OwnerOnly",
+                    "Only the studio Owner can cancel a pending identity update request."));
+        }
+
+        if (!studio.PendingIdentityRequestedAt.HasValue)
+        {
+            return Result.Failure<StudioVerificationWorkspaceModel>(
+                Error.Conflict(
+                    "StudioVerification.NoPendingIdentityChange",
+                    "There is no pending identity re-verification request to cancel."));
+        }
+
+        var cancelledProposal = new
+        {
+            studio.PendingIdentityName,
+            studio.PendingIdentitySlug,
+            studio.PendingIdentityGstin
+        };
+
+        ClearPendingIdentityFields(studio);
+
+        _auditLogger.Enqueue(new AuditLogEntry(
+            Action: "studio.identity_change.cancelled",
+            EntityType: "studio_profile",
+            EntityId: studio.Id.ToString(),
+            ActorType: AuditActorType.User,
+            ActorUserId: command.ActorUserId,
+            BeforeData: cancelledProposal));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await BuildWorkspaceModelAsync(studio.Id, callerMember.MemberRole, cancellationToken);
     }
@@ -262,14 +475,42 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
 
-        var pendingCount = statusGroupCounts.FirstOrDefault(x => x.Status == StudioVerificationStatus.Pending)?.Count ?? 0;
+        var pendingInitialCount = statusGroupCounts.FirstOrDefault(x => x.Status == StudioVerificationStatus.Pending)?.Count ?? 0;
         var verifiedCount = statusGroupCounts.FirstOrDefault(x => x.Status == StudioVerificationStatus.Verified)?.Count ?? 0;
         var rejectedCount = statusGroupCounts.FirstOrDefault(x => x.Status == StudioVerificationStatus.Rejected)?.Count ?? 0;
         var unverifiedCount = statusGroupCounts.FirstOrDefault(x => x.Status == StudioVerificationStatus.Unverified)?.Count ?? 0;
 
-        var filteredQuery = statusFilter.HasValue
-            ? activeStudiosQuery.Where(s => s.VerificationStatus == statusFilter.Value)
-            : activeStudiosQuery;
+        var pendingIdentityChangeCount = await activeStudiosQuery
+            .CountAsync(
+                s => s.VerificationStatus == StudioVerificationStatus.Verified &&
+                     s.PendingIdentityRequestedAt != null,
+                cancellationToken);
+
+        var counts = new AdminStudioVerificationQueueCounts(
+            PendingCount: pendingInitialCount + pendingIdentityChangeCount,
+            PendingInitialCount: pendingInitialCount,
+            PendingIdentityChangeCount: pendingIdentityChangeCount,
+            VerifiedCount: verifiedCount,
+            RejectedCount: rejectedCount,
+            UnverifiedCount: unverifiedCount,
+            TotalCount: pendingInitialCount + verifiedCount + rejectedCount + unverifiedCount);
+
+        IQueryable<StudioProfile> filteredQuery;
+        if (!statusFilter.HasValue)
+        {
+            filteredQuery = activeStudiosQuery;
+        }
+        else if (statusFilter.Value == StudioVerificationStatus.Pending)
+        {
+            // Surface both initial/resubmitted Pending verifications AND Verified studios with staged identity changes.
+            filteredQuery = activeStudiosQuery.Where(
+                s => s.VerificationStatus == StudioVerificationStatus.Pending ||
+                     (s.VerificationStatus == StudioVerificationStatus.Verified && s.PendingIdentityRequestedAt != null));
+        }
+        else
+        {
+            filteredQuery = activeStudiosQuery.Where(s => s.VerificationStatus == statusFilter.Value);
+        }
 
         var studios = await filteredQuery
             .Include(s => s.City)
@@ -279,12 +520,7 @@ internal sealed class StudioVerificationService : IStudioVerificationService
         {
             return new AdminStudioVerificationQueueModel(
                 ActiveFilter: statusFilter,
-                Counts: new AdminStudioVerificationQueueCounts(
-                    PendingCount: pendingCount,
-                    VerifiedCount: verifiedCount,
-                    RejectedCount: rejectedCount,
-                    UnverifiedCount: unverifiedCount,
-                    TotalCount: pendingCount + verifiedCount + rejectedCount + unverifiedCount),
+                Counts: counts,
                 Items: Array.Empty<AdminStudioVerificationQueueItem>());
         }
 
@@ -334,8 +570,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
         var now = _clock.UtcNow;
 
         var orderedStudios = statusFilter == StudioVerificationStatus.Pending
-            ? studios.OrderBy(s => s.VerificationSubmittedAt ?? s.UpdatedAt).ToList()
-            : studios.OrderByDescending(s => s.VerificationSubmittedAt ?? s.UpdatedAt).ToList();
+            ? studios.OrderBy(s => s.PendingIdentityRequestedAt ?? s.VerificationSubmittedAt ?? s.UpdatedAt).ToList()
+            : studios.OrderByDescending(s => s.PendingIdentityRequestedAt ?? s.VerificationSubmittedAt ?? s.UpdatedAt).ToList();
 
         var items = new List<AdminStudioVerificationQueueItem>(orderedStudios.Count);
         foreach (var s in orderedStudios)
@@ -351,12 +587,14 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 : ownerEmail;
 
             var domainAssessment = StudioVerificationRules.AssessEmailDomain(ownerEmail, s.Website);
+            var pendingIdentity = BuildPendingIdentityChangeOrNull(s);
+            var hasPendingIdentity = pendingIdentity is not null;
 
             double? waitingHours = null;
             var isPastSla = false;
-            if (s.VerificationStatus == StudioVerificationStatus.Pending)
+            if (s.VerificationStatus == StudioVerificationStatus.Pending || hasPendingIdentity)
             {
-                var submittedRef = s.VerificationSubmittedAt ?? s.UpdatedAt;
+                var submittedRef = s.PendingIdentityRequestedAt ?? s.VerificationSubmittedAt ?? s.UpdatedAt;
                 waitingHours = Math.Max(0, Math.Round((now - submittedRef).TotalHours, 1));
                 isPastSla = waitingHours.Value >= StudioVerificationRules.TargetReviewSlaHours;
             }
@@ -378,6 +616,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 Gstin: s.Gstin,
                 ProofUrls: s.VerificationProofUrls,
                 ApplicantNotes: s.VerificationApplicantNotes,
+                HasPendingIdentityChange: hasPendingIdentity,
+                PendingIdentityChange: pendingIdentity,
                 Titles: titlesByStudio.TryGetValue(s.Id, out var tList) ? tList : Array.Empty<StudioTitleItem>(),
                 EngineNames: enginesByStudio.TryGetValue(s.Id, out var eList) ? eList : Array.Empty<string>(),
                 VerificationStatus: s.VerificationStatus,
@@ -392,12 +632,7 @@ internal sealed class StudioVerificationService : IStudioVerificationService
 
         return new AdminStudioVerificationQueueModel(
             ActiveFilter: statusFilter,
-            Counts: new AdminStudioVerificationQueueCounts(
-                PendingCount: pendingCount,
-                VerifiedCount: verifiedCount,
-                RejectedCount: rejectedCount,
-                UnverifiedCount: unverifiedCount,
-                TotalCount: pendingCount + verifiedCount + rejectedCount + unverifiedCount),
+            Counts: counts,
             Items: items);
     }
 
@@ -442,7 +677,12 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                     $"Studio-facing reviewer notes must be {StudioVerificationRules.MaxReviewerNotesLength} characters or fewer."));
         }
 
-        if (command.Decision is StudioVerificationDecision.Reject or StudioVerificationDecision.Revoke &&
+        var requiresRejectionFeedback = command.Decision is
+            StudioVerificationDecision.Reject or
+            StudioVerificationDecision.Revoke or
+            StudioVerificationDecision.RejectIdentityChange;
+
+        if (requiresRejectionFeedback &&
             (trimmedFeedback is null || trimmedFeedback.Length < StudioVerificationRules.MinRejectionFeedbackLength))
         {
             return Result.Failure<ReviewStudioVerificationResult>(
@@ -464,6 +704,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
         var now = _clock.UtcNow;
         StudioVerificationStatus targetStatus;
         string auditAction;
+        object beforeData;
+        object afterData;
 
         switch (command.Decision)
         {
@@ -471,7 +713,9 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 if (previousStatus == StudioVerificationStatus.Verified)
                 {
                     return Result.Failure<ReviewStudioVerificationResult>(
-                        Error.Conflict("StudioVerification.AlreadyVerified", "Studio is already verified."));
+                        Error.Conflict(
+                            "StudioVerification.AlreadyVerified",
+                            "Studio is already verified. Use ApproveIdentityChange if reviewing a pending identity update."));
                 }
 
                 targetStatus = StudioVerificationStatus.Verified;
@@ -479,7 +723,10 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 studio.VerifiedAt = now;
                 studio.VerifiedBy = command.AdminUserId;
                 studio.VerificationNotes = trimmedFeedback;
+                ClearPendingIdentityFields(studio);
                 auditAction = "admin.studio_verification.approve";
+                beforeData = new { Status = previousStatus.ToString().ToLowerInvariant() };
+                afterData = new { Status = "verified", ReviewerFeedback = trimmedFeedback };
                 break;
 
             case StudioVerificationDecision.Reject:
@@ -488,7 +735,7 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                     return Result.Failure<ReviewStudioVerificationResult>(
                         Error.Conflict(
                             "StudioVerification.UseRevokeForVerified",
-                            "Use the Revoke action to remove verification from an already verified studio."));
+                            "Use RejectIdentityChange for a staged identity update or Revoke to remove verification from a verified studio."));
                 }
 
                 targetStatus = StudioVerificationStatus.Rejected;
@@ -496,7 +743,102 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 studio.VerifiedAt = null;
                 studio.VerifiedBy = null;
                 studio.VerificationNotes = trimmedFeedback;
+                ClearPendingIdentityFields(studio);
                 auditAction = "admin.studio_verification.reject";
+                beforeData = new { Status = previousStatus.ToString().ToLowerInvariant() };
+                afterData = new { Status = "rejected", ReviewerFeedback = trimmedFeedback };
+                break;
+
+            case StudioVerificationDecision.ApproveIdentityChange:
+                if (previousStatus != StudioVerificationStatus.Verified ||
+                    !studio.PendingIdentityRequestedAt.HasValue ||
+                    string.IsNullOrWhiteSpace(studio.PendingIdentityName) ||
+                    string.IsNullOrWhiteSpace(studio.PendingIdentitySlug))
+                {
+                    return Result.Failure<ReviewStudioVerificationResult>(
+                        Error.Conflict(
+                            "StudioVerification.NoPendingIdentityChange",
+                            "This studio does not have a pending identity re-verification request to approve."));
+                }
+
+                var proposedName = studio.PendingIdentityName;
+                var proposedSlug = studio.PendingIdentitySlug;
+                var proposedGstin = studio.PendingIdentityGstin;
+
+                if (!string.Equals(studio.Slug, proposedSlug, StringComparison.OrdinalIgnoreCase))
+                {
+                    var slugTaken = await IsSlugTakenOrReservedAsync(proposedSlug, studio.Id, cancellationToken);
+                    if (slugTaken)
+                    {
+                        return Result.Failure<ReviewStudioVerificationResult>(
+                            Error.Conflict(
+                                "StudioProfile.SlugTaken",
+                                $"Cannot approve identity change because URL slug '{proposedSlug}' is already in use."));
+                    }
+                }
+
+                beforeData = new
+                {
+                    Status = "verified",
+                    studio.Name,
+                    studio.Slug,
+                    studio.Gstin
+                };
+
+                targetStatus = StudioVerificationStatus.Verified;
+                studio.Name = proposedName;
+                studio.Slug = proposedSlug;
+                studio.Gstin = proposedGstin;
+                studio.VerifiedAt = now;
+                studio.VerifiedBy = command.AdminUserId;
+                studio.VerificationNotes = trimmedFeedback;
+                ClearPendingIdentityFields(studio);
+
+                auditAction = "admin.studio_identity_change.approve";
+                afterData = new
+                {
+                    Status = "verified",
+                    Name = proposedName,
+                    Slug = proposedSlug,
+                    Gstin = proposedGstin,
+                    ReviewerFeedback = trimmedFeedback
+                };
+                break;
+
+            case StudioVerificationDecision.RejectIdentityChange:
+                if (previousStatus != StudioVerificationStatus.Verified || !studio.PendingIdentityRequestedAt.HasValue)
+                {
+                    return Result.Failure<ReviewStudioVerificationResult>(
+                        Error.Conflict(
+                            "StudioVerification.NoPendingIdentityChange",
+                            "This studio does not have a pending identity re-verification request to reject."));
+                }
+
+                beforeData = new
+                {
+                    Status = "verified",
+                    LiveName = studio.Name,
+                    LiveSlug = studio.Slug,
+                    LiveGstin = studio.Gstin,
+                    RejectedProposedName = studio.PendingIdentityName,
+                    RejectedProposedSlug = studio.PendingIdentitySlug,
+                    RejectedProposedGstin = studio.PendingIdentityGstin
+                };
+
+                // Preserve live Verified status and verified Name/Slug/GSTIN intact!
+                targetStatus = StudioVerificationStatus.Verified;
+                studio.VerificationNotes = trimmedFeedback;
+                ClearPendingIdentityFields(studio);
+
+                auditAction = "admin.studio_identity_change.reject";
+                afterData = new
+                {
+                    Status = "verified",
+                    studio.Name,
+                    studio.Slug,
+                    studio.Gstin,
+                    ReviewerFeedback = trimmedFeedback
+                };
                 break;
 
             case StudioVerificationDecision.Revoke:
@@ -513,7 +855,10 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                 studio.VerifiedAt = null;
                 studio.VerifiedBy = null;
                 studio.VerificationNotes = trimmedFeedback;
+                ClearPendingIdentityFields(studio);
                 auditAction = "admin.studio_verification.revoke";
+                beforeData = new { Status = "verified" };
+                afterData = new { Status = "rejected", ReviewerFeedback = trimmedFeedback };
                 break;
 
             default:
@@ -528,12 +873,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             ActorType: AuditActorType.Admin,
             ActorUserId: command.AdminUserId,
             Reason: trimmedReason,
-            BeforeData: new { Status = previousStatus.ToString().ToLowerInvariant() },
-            AfterData: new
-            {
-                Status = targetStatus.ToString().ToLowerInvariant(),
-                ReviewerFeedback = trimmedFeedback
-            },
+            BeforeData: beforeData,
+            AfterData: afterData,
             RequireReason: true));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -620,9 +961,13 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             shippedTitleStoreUrlCount: titlesWithStoreUrls.Count,
             proofUrlCount: studio.VerificationProofUrls.Length);
 
+        var pendingIdentity = BuildPendingIdentityChangeOrNull(studio);
         var isOwner = StudioProfileRules.CanSubmitVerification(callerRole);
         var canSubmitNow = isOwner &&
                            studio.VerificationStatus is StudioVerificationStatus.Unverified or StudioVerificationStatus.Rejected;
+        var canRequestIdentityChange = isOwner &&
+                                       studio.VerificationStatus == StudioVerificationStatus.Verified &&
+                                       pendingIdentity is null;
 
         return Result.Success(new StudioVerificationWorkspaceModel(
             StudioId: studio.Id,
@@ -632,6 +977,7 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             CallerRole: callerRole,
             IsOwner: isOwner,
             CanSubmitNow: canSubmitNow,
+            CanRequestIdentityChange: canRequestIdentityChange,
             OwnerDisplayName: ownerDisplayName,
             OwnerEmail: ownerEmail,
             Website: studio.Website,
@@ -641,10 +987,49 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             VerificationSubmittedAt: studio.VerificationSubmittedAt,
             VerificationProofUrls: studio.VerificationProofUrls,
             VerificationApplicantNotes: studio.VerificationApplicantNotes,
+            PendingIdentityChange: pendingIdentity,
             VerifiedAt: studio.VerifiedAt,
             ReviewerFeedback: studio.VerificationNotes,
             TitlesWithStoreUrls: titlesWithStoreUrls,
             Readiness: readiness));
+    }
+
+    private static StudioPendingIdentityChange? BuildPendingIdentityChangeOrNull(StudioProfile studio)
+    {
+        if (!studio.PendingIdentityRequestedAt.HasValue ||
+            string.IsNullOrWhiteSpace(studio.PendingIdentityName) ||
+            string.IsNullOrWhiteSpace(studio.PendingIdentitySlug))
+        {
+            return null;
+        }
+
+        return new StudioPendingIdentityChange(
+            ProposedName: studio.PendingIdentityName,
+            ProposedSlug: studio.PendingIdentitySlug,
+            ProposedGstin: studio.PendingIdentityGstin,
+            RequestedAt: studio.PendingIdentityRequestedAt.Value);
+    }
+
+    private static void ClearPendingIdentityFields(StudioProfile studio)
+    {
+        studio.PendingIdentityName = null;
+        studio.PendingIdentitySlug = null;
+        studio.PendingIdentityGstin = null;
+        studio.PendingIdentityRequestedAt = null;
+    }
+
+    private Task<bool> IsSlugTakenOrReservedAsync(
+        string normalizedSlug,
+        Guid excludeStudioId,
+        CancellationToken cancellationToken)
+    {
+        return _dbContext.StudioProfiles
+            .AsNoTracking()
+            .AnyAsync(
+                s => s.Id != excludeStudioId &&
+                     (s.Slug == normalizedSlug ||
+                      (s.DeletedAt == null && s.PendingIdentitySlug == normalizedSlug)),
+                cancellationToken);
     }
 
     private async Task<bool> IsActiveAdminUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -666,28 +1051,47 @@ internal sealed class StudioVerificationService : IStudioVerificationService
         ApplicationUser owner,
         string studioName,
         string studioSlug,
+        bool isIdentityChange,
         CancellationToken cancellationToken)
     {
         try
         {
             var encodedOwner = WebUtility.HtmlEncode(owner.DisplayName);
             var encodedStudio = WebUtility.HtmlEncode(studioName);
-            var htmlBody = $"""
-                <h2>Studio verification received</h2>
-                <p>Hi {encodedOwner},</p>
-                <p>We received the verification request for <strong>{encodedStudio}</strong> (<code>/studios/{WebUtility.HtmlEncode(studioSlug)}</code>).</p>
-                <p>Our team reviews studio submissions within 24–48 hours. You can continue refining your studio description, logo, titles, and draft roles in the meantime.</p>
-                """;
-            var textBody =
-                $"Hi {owner.DisplayName},\n\nWe received the verification request for '{studioName}' (/studios/{studioSlug}). Our team reviews submissions within 24-48 hours.\n";
+            var encodedSlug = WebUtility.HtmlEncode(studioSlug);
+
+            var subject = isIdentityChange
+                ? $"Identity update request received for {studioName}"
+                : $"Verification submitted for {studioName}";
+            var tag = isIdentityChange
+                ? "studio_identity_change_submitted"
+                : "studio_verification_submitted";
+
+            var htmlBody = isIdentityChange
+                ? $"""
+                    <h2>Identity re-verification request received</h2>
+                    <p>Hi {encodedOwner},</p>
+                    <p>We received your request to update the verified identity for <strong>{encodedStudio}</strong> (<code>/studios/{encodedSlug}</code>).</p>
+                    <p>Your live verified studio page and badge remain active under your current details until our team completes review within 24–48 hours.</p>
+                    """
+                : $"""
+                    <h2>Studio verification received</h2>
+                    <p>Hi {encodedOwner},</p>
+                    <p>We received the verification request for <strong>{encodedStudio}</strong> (<code>/studios/{encodedSlug}</code>).</p>
+                    <p>Our team reviews studio submissions within 24–48 hours. You can continue refining your studio description, logo, titles, and draft roles in the meantime.</p>
+                    """;
+
+            var textBody = isIdentityChange
+                ? $"Hi {owner.DisplayName},\n\nWe received your verified identity update request for '{studioName}' (/studios/{studioSlug}). Your live verified studio remains active under your current details during review (24-48 hours).\n"
+                : $"Hi {owner.DisplayName},\n\nWe received the verification request for '{studioName}' (/studios/{studioSlug}). Our team reviews submissions within 24-48 hours.\n";
 
             await _emailSender.SendAsync(
                 new EmailMessage(
                     To: owner.Email!,
-                    Subject: $"Verification submitted for {studioName}",
+                    Subject: subject,
                     HtmlBody: htmlBody,
                     TextBody: textBody,
-                    Tag: "studio_verification_submitted"),
+                    Tag: tag),
                 cancellationToken);
         }
         catch (Exception ex)
@@ -718,44 +1122,88 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             string textBody;
             string tag;
 
-            if (decision == StudioVerificationDecision.Approve)
+            switch (decision)
             {
-                subject = $"{studioName} is now a Verified Studio on HireGameDev";
-                tag = "studio_verification_approved";
-                var noteBlock = encodedFeedback is not null
-                    ? $"<p><strong>Note from reviewer:</strong> {encodedFeedback}</p>"
-                    : string.Empty;
+                case StudioVerificationDecision.Approve:
+                {
+                    subject = $"{studioName} is now a Verified Studio on HireGameDev";
+                    tag = "studio_verification_approved";
+                    var noteBlock = encodedFeedback is not null
+                        ? $"<p><strong>Note from reviewer:</strong> {encodedFeedback}</p>"
+                        : string.Empty;
 
-                htmlBody = $"""
-                    <h2>Your studio is verified!</h2>
-                    <p>Hi {encodedOwner},</p>
-                    <p><strong>{encodedStudio}</strong> is now officially verified on HireGameDev. Your public studio page at <code>/studios/{encodedSlug}</code> is now live to candidates, and job publishing is unlocked.</p>
-                    {noteBlock}
-                    """;
+                    htmlBody = $"""
+                        <h2>Your studio is verified!</h2>
+                        <p>Hi {encodedOwner},</p>
+                        <p><strong>{encodedStudio}</strong> is now officially verified on HireGameDev. Your public studio page at <code>/studios/{encodedSlug}</code> is now live to candidates, and job publishing is unlocked.</p>
+                        {noteBlock}
+                        """;
 
-                textBody =
-                    $"Hi {owner.DisplayName},\n\n'{studioName}' is now officially verified on HireGameDev (/studios/{studioSlug})." +
-                    (reviewerFeedback is not null ? $"\n\nReviewer note: {reviewerFeedback}\n" : "\n");
-            }
-            else
-            {
-                var actionLabel = decision == StudioVerificationDecision.Revoke
-                    ? "verification was revoked"
-                    : "needs an update before verification";
+                    textBody =
+                        $"Hi {owner.DisplayName},\n\n'{studioName}' is now officially verified on HireGameDev (/studios/{studioSlug})." +
+                        (reviewerFeedback is not null ? $"\n\nReviewer note: {reviewerFeedback}\n" : "\n");
+                    break;
+                }
 
-                subject = $"Action needed: {studioName} studio verification";
-                tag = "studio_verification_changes_requested";
+                case StudioVerificationDecision.ApproveIdentityChange:
+                {
+                    subject = $"Verified identity updated for {studioName}";
+                    tag = "studio_identity_change_approved";
+                    var noteBlock = encodedFeedback is not null
+                        ? $"<p><strong>Note from reviewer:</strong> {encodedFeedback}</p>"
+                        : string.Empty;
 
-                htmlBody = $"""
-                    <h2>Update needed for studio verification</h2>
-                    <p>Hi {encodedOwner},</p>
-                    <p>Your studio workspace <strong>{encodedStudio}</strong> {actionLabel}:</p>
-                    <blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid #f5c400;background:#f6f6f3;">{encodedFeedback}</blockquote>
-                    <p>Open <strong>Studio Workspace &rarr; Verification</strong> to update your details and resubmit.</p>
-                    """;
+                    htmlBody = $"""
+                        <h2>Your studio identity update is live!</h2>
+                        <p>Hi {encodedOwner},</p>
+                        <p>Your updated verified studio identity for <strong>{encodedStudio}</strong> (<code>/studios/{encodedSlug}</code>) has been approved and is now live.</p>
+                        {noteBlock}
+                        """;
 
-                textBody =
-                    $"Hi {owner.DisplayName},\n\n'{studioName}' {actionLabel}:\n\n{reviewerFeedback}\n\nOpen Studio Workspace -> Verification to update your details and resubmit.\n";
+                    textBody =
+                        $"Hi {owner.DisplayName},\n\nYour updated verified identity for '{studioName}' (/studios/{studioSlug}) has been approved and is now live.\n";
+                    break;
+                }
+
+                case StudioVerificationDecision.RejectIdentityChange:
+                {
+                    subject = $"Update needed: identity change request for {studioName}";
+                    tag = "studio_identity_change_rejected";
+
+                    htmlBody = $"""
+                        <h2>Identity update request not approved</h2>
+                        <p>Hi {encodedOwner},</p>
+                        <p>Your live verified badge and public studio page for <strong>{encodedStudio}</strong> (<code>/studios/{encodedSlug}</code>) remain active and unchanged, but your proposed identity update needs attention:</p>
+                        <blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid #f5c400;background:#f6f6f3;">{encodedFeedback}</blockquote>
+                        <p>Open <strong>Studio Workspace &rarr; Verification</strong> when you are ready to submit an updated request.</p>
+                        """;
+
+                    textBody =
+                        $"Hi {owner.DisplayName},\n\nYour live verified studio '{studioName}' (/studios/{studioSlug}) remains active, but your proposed identity update was not approved:\n\n{reviewerFeedback}\n";
+                    break;
+                }
+
+                default:
+                {
+                    var actionLabel = decision == StudioVerificationDecision.Revoke
+                        ? "verification was revoked"
+                        : "needs an update before verification";
+
+                    subject = $"Action needed: {studioName} studio verification";
+                    tag = "studio_verification_changes_requested";
+
+                    htmlBody = $"""
+                        <h2>Update needed for studio verification</h2>
+                        <p>Hi {encodedOwner},</p>
+                        <p>Your studio workspace <strong>{encodedStudio}</strong> {actionLabel}:</p>
+                        <blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid #f5c400;background:#f6f6f3;">{encodedFeedback}</blockquote>
+                        <p>Open <strong>Studio Workspace &rarr; Verification</strong> to update your details and resubmit.</p>
+                        """;
+
+                    textBody =
+                        $"Hi {owner.DisplayName},\n\n'{studioName}' {actionLabel}:\n\n{reviewerFeedback}\n\nOpen Studio Workspace -> Verification to update your details and resubmit.\n";
+                    break;
+                }
             }
 
             await _emailSender.SendAsync(

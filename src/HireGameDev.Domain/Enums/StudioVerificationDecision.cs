@@ -7,5 +7,7 @@ public enum StudioVerificationDecision
 {
     Approve = 0,
     Reject = 1,
-    Revoke = 2
+    Revoke = 2,
+    ApproveIdentityChange = 3,
+    RejectIdentityChange = 4
 }

@@ -15,6 +15,14 @@ public interface IStudioVerificationService
         SubmitStudioVerificationCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<Result<StudioVerificationWorkspaceModel>> RequestIdentityChangeAsync(
+        RequestStudioIdentityChangeCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<StudioVerificationWorkspaceModel>> CancelIdentityChangeAsync(
+        CancelStudioIdentityChangeCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<AdminStudioVerificationQueueModel> GetAdminQueueAsync(
         StudioVerificationStatus? statusFilter = StudioVerificationStatus.Pending,
         CancellationToken cancellationToken = default);

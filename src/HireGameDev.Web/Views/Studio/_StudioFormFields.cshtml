@@ -68,7 +68,13 @@
                    readonly="@(!canEditIdentity || isReadOnly ? "readonly" : null)"
                    placeholder="e.g. Nodding Heads Games"
                    data-studio-name-input />
-            <p class="c-hint">2–100 characters. Official studio or company name.</p>
+            <p class="c-hint">
+                2–100 characters. Official studio or company name.
+                @if (studio?.VerificationStatus == StudioVerificationStatus.Verified)
+                {
+                    <span>Need a rebrand or legal entity update? Submit a controlled re-verification request on the <strong>Verification</strong> tab.</span>
+                }
+            </p>
         </div>
 
         <div class="c-field">
@@ -78,7 +84,7 @@
                 {
                     <span class="c-badge c-badge--neutral">
                         @(studio.VerificationStatus is StudioVerificationStatus.Pending or StudioVerificationStatus.Verified
-                            ? "Locked after verification submission"
+                            ? "Locked while pending/verified"
                             : "Owner-only field")
                     </span>
                 }
@@ -102,7 +108,7 @@
                 Public URL: <code>/studios/<span data-studio-slug-preview>@(string.IsNullOrWhiteSpace(form.Slug) ? "your-studio" : form.Slug)</span></code>
                 @if (canEditSlug && !isReadOnly)
                 {
-                    <span>&middot; Editable while unverified; locks once verification is submitted or approved.</span>
+                    <span>&middot; Editable while unverified; controlled re-verification required once verified.</span>
                 }
             </p>
         </div>

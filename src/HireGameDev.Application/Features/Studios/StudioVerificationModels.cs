@@ -11,6 +11,7 @@ public sealed record StudioVerificationWorkspaceModel(
     StudioMemberRole CallerRole,
     bool IsOwner,
     bool CanSubmitNow,
+    bool CanRequestIdentityChange,
     string OwnerDisplayName,
     string OwnerEmail,
     string? Website,
@@ -20,6 +21,7 @@ public sealed record StudioVerificationWorkspaceModel(
     DateTimeOffset? VerificationSubmittedAt,
     IReadOnlyList<string> VerificationProofUrls,
     string? VerificationApplicantNotes,
+    StudioPendingIdentityChange? PendingIdentityChange,
     DateTimeOffset? VerifiedAt,
     string? ReviewerFeedback,
     IReadOnlyList<StudioTitleItem> TitlesWithStoreUrls,
@@ -33,8 +35,23 @@ public sealed record SubmitStudioVerificationCommand(
     IReadOnlyList<string> ProofUrls,
     string? ApplicantNotes);
 
+public sealed record RequestStudioIdentityChangeCommand(
+    Guid ActorUserId,
+    Guid StudioId,
+    string ProposedName,
+    string ProposedSlug,
+    string? ProposedGstin,
+    IReadOnlyList<string> ProofUrls,
+    string ApplicantNotes);
+
+public sealed record CancelStudioIdentityChangeCommand(
+    Guid ActorUserId,
+    Guid StudioId);
+
 public sealed record AdminStudioVerificationQueueCounts(
     int PendingCount,
+    int PendingInitialCount,
+    int PendingIdentityChangeCount,
     int VerifiedCount,
     int RejectedCount,
     int UnverifiedCount,
@@ -57,6 +74,8 @@ public sealed record AdminStudioVerificationQueueItem(
     string? Gstin,
     IReadOnlyList<string> ProofUrls,
     string? ApplicantNotes,
+    bool HasPendingIdentityChange,
+    StudioPendingIdentityChange? PendingIdentityChange,
     IReadOnlyList<StudioTitleItem> Titles,
     IReadOnlyList<string> EngineNames,
     StudioVerificationStatus VerificationStatus,

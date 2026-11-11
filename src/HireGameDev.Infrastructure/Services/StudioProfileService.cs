@@ -197,16 +197,12 @@ public sealed class StudioProfileService : IStudioProfileService
                 Reason: slugError));
         }
 
-        var exists = await _dbContext.StudioProfiles
-            .AsNoTracking()
-            .AnyAsync(
-                s => s.Slug == normalizedSlug && (!excludeStudioId.HasValue || s.Id != excludeStudioId.Value),
-                cancellationToken);
+        var exists = await IsSlugTakenOrReservedAsync(normalizedSlug, excludeStudioId, cancellationToken);
 
         return Result.Success(new StudioSlugAvailabilityResult(
             NormalizedSlug: normalizedSlug,
             IsAvailable: !exists,
-            Reason: exists ? $"The URL slug '{normalizedSlug}' is already taken." : null));
+            Reason: exists ? $"The URL slug '{normalizedSlug}' is already taken or reserved." : null));
     }
 
     public async Task<Result<StudioProfileDetail>> CreateStudioAsync(
@@ -452,12 +448,10 @@ public sealed class StudioProfileService : IStudioProfileService
                 return Result.Failure<StudioProfileDetail>(
                     Error.Validation(
                         "StudioProfile.SlugLocked",
-                        "Your studio URL slug is locked once verification is pending or completed so public studio links remain stable."));
+                        "Direct URL slug edits are locked while verification is pending or completed. Verified studio Owners can request a controlled identity re-verification on the Verification tab."));
             }
 
-            var slugTaken = await _dbContext.StudioProfiles
-                .AsNoTracking()
-                .AnyAsync(s => s.Slug == data.Slug && s.Id != studio.Id, cancellationToken);
+            var slugTaken = await IsSlugTakenOrReservedAsync(data.Slug, studio.Id, cancellationToken);
 
             if (slugTaken)
             {
@@ -476,7 +470,7 @@ public sealed class StudioProfileService : IStudioProfileService
                 return Result.Failure<StudioProfileDetail>(
                     Error.Validation(
                         "StudioProfile.IdentityLocked",
-                        "Studio name and GSTIN are locked while verification is pending or completed to protect verified studio identity."));
+                        "Direct Studio Name and GSTIN edits are locked while verification is pending or completed. Verified studio Owners can submit a controlled identity re-verification request on the Verification tab."));
             }
         }
 
@@ -717,9 +711,7 @@ public sealed class StudioProfileService : IStudioProfileService
         bool slugWasExplicit,
         CancellationToken cancellationToken)
     {
-        var baseExists = await _dbContext.StudioProfiles
-            .AsNoTracking()
-            .AnyAsync(s => s.Slug == baseNormalizedSlug, cancellationToken);
+        var baseExists = await IsSlugTakenOrReservedAsync(baseNormalizedSlug, null, cancellationToken);
 
         if (!baseExists)
         {
@@ -746,9 +738,7 @@ public sealed class StudioProfileService : IStudioProfileService
                 continue;
             }
 
-            var candidateTaken = await _dbContext.StudioProfiles
-                .AsNoTracking()
-                .AnyAsync(s => s.Slug == validCandidate, cancellationToken);
+            var candidateTaken = await IsSlugTakenOrReservedAsync(validCandidate, null, cancellationToken);
 
             if (!candidateTaken)
             {
@@ -760,6 +750,20 @@ public sealed class StudioProfileService : IStudioProfileService
             Error.Conflict(
                 "StudioProfile.SlugTaken",
                 $"The URL slug '{baseNormalizedSlug}' is already in use. Enter a custom studio URL slug."));
+    }
+
+    private Task<bool> IsSlugTakenOrReservedAsync(
+        string normalizedSlug,
+        Guid? excludeStudioId,
+        CancellationToken cancellationToken)
+    {
+        return _dbContext.StudioProfiles
+            .AsNoTracking()
+            .AnyAsync(
+                s => (!excludeStudioId.HasValue || s.Id != excludeStudioId.Value) &&
+                     (s.Slug == normalizedSlug ||
+                      (s.DeletedAt == null && s.PendingIdentitySlug == normalizedSlug)),
+                cancellationToken);
     }
 
     private async Task<Result> ValidateCityAndSkillsAsync(
@@ -857,6 +861,16 @@ public sealed class StudioProfileService : IStudioProfileService
             .AsNoTracking()
             .CountAsync(m => m.StudioId == studio.Id, cancellationToken);
 
+        var pendingIdentityChange = studio.PendingIdentityRequestedAt.HasValue &&
+                                    !string.IsNullOrWhiteSpace(studio.PendingIdentityName) &&
+                                    !string.IsNullOrWhiteSpace(studio.PendingIdentitySlug)
+            ? new StudioPendingIdentityChange(
+                ProposedName: studio.PendingIdentityName,
+                ProposedSlug: studio.PendingIdentitySlug,
+                ProposedGstin: studio.PendingIdentityGstin,
+                RequestedAt: studio.PendingIdentityRequestedAt.Value)
+            : null;
+
         return Result.Success(new StudioProfileDetail(
             Id: studio.Id,
             OwnerUserId: studio.OwnerUserId,
@@ -885,6 +899,7 @@ public sealed class StudioProfileService : IStudioProfileService
             VerificationSubmittedAt: studio.VerificationSubmittedAt,
             VerificationProofUrls: studio.VerificationProofUrls,
             VerificationApplicantNotes: studio.VerificationApplicantNotes,
+            PendingIdentityChange: pendingIdentityChange,
             VerifiedAt: studio.VerifiedAt,
             VerificationNotes: studio.VerificationNotes,
             Apps90d: studio.Apps90d,

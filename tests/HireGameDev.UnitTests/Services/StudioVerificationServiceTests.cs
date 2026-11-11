@@ -229,7 +229,127 @@ public sealed class StudioVerificationServiceTests
                  a.ActorUserId == harness.AdminUserId &&
                  a.Reason != null));
 
-        // 10. Admin can Revoke a verified studio with mandatory audit reason + studio-facing explanation.
+        // 10. Controlled Staged Identity Re-Verification (ADR-019 Decision #3):
+        //     Recruiter cannot request identity change; Owner stages legal incorporation + new slug + GSTIN.
+        var recruiterIdentityAttempt = await harness.VerificationService.RequestIdentityChangeAsync(
+            new RequestStudioIdentityChangeCommand(
+                ActorUserId: harness.RecruiterUserId,
+                StudioId: studioId,
+                ProposedName: "Monsoon Pixel Studios Pvt Ltd",
+                ProposedSlug: "monsoon-pixel-studios",
+                ProposedGstin: "29ABCDE1234F1Z5",
+                ProofUrls: ["https://monsoonpixel.in/legal"],
+                ApplicantNotes: "Trying as recruiter."));
+        Assert.True(recruiterIdentityAttempt.IsFailure);
+        Assert.Equal(ErrorType.Forbidden, recruiterIdentityAttempt.Error.Type);
+
+        var stagedRequest = await harness.VerificationService.RequestIdentityChangeAsync(
+            new RequestStudioIdentityChangeCommand(
+                ActorUserId: harness.IndieOwnerUserId,
+                StudioId: studioId,
+                ProposedName: "Monsoon Pixel Studios Pvt Ltd",
+                ProposedSlug: "monsoon-pixel-studios",
+                ProposedGstin: "29ABCDE1234F1Z5",
+                ProofUrls: ["https://monsoonpixel.in/incorporation"],
+                ApplicantNotes: "Incorporated as Monsoon Pixel Studios Pvt Ltd in Karnataka with GSTIN."));
+        Assert.True(stagedRequest.IsSuccess, stagedRequest.Error.Message);
+        Assert.Equal(StudioVerificationStatus.Verified, stagedRequest.Value.VerificationStatus);
+        Assert.Equal("Monsoon Pixel Collective", stagedRequest.Value.StudioName); // Live identity untouched!
+        Assert.Equal("monsoon-pixel", stagedRequest.Value.StudioSlug);
+        Assert.NotNull(stagedRequest.Value.PendingIdentityChange);
+        Assert.Equal("monsoon-pixel-studios", stagedRequest.Value.PendingIdentityChange!.ProposedSlug);
+        Assert.Contains(harness.EmailSender.Sent, e => e.Tag == "studio_identity_change_submitted");
+
+        // Staged slug is reserved so other studios cannot claim it, while live /studios/monsoon-pixel stays online!
+        var reservedSlugCheck = await harness.ProfileService.CheckSlugAvailabilityAsync("monsoon-pixel-studios");
+        Assert.True(reservedSlugCheck.IsSuccess);
+        Assert.False(reservedSlugCheck.Value.IsAvailable);
+
+        var liveAnonDuringStaging = await harness.ProfileService.GetPublicStudioBySlugAsync(
+            "monsoon-pixel",
+            new PublicStudioViewer(IsAuthenticated: false, UserId: null, IsAdmin: false));
+        Assert.True(liveAnonDuringStaging.IsSuccess);
+        Assert.Equal("Monsoon Pixel Collective", liveAnonDuringStaging.Value.Name);
+
+        // Owner can cancel a staged identity change (releasing the reserved slug), then submit a revised one.
+        var cancelled = await harness.VerificationService.CancelIdentityChangeAsync(
+            new CancelStudioIdentityChangeCommand(harness.IndieOwnerUserId, studioId));
+        Assert.True(cancelled.IsSuccess, cancelled.Error.Message);
+        Assert.Null(cancelled.Value.PendingIdentityChange);
+
+        var releasedSlugCheck = await harness.ProfileService.CheckSlugAvailabilityAsync("monsoon-pixel-studios");
+        Assert.True(releasedSlugCheck.Value.IsAvailable);
+
+        var reStaged = await harness.VerificationService.RequestIdentityChangeAsync(
+            new RequestStudioIdentityChangeCommand(
+                ActorUserId: harness.IndieOwnerUserId,
+                StudioId: studioId,
+                ProposedName: "Monsoon Pixel Studios Pvt Ltd",
+                ProposedSlug: "monsoon-pixel-studios",
+                ProposedGstin: "29ABCDE1234F1Z5",
+                ProofUrls: ["https://monsoonpixel.in/incorporation"],
+                ApplicantNotes: "Re-submitted incorporation & GSTIN update."));
+        Assert.True(reStaged.IsSuccess, reStaged.Error.Message);
+
+        // Admin Pending queue surfaces the staged identity change item alongside initial pending items.
+        var queueWithIdentityChange = await harness.VerificationService.GetAdminQueueAsync(StudioVerificationStatus.Pending);
+        Assert.Equal(1, queueWithIdentityChange.Counts.PendingCount);
+        Assert.Equal(0, queueWithIdentityChange.Counts.PendingInitialCount);
+        Assert.Equal(1, queueWithIdentityChange.Counts.PendingIdentityChangeCount);
+        var stagedQueueItem = Assert.Single(queueWithIdentityChange.Items);
+        Assert.True(stagedQueueItem.HasPendingIdentityChange);
+        Assert.Equal("Monsoon Pixel Studios Pvt Ltd", stagedQueueItem.PendingIdentityChange!.ProposedName);
+
+        // If Admin rejects the staged identity change, live Verified badge & original identity stay 100% intact!
+        var rejectedIdentity = await harness.VerificationService.ReviewVerificationAsync(
+            new ReviewStudioVerificationCommand(
+                AdminUserId: harness.AdminUserId,
+                StudioId: studioId,
+                Decision: StudioVerificationDecision.RejectIdentityChange,
+                Reason: "Incorporation URL returned 403; asked owner for public MCA/Steam publisher update.",
+                ReviewerFeedback: "Your live verified studio remains active, but the incorporation proof link was inaccessible. Please attach a public proof URL and re-submit."));
+        Assert.True(rejectedIdentity.IsSuccess, rejectedIdentity.Error.Message);
+        Assert.Equal(StudioVerificationStatus.Verified, rejectedIdentity.Value.NewStatus);
+        Assert.Equal("Monsoon Pixel Collective", rejectedIdentity.Value.StudioName);
+        Assert.Contains(harness.EmailSender.Sent, e => e.Tag == "studio_identity_change_rejected");
+
+        // Owner re-submits with updated proof -> Admin approves -> Name, Slug, and GSTIN swap atomically!
+        var finalStaged = await harness.VerificationService.RequestIdentityChangeAsync(
+            new RequestStudioIdentityChangeCommand(
+                ActorUserId: harness.IndieOwnerUserId,
+                StudioId: studioId,
+                ProposedName: "Monsoon Pixel Studios Pvt Ltd",
+                ProposedSlug: "monsoon-pixel-studios",
+                ProposedGstin: "29ABCDE1234F1Z5",
+                ProofUrls: ["https://store.steampowered.com/publisher/monsoonpixelstudios"],
+                ApplicantNotes: "Updated Steam publisher page showing Monsoon Pixel Studios Pvt Ltd."));
+        Assert.True(finalStaged.IsSuccess, finalStaged.Error.Message);
+
+        var approvedIdentity = await harness.VerificationService.ReviewVerificationAsync(
+            new ReviewStudioVerificationCommand(
+                AdminUserId: harness.AdminUserId,
+                StudioId: studioId,
+                Decision: StudioVerificationDecision.ApproveIdentityChange,
+                Reason: "Verified updated Steam publisher legal entity + valid Karnataka GSTIN.",
+                ReviewerFeedback: "Legal entity name, studio slug, and GSTIN are now updated."));
+        Assert.True(approvedIdentity.IsSuccess, approvedIdentity.Error.Message);
+        Assert.Equal(StudioVerificationStatus.Verified, approvedIdentity.Value.NewStatus);
+        Assert.Equal("Monsoon Pixel Studios Pvt Ltd", approvedIdentity.Value.StudioName);
+        Assert.Equal("monsoon-pixel-studios", approvedIdentity.Value.StudioSlug);
+        Assert.Contains(harness.EmailSender.Sent, e => e.Tag == "studio_identity_change_approved");
+
+        var oldSlugAnon = await harness.ProfileService.GetPublicStudioBySlugAsync(
+            "monsoon-pixel",
+            new PublicStudioViewer(IsAuthenticated: false, UserId: null, IsAdmin: false));
+        Assert.True(oldSlugAnon.IsFailure);
+
+        var newSlugAnon = await harness.ProfileService.GetPublicStudioBySlugAsync(
+            "monsoon-pixel-studios",
+            new PublicStudioViewer(IsAuthenticated: false, UserId: null, IsAdmin: false));
+        Assert.True(newSlugAnon.IsSuccess, newSlugAnon.Error.Message);
+        Assert.Equal("Monsoon Pixel Studios Pvt Ltd", newSlugAnon.Value.Name);
+
+        // 11. Admin can Revoke a verified studio with mandatory audit reason + studio-facing explanation.
         var revoked = await harness.VerificationService.ReviewVerificationAsync(
             new ReviewStudioVerificationCommand(
                 AdminUserId: harness.AdminUserId,
