@@ -3,6 +3,7 @@
     var studio = Model.Studio;
     var form = Model.Form;
     var isReadOnly = studio is not null && !studio.CanEditProfile;
+    var canEditIdentity = Model.IsOnboarding || (studio is not null && studio.CanEditIdentityFields);
     var canEditSlug = Model.IsOnboarding || (studio is not null && studio.CanEditSlug);
 
     var selectedCity = Model.Cities.FirstOrDefault(c => c.Id == form.CityId);
@@ -49,7 +50,13 @@
 
     <div class="p-sg-grid-2">
         <div class="c-field">
-            <label class="c-label" for="studio-name-input">Studio Name <span aria-hidden="true">*</span></label>
+            <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                <label class="c-label" for="studio-name-input" style="margin: 0;">Studio Name <span aria-hidden="true">*</span></label>
+                @if (!canEditIdentity && !isReadOnly)
+                {
+                    <span class="c-badge c-badge--neutral">Locked while pending/verified</span>
+                }
+            </div>
             <input id="studio-name-input"
                    type="text"
                    name="Form.Name"
@@ -58,7 +65,7 @@
                    minlength="@StudioProfileRules.MinStudioNameLength"
                    maxlength="@StudioProfileRules.MaxStudioNameLength"
                    required
-                   readonly="@(isReadOnly ? "readonly" : null)"
+                   readonly="@(!canEditIdentity || isReadOnly ? "readonly" : null)"
                    placeholder="e.g. Nodding Heads Games"
                    data-studio-name-input />
             <p class="c-hint">2–100 characters. Official studio or company name.</p>
@@ -194,16 +201,22 @@
     </div>
 
     <div class="c-field" style="margin-top: 12px;">
-        <label class="c-label" for="studio-gstin-input">Indian GSTIN (optional — Indie Friendly)</label>
+        <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+            <label class="c-label" for="studio-gstin-input" style="margin: 0;">Indian GSTIN (optional — Indie Friendly)</label>
+            @if (!canEditIdentity && !isReadOnly)
+            {
+                <span class="c-badge c-badge--neutral">Locked while pending/verified</span>
+            }
+        </div>
         <input id="studio-gstin-input"
                type="text"
                name="Form.Gstin"
                value="@form.Gstin"
                class="c-input"
                maxlength="20"
-               readonly="@(isReadOnly ? "readonly" : null)"
+               readonly="@(!canEditIdentity || isReadOnly ? "readonly" : null)"
                placeholder="e.g. 27ABCDE1234F1Z5 (leave blank for unregistered indie teams)" />
-        <p class="c-hint">Optional 15-character GSTIN. Unregistered indie teams can verify via Steam/Play Store/itch.io pages, LinkedIn, or MCA/CIN in <code>M1.10</code>.</p>
+        <p class="c-hint">Optional 15-character GSTIN. Unregistered indie teams can verify via Steam/Play Store/itch.io pages, LinkedIn, or MCA/CIN on the Verification tab.</p>
     </div>
 </section>
 

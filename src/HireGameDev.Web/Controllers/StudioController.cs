@@ -250,6 +250,12 @@ public sealed class StudioController : Controller
         {
             ModelState.AddModelError(string.Empty, updateResult.Error.Message);
             form.StudioId = currentStudio.Id;
+            if (!currentStudio.CanEditIdentityFields)
+            {
+                form.Name = currentStudio.Name;
+                form.Gstin = currentStudio.Gstin;
+            }
+
             if (!currentStudio.CanEditSlug)
             {
                 form.Slug = currentStudio.Slug;

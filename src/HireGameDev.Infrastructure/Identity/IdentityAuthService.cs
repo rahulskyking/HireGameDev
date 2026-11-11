@@ -51,6 +51,7 @@ internal sealed class IdentityAuthService : IAuthService
     private readonly IValidator<CompleteExternalRegistrationCommand> _completeExternalValidator;
     private readonly IValidator<UpdateDisplayNameCommand> _updateDisplayNameValidator;
     private readonly IValidator<ChangePasswordCommand> _changePasswordValidator;
+    private readonly IAdminBootstrapSeeder? _adminBootstrapSeeder;
 
     public IdentityAuthService(
         UserManager<ApplicationUser> userManager,
@@ -68,7 +69,8 @@ internal sealed class IdentityAuthService : IAuthService
         IValidator<ResetPasswordCommand> resetPasswordValidator,
         IValidator<CompleteExternalRegistrationCommand> completeExternalValidator,
         IValidator<UpdateDisplayNameCommand> updateDisplayNameValidator,
-        IValidator<ChangePasswordCommand> changePasswordValidator)
+        IValidator<ChangePasswordCommand> changePasswordValidator,
+        IAdminBootstrapSeeder? adminBootstrapSeeder = null)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -86,6 +88,7 @@ internal sealed class IdentityAuthService : IAuthService
         _completeExternalValidator = completeExternalValidator;
         _updateDisplayNameValidator = updateDisplayNameValidator;
         _changePasswordValidator = changePasswordValidator;
+        _adminBootstrapSeeder = adminBootstrapSeeder;
     }
 
     public async Task<Result<RegisterResult>> RegisterAsync(
@@ -205,6 +208,11 @@ internal sealed class IdentityAuthService : IAuthService
                 ActorUserId: user.Id),
             cancellationToken);
 
+        if (_adminBootstrapSeeder is not null)
+        {
+            await _adminBootstrapSeeder.EnsureBootstrapAdminForUserAsync(user.Id, cancellationToken);
+        }
+
         return Result.Success();
     }
 
@@ -272,6 +280,11 @@ internal sealed class IdentityAuthService : IAuthService
                 LoginStatus.PasswordNotSetForSocialAccount,
                 user.AccountType,
                 "This account was created with Google or GitHub and does not have a password set yet. Sign in with your connected social account, or request a signed Set-Password link below."));
+        }
+
+        if (_adminBootstrapSeeder is not null)
+        {
+            await _adminBootstrapSeeder.EnsureBootstrapAdminForUserAsync(user.Id, cancellationToken);
         }
 
         var signInResult = await _signInManager.PasswordSignInAsync(
@@ -496,6 +509,11 @@ internal sealed class IdentityAuthService : IAuthService
                     Message: "This account is inactive or scheduled for deletion.");
             }
 
+            if (_adminBootstrapSeeder is not null)
+            {
+                await _adminBootstrapSeeder.EnsureBootstrapAdminForUserAsync(linkedUser.Id, cancellationToken);
+            }
+
             var linkedRoles = await GetEffectiveUserRolesAsync(linkedUser);
             if (!IsProviderAllowedForRoles(info.LoginProvider, linkedRoles))
             {
@@ -624,6 +642,12 @@ internal sealed class IdentityAuthService : IAuthService
                     summaryLine: $"{providerDisplayName} was linked as a sign-in method on your HireGameDev account.",
                     tag: "security_external_linked",
                     cancellationToken);
+
+                if (_adminBootstrapSeeder is not null)
+                {
+                    await _adminBootstrapSeeder.EnsureBootstrapAdminForUserAsync(existingEmailUser.Id, cancellationToken);
+                    existingRoles = await GetEffectiveUserRolesAsync(existingEmailUser);
+                }
 
                 await _signInManager.SignInAsync(existingEmailUser, isPersistent: false, info.LoginProvider);
                 await ClearExternalCookieAsync();
@@ -801,6 +825,11 @@ internal sealed class IdentityAuthService : IAuthService
                 ActorUserId: user.Id,
                 AfterData: new { accountType = roleName, provider = info.LoginProvider }),
             cancellationToken);
+
+        if (_adminBootstrapSeeder is not null)
+        {
+            await _adminBootstrapSeeder.EnsureBootstrapAdminForUserAsync(user.Id, cancellationToken);
+        }
 
         await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);
         await ClearExternalCookieAsync();

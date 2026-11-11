@@ -158,6 +158,8 @@ public static class DependencyInjection
             services.AddScoped<IEmailSender, DevEmailSender>();
         }
 
+        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
+        services.AddScoped<IAdminBootstrapSeeder, AdminBootstrapSeeder>();
         services.AddScoped<IAuthService, IdentityAuthService>();
         services.AddScoped<IExternalAuthChallengeProvider, IdentityExternalAuthChallengeProvider>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
@@ -221,6 +223,7 @@ public static class DependencyInjection
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();
         services.AddScoped<IStudioTeamService, StudioTeamService>();
+        services.AddScoped<IStudioVerificationService, StudioVerificationService>();
 
         return services;
     }

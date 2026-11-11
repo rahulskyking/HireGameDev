@@ -303,11 +303,30 @@ public sealed class StudioServicesTests
         Assert.True(ownerLockedSlugAttempt.IsFailure);
         Assert.Equal("StudioProfile.SlugLocked", ownerLockedSlugAttempt.Error.Code);
 
-        // Updating other fields while keeping slug unchanged succeeds when Verified.
-        var ownerValidVerifiedEdit = await harness.ProfileService.UpdateStudioProfileAsync(new UpdateStudioProfileCommand(
+        // ADR-019 Decision #3: Name and GSTIN are also locked while Pending or Verified.
+        var ownerLockedIdentityAttempt = await harness.ProfileService.UpdateStudioProfileAsync(new UpdateStudioProfileCommand(
             ActorUserId: harness.OwnerUserId,
             StudioId: studioId,
             Name: "SuperGaming Studios",
+            Slug: null,
+            Website: "https://supergaming.com",
+            Description: ValidStudioDescription,
+            CityId: harness.PuneCityId,
+            SizeBand: StudioSizeBand.Band200Plus,
+            StudioType: StudioType.GameStudio,
+            FoundedYear: 2019,
+            CultureTags: ["original_ip", "no_crunch"],
+            Gstin: null,
+            SkillIds: [harness.UnrealSkillId],
+            Titles: []));
+        Assert.True(ownerLockedIdentityAttempt.IsFailure);
+        Assert.Equal("StudioProfile.IdentityLocked", ownerLockedIdentityAttempt.Error.Code);
+
+        // Updating non-identity fields (SizeBand, CultureTags, Skills, Website, Description) while keeping Name/Slug/GSTIN unchanged succeeds when Verified.
+        var ownerValidVerifiedEdit = await harness.ProfileService.UpdateStudioProfileAsync(new UpdateStudioProfileCommand(
+            ActorUserId: harness.OwnerUserId,
+            StudioId: studioId,
+            Name: "SuperGaming India",
             Slug: null, // keeps existing locked slug
             Website: "https://supergaming.com",
             Description: ValidStudioDescription,
@@ -322,6 +341,7 @@ public sealed class StudioServicesTests
         Assert.True(ownerValidVerifiedEdit.IsSuccess, ownerValidVerifiedEdit.Error.Message);
         Assert.Equal("supergaming", ownerValidVerifiedEdit.Value.Slug);
         Assert.False(ownerValidVerifiedEdit.Value.CanEditSlug);
+        Assert.False(ownerValidVerifiedEdit.Value.CanEditIdentityFields);
 
         // Anonymous visitor now sees the published Verified studio page!
         var anonVerified = await harness.ProfileService.GetPublicStudioBySlugAsync(
@@ -330,7 +350,7 @@ public sealed class StudioServicesTests
         Assert.True(anonVerified.IsSuccess, anonVerified.Error.Message);
         Assert.True(anonVerified.Value.IsVerified);
         Assert.False(anonVerified.Value.IsPreviewMode);
-        Assert.Equal("SuperGaming Studios", anonVerified.Value.Name);
+        Assert.Equal("SuperGaming India", anonVerified.Value.Name);
         Assert.Single(anonVerified.Value.Engines);
     }
 

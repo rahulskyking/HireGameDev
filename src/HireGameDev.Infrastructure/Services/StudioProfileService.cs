@@ -403,7 +403,11 @@ public sealed class StudioProfileService : IStudioProfileService
                     "Only the studio Owner or a Recruiter can edit the studio profile."));
         }
 
-        // Determine effective slug and enforce ADR-018 slug lock / owner-only slug change rules.
+        // Determine effective identity fields and enforce ADR-018 / ADR-019 locks when pending or verified.
+        var identityLocked = StudioProfileRules.IsIdentityFieldLocked(studio.VerificationStatus);
+        var rawEffectiveName = identityLocked && string.IsNullOrWhiteSpace(command.Name)
+            ? studio.Name
+            : command.Name;
         var rawEffectiveSlug = string.IsNullOrWhiteSpace(command.Slug)
             ? studio.Slug
             : command.Slug;
@@ -411,7 +415,7 @@ public sealed class StudioProfileService : IStudioProfileService
         var now = _clock.UtcNow;
         var validation = StudioValidators.ValidateProfilePayload(
             actorUserId: command.ActorUserId,
-            rawName: command.Name,
+            rawName: rawEffectiveName,
             rawSlug: rawEffectiveSlug,
             rawWebsite: command.Website,
             rawDescription: command.Description,
@@ -459,6 +463,20 @@ public sealed class StudioProfileService : IStudioProfileService
             {
                 return Result.Failure<StudioProfileDetail>(
                     Error.Conflict("StudioProfile.SlugTaken", $"The URL slug '{data.Slug}' is already in use."));
+            }
+        }
+
+        if (identityLocked)
+        {
+            var nameChanged = !string.Equals(studio.Name, data.Name, StringComparison.Ordinal);
+            var gstinChanged = !string.Equals(studio.Gstin ?? string.Empty, data.Gstin ?? string.Empty, StringComparison.Ordinal);
+
+            if (nameChanged || gstinChanged)
+            {
+                return Result.Failure<StudioProfileDetail>(
+                    Error.Validation(
+                        "StudioProfile.IdentityLocked",
+                        "Studio name and GSTIN are locked while verification is pending or completed to protect verified studio identity."));
             }
         }
 
@@ -844,8 +862,10 @@ public sealed class StudioProfileService : IStudioProfileService
             OwnerUserId: studio.OwnerUserId,
             CallerRole: callerRole,
             CanEditProfile: StudioProfileRules.CanEditProfile(callerRole),
+            CanEditIdentityFields: StudioProfileRules.CanEditIdentityFields(callerRole, studio.VerificationStatus),
             CanEditSlug: StudioProfileRules.CanEditSlug(callerRole, studio.VerificationStatus),
             CanManageTeam: StudioProfileRules.CanManageTeam(callerRole),
+            CanSubmitVerification: StudioProfileRules.CanSubmitVerification(callerRole),
             Name: studio.Name,
             Slug: studio.Slug,
             LogoObjectKey: studio.LogoPath,
@@ -862,6 +882,9 @@ public sealed class StudioProfileService : IStudioProfileService
             CultureTags: studio.CultureTags,
             Gstin: studio.Gstin,
             VerificationStatus: studio.VerificationStatus,
+            VerificationSubmittedAt: studio.VerificationSubmittedAt,
+            VerificationProofUrls: studio.VerificationProofUrls,
+            VerificationApplicantNotes: studio.VerificationApplicantNotes,
             VerifiedAt: studio.VerifiedAt,
             VerificationNotes: studio.VerificationNotes,
             Apps90d: studio.Apps90d,

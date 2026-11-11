@@ -358,12 +358,27 @@ public static class StudioProfileRules
         role == StudioMemberRole.Owner;
 
     /// <summary>
+    /// ADR-019 Decision #2: Only the Studio Owner can submit or resubmit studio verification.
+    /// </summary>
+    public static bool CanSubmitVerification(StudioMemberRole role) =>
+        role == StudioMemberRole.Owner;
+
+    /// <summary>
+    /// ADR-019 Decision #3: Identity-critical fields (<c>Name</c>, <c>Slug</c>, <c>Gstin</c>) lock
+    /// while verification is <c>pending</c> or <c>verified</c> to prevent post-verification brand impersonation.
+    /// </summary>
+    public static bool IsIdentityFieldLocked(StudioVerificationStatus status) =>
+        status is StudioVerificationStatus.Pending or StudioVerificationStatus.Verified;
+
+    public static bool CanEditIdentityFields(StudioMemberRole role, StudioVerificationStatus status) =>
+        CanEditProfile(role) && !IsIdentityFieldLocked(status);
+
+    /// <summary>
     /// ADR-018 Decision #4: Studio URL slug is editable by the owner while unverified or rejected,
     /// and locked once verification is pending or verified so verified URLs and brand checks remain stable.
     /// </summary>
     public static bool CanEditSlug(StudioMemberRole role, StudioVerificationStatus status) =>
-        role == StudioMemberRole.Owner &&
-        status is StudioVerificationStatus.Unverified or StudioVerificationStatus.Rejected;
+        role == StudioMemberRole.Owner && !IsIdentityFieldLocked(status);
 
     /// <summary>
     /// ADR-018 Decision #1: Public <c>/studios/{slug}</c> pages render to anonymous visitors only when

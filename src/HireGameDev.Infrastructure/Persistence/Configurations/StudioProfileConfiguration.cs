@@ -54,6 +54,14 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
                 "verification_status IN ('unverified', 'pending', 'verified', 'rejected')");
 
             t.HasCheckConstraint(
+                "ck_studio_profiles_verification_proof_urls",
+                "cardinality(verification_proof_urls) <= 5");
+
+            t.HasCheckConstraint(
+                "ck_studio_profiles_verification_applicant_notes_len",
+                "verification_applicant_notes IS NULL OR char_length(verification_applicant_notes) <= 1000");
+
+            t.HasCheckConstraint(
                 "ck_studio_profiles_verification_notes_len",
                 "verification_notes IS NULL OR char_length(verification_notes) <= 2000");
 
@@ -127,6 +135,20 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
             .HasColumnType("text")
             .HasDefaultValueSql("'unverified'")
             .IsRequired();
+
+        builder.Property(s => s.VerificationSubmittedAt)
+            .HasColumnName("verification_submitted_at")
+            .HasColumnType("timestamptz");
+
+        builder.Property(s => s.VerificationProofUrls)
+            .HasColumnName("verification_proof_urls")
+            .HasColumnType("text[]")
+            .HasDefaultValueSql("'{}'::text[]")
+            .IsRequired();
+
+        builder.Property(s => s.VerificationApplicantNotes)
+            .HasColumnName("verification_applicant_notes")
+            .HasColumnType("text");
 
         builder.Property(s => s.VerifiedAt)
             .HasColumnType("timestamptz");
@@ -202,5 +224,11 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
         builder.HasIndex(s => s.VerificationStatus, "ix_studio_profiles_verification_status")
             .HasFilter("deleted_at IS NULL")
             .HasDatabaseName("ix_studio_profiles_verification_status");
+
+        builder.HasIndex(
+                s => new { s.VerificationStatus, s.VerificationSubmittedAt },
+                "ix_studio_profiles_verification_queue")
+            .HasFilter("deleted_at IS NULL")
+            .HasDatabaseName("ix_studio_profiles_verification_queue");
     }
 }

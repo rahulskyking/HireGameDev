@@ -1,4 +1,5 @@
 using HireGameDev.Application;
+using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Infrastructure;
@@ -50,6 +51,9 @@ try
 
         var appSettingsSeeder = scope.ServiceProvider.GetRequiredService<IAppSettingsSeeder>();
         await appSettingsSeeder.SeedAsync();
+
+        var adminBootstrapSeeder = scope.ServiceProvider.GetRequiredService<IAdminBootstrapSeeder>();
+        await adminBootstrapSeeder.SeedAsync();
     }
 
     // Must run first so RemoteIpAddress, Request.Scheme, and allowlisted Request.Host reflect trusted reverse proxies.

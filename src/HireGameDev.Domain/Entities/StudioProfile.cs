@@ -41,6 +41,12 @@ public sealed class StudioProfile : IAuditableEntity, ISoftDeletable
 
     public StudioVerificationStatus VerificationStatus { get; set; } = StudioVerificationStatus.Unverified;
 
+    public DateTimeOffset? VerificationSubmittedAt { get; set; }
+
+    public string[] VerificationProofUrls { get; set; } = [];
+
+    public string? VerificationApplicantNotes { get; set; }
+
     public DateTimeOffset? VerifiedAt { get; set; }
 
     public Guid? VerifiedBy { get; set; }
