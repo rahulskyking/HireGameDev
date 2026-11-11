@@ -1003,6 +1003,302 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioMember", b =>
+                {
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<DateTimeOffset>("InvitedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("invited_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("MemberRole")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("member_role");
+
+                    b.HasKey("StudioId", "UserId")
+                        .HasName("pk_studio_members");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_studio_members_user_id");
+
+                    b.ToTable("studio_members", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_studio_members_member_role", "member_role IN ('owner', 'recruiter', 'viewer')");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("Apps90d")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("apps_90d")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<int?>("CityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("city_id");
+
+                    b.Property<string>("CompanyEmailDomain")
+                        .HasColumnType("text")
+                        .HasColumnName("company_email_domain");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string[]>("CultureTags")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("culture_tags")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<short?>("FoundedYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("founded_year");
+
+                    b.Property<string>("Gstin")
+                        .HasColumnType("text")
+                        .HasColumnName("gstin");
+
+                    b.Property<string>("LogoPath")
+                        .HasColumnType("text")
+                        .HasColumnName("logo_path");
+
+                    b.Property<decimal?>("MedianFirstResponseHours")
+                        .HasColumnType("numeric(6,1)")
+                        .HasColumnName("median_first_response_hours");
+
+                    b.Property<DateTimeOffset?>("MetricsUpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("metrics_updated_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<decimal?>("ResponseRate90d")
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("response_rate_90d");
+
+                    b.Property<string>("SizeBand")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("size_band");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("slug");
+
+                    b.Property<string>("StudioType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("studio_type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("VerificationNotes")
+                        .HasColumnType("text")
+                        .HasColumnName("verification_notes");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("verification_status")
+                        .HasDefaultValueSql("'unverified'");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("verified_at");
+
+                    b.Property<Guid?>("VerifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("verified_by");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("text")
+                        .HasColumnName("website");
+
+                    b.HasKey("Id")
+                        .HasName("pk_studio_profiles");
+
+                    b.HasIndex("CityId")
+                        .HasDatabaseName("ix_studio_profiles_city_id");
+
+                    b.HasIndex("OwnerUserId")
+                        .HasDatabaseName("ix_studio_profiles_owner_user_id");
+
+                    b.HasIndex("VerifiedBy")
+                        .HasDatabaseName("ix_studio_profiles_verified_by");
+
+                    b.HasIndex(new[] { "VerificationStatus" }, "ix_studio_profiles_verification_status")
+                        .HasDatabaseName("ix_studio_profiles_verification_status")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex(new[] { "OwnerUserId" }, "ux_studio_profiles_owner_active")
+                        .IsUnique()
+                        .HasDatabaseName("ux_studio_profiles_owner_active")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex(new[] { "Slug" }, "ux_studio_profiles_slug")
+                        .IsUnique()
+                        .HasDatabaseName("ux_studio_profiles_slug");
+
+                    b.ToTable("studio_profiles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_studio_profiles_apps_90d", "apps_90d >= 0");
+
+                            t.HasCheckConstraint("ck_studio_profiles_culture_tags", "cardinality(culture_tags) <= 6 AND culture_tags <@ ARRAY['remote_friendly', 'hybrid_work', 'flexible_hours', 'no_crunch', 'indie_spirit', 'original_ip', 'co_dev_partner', 'learning_budget', 'health_insurance', 'relocation_support', 'revenue_share', 'diverse_inclusive']::text[]");
+
+                            t.HasCheckConstraint("ck_studio_profiles_description_len", "description IS NULL OR char_length(description) <= 3000");
+
+                            t.HasCheckConstraint("ck_studio_profiles_founded_year", "founded_year IS NULL OR (founded_year BETWEEN 1950 AND 2100)");
+
+                            t.HasCheckConstraint("ck_studio_profiles_gstin", "gstin IS NULL OR gstin ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'");
+
+                            t.HasCheckConstraint("ck_studio_profiles_median_response_hours", "median_first_response_hours IS NULL OR median_first_response_hours >= 0");
+
+                            t.HasCheckConstraint("ck_studio_profiles_name_len", "char_length(btrim(name)) BETWEEN 2 AND 100");
+
+                            t.HasCheckConstraint("ck_studio_profiles_response_rate_90d", "response_rate_90d IS NULL OR (response_rate_90d >= 0 AND response_rate_90d <= 100)");
+
+                            t.HasCheckConstraint("ck_studio_profiles_size_band", "size_band IN ('1-10', '11-50', '51-200', '200+')");
+
+                            t.HasCheckConstraint("ck_studio_profiles_slug", "char_length(slug) BETWEEN 2 AND 100 AND slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'");
+
+                            t.HasCheckConstraint("ck_studio_profiles_studio_type", "studio_type IN ('indie', 'game_studio', 'outsourcing', 'publisher', 'other')");
+
+                            t.HasCheckConstraint("ck_studio_profiles_verification_notes_len", "verification_notes IS NULL OR char_length(verification_notes) <= 2000");
+
+                            t.HasCheckConstraint("ck_studio_profiles_verification_status", "verification_status IN ('unverified', 'pending', 'verified', 'rejected')");
+
+                            t.HasCheckConstraint("ck_studio_profiles_website", "website IS NULL OR (char_length(website) <= 500 AND website ~ '^https://[^/\\s:@]+\\.[^/\\s]+')");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioSkill", b =>
+                {
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skill_id");
+
+                    b.HasKey("StudioId", "SkillId")
+                        .HasName("pk_studio_skills");
+
+                    b.HasIndex("SkillId")
+                        .HasDatabaseName("ix_studio_skills_skill_id");
+
+                    b.ToTable("studio_skills", (string)null);
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioTitle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("GameName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("game_name");
+
+                    b.Property<long?>("IgdbId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("igdb_id");
+
+                    b.Property<string[]>("Platforms")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("platforms")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<short?>("ReleaseYear")
+                        .HasColumnType("smallint")
+                        .HasColumnName("release_year");
+
+                    b.Property<short>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasColumnName("sort_order")
+                        .HasDefaultValueSql("0");
+
+                    b.Property<string>("StoreUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("store_url");
+
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_studio_titles");
+
+                    b.HasIndex(new[] { "StudioId", "SortOrder", "ReleaseYear" }, "ix_studio_titles_studio_sort")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_studio_titles_studio_sort");
+
+                    b.ToTable("studio_titles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_studio_titles_game_name_len", "char_length(btrim(game_name)) BETWEEN 1 AND 160");
+
+                            t.HasCheckConstraint("ck_studio_titles_platforms", "cardinality(platforms) <= 5 AND platforms <@ ARRAY['pc', 'android', 'ios', 'console', 'web']::text[]");
+
+                            t.HasCheckConstraint("ck_studio_titles_release_year", "release_year IS NULL OR (release_year BETWEEN 1980 AND 2100)");
+
+                            t.HasCheckConstraint("ck_studio_titles_sort_order", "sort_order >= 0");
+
+                            t.HasCheckConstraint("ck_studio_titles_store_url", "store_url IS NULL OR (char_length(store_url) <= 500 AND store_url ~ '^https://[^/\\s:@]+\\.[^/\\s]+')");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1494,6 +1790,82 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("Skill");
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioMember", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", "Studio")
+                        .WithMany("Members")
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_members_studio_profiles_studio_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_members_users_user_id");
+
+                    b.Navigation("Studio");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioProfile", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_studio_profiles_cities_city_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_profiles_users_owner_user_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("VerifiedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_studio_profiles_users_verified_by");
+
+                    b.Navigation("City");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioSkill", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", "Skill")
+                        .WithMany()
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_skills_skills_skill_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", "Studio")
+                        .WithMany("StudioSkills")
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_skills_studio_profiles_studio_id");
+
+                    b.Navigation("Skill");
+
+                    b.Navigation("Studio");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioTitle", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", "Studio")
+                        .WithMany("Titles")
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_studio_titles_studio_profiles_studio_id");
+
+                    b.Navigation("Studio");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationRole", null)
@@ -1576,6 +1948,15 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("IncomingRelations");
 
                     b.Navigation("OutgoingRelations");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.StudioProfile", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("StudioSkills");
+
+                    b.Navigation("Titles");
                 });
 #pragma warning restore 612, 618
         }
