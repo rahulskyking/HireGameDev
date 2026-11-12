@@ -4,6 +4,12 @@
     var activeTab = Model.ActiveTab;
     var ownedStudio = Model.OwnedActiveStudio;
     var memberships = Model.Memberships;
+    var targetAction = activeTab switch
+    {
+        "team" => "Team",
+        "verification" => "Verification",
+        _ => "EditProfile"
+    };
 }
 
 @if (memberships.Count > 1 || (memberships.Count > 0 && ownedStudio is null))
@@ -16,7 +22,7 @@
                 {
                     var isCurrent = activeStudioId.HasValue && m.StudioId == activeStudioId.Value;
                     <a asp-controller="Studio"
-                       asp-action="@(activeTab == "team" ? "Team" : "EditProfile")"
+                       asp-action="@targetAction"
                        asp-route-studioId="@m.StudioId"
                        class="c-btn c-btn--sm @(isCurrent ? "c-btn--primary" : "c-btn--secondary")">
                         @m.Name
@@ -44,6 +50,13 @@
            aria-current="@(activeTab == "profile" ? "page" : null)"
            class="c-btn c-btn--sm @(activeTab == "profile" ? "c-btn--primary" : "c-btn--secondary")">
             Studio Profile
+        </a>
+        <a asp-controller="Studio"
+           asp-action="Verification"
+           asp-route-studioId="@activeStudioId.Value"
+           aria-current="@(activeTab == "verification" ? "page" : null)"
+           class="c-btn c-btn--sm @(activeTab == "verification" ? "c-btn--primary" : "c-btn--secondary")">
+            Verification
         </a>
         <a asp-controller="Studio"
            asp-action="Team"

@@ -1054,4 +1054,91 @@
       badge.textContent = checkedCount + ' / 6 selected';
     }
   });
+
+  // Studio Verification: dynamic https:// proof link rows + live char counters (M1.10b)
+  function reindexProofLinkGroup(group) {
+    if (!group) return;
+    var prefix = group.getAttribute('data-input-prefix') || 'SubmitForm.ProofUrls';
+    var maxRows = parseInt(group.getAttribute('data-max-rows') || '5', 10);
+    var rows = group.querySelectorAll('[data-proof-link-row]');
+    for (var i = 0; i < rows.length; i++) {
+      var input = rows[i].querySelector('input[type="url"]');
+      if (input) {
+        input.name = prefix + '[' + i + ']';
+      }
+    }
+
+    var addBtn = group.querySelector('[data-add-proof-link]');
+    if (addBtn) {
+      addBtn.disabled = rows.length >= maxRows;
+    }
+  }
+
+  document.addEventListener('click', function (event) {
+    var addBtn = event.target.closest('[data-add-proof-link]');
+    if (addBtn) {
+      var group = addBtn.closest('[data-proof-links-group]');
+      if (!group) return;
+      var maxRows = parseInt(group.getAttribute('data-max-rows') || '5', 10);
+      var list = group.querySelector('[data-proof-links-list]');
+      if (!list) return;
+
+      var existingRows = list.querySelectorAll('[data-proof-link-row]');
+      if (existingRows.length >= maxRows) return;
+
+      var row = document.createElement('div');
+      row.className = 'p-sg-row';
+      row.style.gap = '8px';
+      row.setAttribute('data-proof-link-row', '');
+
+      var input = document.createElement('input');
+      input.type = 'url';
+      input.className = 'c-input';
+      input.maxLength = 500;
+      input.placeholder = 'https://www.linkedin.com/company/yourstudio';
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'c-btn c-btn--ghost c-btn--sm';
+      removeBtn.setAttribute('data-remove-proof-link', '');
+      removeBtn.setAttribute('aria-label', 'Remove proof link');
+      removeBtn.textContent = 'Remove';
+
+      row.appendChild(input);
+      row.appendChild(removeBtn);
+      list.appendChild(row);
+      reindexProofLinkGroup(group);
+      input.focus();
+      return;
+    }
+
+    var removeTrigger = event.target.closest('[data-remove-proof-link]');
+    if (removeTrigger) {
+      var parentGroup = removeTrigger.closest('[data-proof-links-group]');
+      var targetRow = removeTrigger.closest('[data-proof-link-row]');
+      if (!parentGroup || !targetRow) return;
+
+      var allRows = parentGroup.querySelectorAll('[data-proof-link-row]');
+      if (allRows.length <= 1) {
+        var singleInput = targetRow.querySelector('input[type="url"]');
+        if (singleInput) singleInput.value = '';
+        return;
+      }
+
+      targetRow.remove();
+      reindexProofLinkGroup(parentGroup);
+    }
+  });
+
+  document.addEventListener('input', function (event) {
+    var field = event.target;
+    if (!field || !field.id) return;
+
+    var counter = document.querySelector('[data-char-counter-for="' + field.id + '"]');
+    if (!counter) return;
+
+    var maxChars = parseInt(counter.getAttribute('data-max-chars') || '1000', 10);
+    var count = (field.value || '').trim().length;
+    counter.textContent = count + ' / ' + maxChars + ' chars';
+  });
 })();

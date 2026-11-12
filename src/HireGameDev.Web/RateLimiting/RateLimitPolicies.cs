@@ -26,6 +26,12 @@ public static class RateLimitPolicies
     /// </summary>
     public const string ResumeParse = "resume-parse";
 
+    /// <summary>
+    /// ADR-010 &amp; M1.10: Burst guard (10 requests per 15 minutes per user/IP) on Studio verification
+    /// and controlled identity re-verification submissions.
+    /// </summary>
+    public const string StudioVerificationSubmit = "studio-verification-submit";
+
     public static IServiceCollection AddHireGameDevNetworkingAndRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -151,6 +157,18 @@ public static class RateLimitPolicies
                     }));
 
             options.AddPolicy(ResumeParse, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: BuildUserOrClientPartitionKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(15),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+
+            options.AddPolicy(StudioVerificationSubmit, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: BuildUserOrClientPartitionKey(httpContext),
                     factory: _ => new FixedWindowRateLimiterOptions

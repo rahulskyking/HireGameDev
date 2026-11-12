@@ -1,0 +1,430 @@
+@model AdminStudioVerificationPageViewModel
+@inject IPortalNavigator PortalNavigator
+@{
+    ViewData["Title"] = "Studio Verification Queue · Admin";
+    var q = Model.Queue;
+    var c = q.Counts;
+}
+
+<div class="p-sg-stack">
+    <header class="p-sg-section">
+        <div class="p-sg-row" style="justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <div class="c-badge-row" style="margin-bottom: 8px;">
+                    <span class="c-badge c-badge--accent">Admin &middot; M1.10</span>
+                    <span class="c-badge c-badge--neutral">Target SLA: 24–48h</span>
+                    <span class="c-badge c-badge--success">Audit Reason Mandatory</span>
+                </div>
+                <h1 style="margin: 0;">Studio Verification &amp; Identity Queue</h1>
+                <p class="u-muted" style="margin: 6px 0 0 0;">
+                    Verify Indian game studios (company-domain &amp; indie personal-email teams) and review staged identity updates without disrupting live verified badges.
+                </p>
+            </div>
+            <a asp-controller="Admin" asp-action="Index" class="c-btn c-btn--secondary c-btn--sm">
+                &larr; Admin Overview
+            </a>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content">
+                <span class="c-alert__title">Could not record review decision</span>
+                <div asp-validation-summary="All"></div>
+            </div>
+        </div>
+    }
+
+    <!-- Filter Tabs -->
+    <nav class="c-tabs__list" aria-label="Verification status filters">
+        <a asp-controller="Admin"
+           asp-action="StudioVerification"
+           asp-route-status="pending"
+           class="c-tabs__tab"
+           aria-selected="@(Model.ActiveTabKey == "pending" ? "true" : "false")">
+            Pending Action (@c.PendingCount)
+        </a>
+        <a asp-controller="Admin"
+           asp-action="StudioVerification"
+           asp-route-status="verified"
+           class="c-tabs__tab"
+           aria-selected="@(Model.ActiveTabKey == "verified" ? "true" : "false")">
+            Verified (@c.VerifiedCount)
+        </a>
+        <a asp-controller="Admin"
+           asp-action="StudioVerification"
+           asp-route-status="rejected"
+           class="c-tabs__tab"
+           aria-selected="@(Model.ActiveTabKey == "rejected" ? "true" : "false")">
+            Rejected (@c.RejectedCount)
+        </a>
+        <a asp-controller="Admin"
+           asp-action="StudioVerification"
+           asp-route-status="unverified"
+           class="c-tabs__tab"
+           aria-selected="@(Model.ActiveTabKey == "unverified" ? "true" : "false")">
+            Unverified Drafts (@c.UnverifiedCount)
+        </a>
+        <a asp-controller="Admin"
+           asp-action="StudioVerification"
+           asp-route-status="all"
+           class="c-tabs__tab"
+           aria-selected="@(Model.ActiveTabKey == "all" ? "true" : "false")">
+            All Studios (@c.TotalCount)
+        </a>
+    </nav>
+
+    @if (q.Items.Count == 0)
+    {
+        <div class="c-empty">
+            <h2 class="c-empty__title">No studios in this queue view</h2>
+            <p class="c-empty__desc">
+                @(Model.ActiveTabKey == "pending"
+                    ? "All pending studio verification requests and staged identity updates have been reviewed."
+                    : "No studio workspaces currently match the selected filter.")
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="p-sg-stack">
+            @foreach (var item in q.Items)
+            {
+                var monogram = StudioUiFormatters.BuildMonogram(item.StudioName);
+                var previewUrl = PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, $"/studios/{item.StudioSlug}");
+                var isFailedCard = Model.ErrorStudioId == item.StudioId && Model.FailedInput is not null;
+                var prefilledReason = isFailedCard ? Model.FailedInput!.Reason : string.Empty;
+                var prefilledFeedback = isFailedCard ? Model.FailedInput!.ReviewerFeedback : item.ReviewerFeedback;
+
+                var statusPill = item.VerificationStatus switch
+                {
+                    StudioVerificationStatus.Verified => ("Verified", "c-badge--success"),
+                    StudioVerificationStatus.Pending => ("Pending Verification", "c-badge--info"),
+                    StudioVerificationStatus.Rejected => ("Rejected / Changes Requested", "c-badge--warning"),
+                    _ => ("Unverified Draft", "c-badge--neutral")
+                };
+
+                var domainPill = item.DomainAssessment.Signal switch
+                {
+                    StudioEmailDomainSignal.DomainMatched => "c-badge--success",
+                    StudioEmailDomainSignal.CompanyDomainUnmatched => "c-badge--warning",
+                    StudioEmailDomainSignal.CompanyDomainNoWebsite => "c-badge--info",
+                    _ => "c-badge--neutral"
+                };
+
+                <article class="c-card" id="studio-@item.StudioId" aria-labelledby="studio-heading-@item.StudioId">
+                    <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+                        <div class="c-entity-head">
+                            @if (!string.IsNullOrWhiteSpace(item.LogoUrl))
+                            {
+                                <img src="@item.LogoUrl" alt="@item.StudioName logo" class="c-avatar c-avatar--lg" />
+                            }
+                            else
+                            {
+                                <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@monogram</span>
+                            }
+
+                            <div>
+                                <h2 id="studio-heading-@item.StudioId" style="margin: 0; font-size: 20px;">@item.StudioName</h2>
+                                <p class="u-muted" style="margin: 4px 0 0 0;">
+                                    <code>/studios/@item.StudioSlug</code>
+                                    &middot; @item.StudioType.ToDisplayLabel()
+                                    &middot; @item.SizeBand.ToDisplayLabel()
+                                    @if (!string.IsNullOrWhiteSpace(item.CityName))
+                                    {
+                                        <span>&middot; @item.CityName@(!string.IsNullOrWhiteSpace(item.CityState) ? $", {item.CityState}" : string.Empty)</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+
+                        <a href="@previewUrl"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="c-btn c-btn--secondary c-btn--sm">
+                            Preview Studio Page &#8599;
+                        </a>
+                    </div>
+
+                    <div class="c-badge-row">
+                        <span class="c-badge @statusPill.Item2">@statusPill.Item1</span>
+                        @if (item.HasPendingIdentityChange)
+                        {
+                            <span class="c-badge c-badge--accent">Staged Identity Re-Verification</span>
+                        }
+                        <span class="c-badge @domainPill">@item.DomainAssessment.Signal.ToDisplayLabel()</span>
+
+                        @if (item.WaitingHours.HasValue)
+                        {
+                            <span class="c-badge @(item.IsPastTargetSla ? "c-badge--danger" : "c-badge--neutral")">
+                                @(item.IsPastTargetSla ? $"Past 24h SLA · Waiting {item.WaitingHours.Value:0.0}h" : $"Waiting {item.WaitingHours.Value:0.0}h")
+                            </span>
+                        }
+
+                        @foreach (var engine in item.EngineNames)
+                        {
+                            <span class="c-badge c-badge--neutral">@engine</span>
+                        }
+                    </div>
+
+                    <!-- Signals & Submitted Evidence -->
+                    <div class="p-sg-grid-2" style="margin-top: 14px;">
+                        <div>
+                            <span class="c-label">Owner Account &amp; Official Presence</span>
+                            <p class="u-muted" style="margin: 4px 0 0 0;">
+                                <strong>Owner:</strong> @item.OwnerDisplayName (<code>@item.OwnerEmail</code>)<br />
+                                <strong>Website:</strong>
+                                @if (AdminStudioVerificationPageViewModel.TryBuildSafeHttpsHref(item.Website, out var safeSiteHref))
+                                {
+                                    <a href="@safeSiteHref" target="_blank" rel="noopener noreferrer">@safeSiteHref</a>
+                                }
+                                else
+                                {
+                                    <span>Not listed</span>
+                                }
+                                <br />
+                                <strong>GSTIN:</strong> <code>@(string.IsNullOrWhiteSpace(item.Gstin) ? "None (Indie)" : item.Gstin)</code>
+                                @if (item.VerifiedAt.HasValue)
+                                {
+                                    <br />
+                                    <strong>Last verified:</strong> <span>@item.VerifiedAt.Value.ToString("dd MMM yyyy, HH:mm 'UTC'")@(!string.IsNullOrWhiteSpace(item.VerifiedByEmail) ? $" by {item.VerifiedByEmail}" : string.Empty)</span>
+                                }
+                            </p>
+                        </div>
+
+                        <div>
+                            <span class="c-label">Submitted Proof Links &amp; Store Pages</span>
+                            @if (item.ProofUrls.Count == 0 && item.Titles.All(t => string.IsNullOrWhiteSpace(t.StoreUrl)))
+                            {
+                                <p class="u-muted" style="margin: 4px 0 0 0;">No external proof or game store URLs submitted.</p>
+                            }
+                            else
+                            {
+                                <ul style="margin: 4px 0 0 18px; padding: 0;">
+                                    @foreach (var proofUrl in item.ProofUrls)
+                                    {
+                                        if (AdminStudioVerificationPageViewModel.TryBuildSafeHttpsHref(proofUrl, out var safeProofHref))
+                                        {
+                                            <li><a href="@safeProofHref" target="_blank" rel="noopener noreferrer">@safeProofHref</a> <span class="c-badge c-badge--neutral">Proof</span></li>
+                                        }
+                                    }
+                                    @foreach (var title in item.Titles)
+                                    {
+                                        if (AdminStudioVerificationPageViewModel.TryBuildSafeHttpsHref(title.StoreUrl, out var safeStoreHref))
+                                        {
+                                            <li><a href="@safeStoreHref" target="_blank" rel="noopener noreferrer">@title.GameName</a> <span class="c-badge c-badge--neutral">Title Store</span></li>
+                                        }
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(item.ApplicantNotes))
+                    {
+                        <div class="c-alert c-alert--info" style="margin-top: 12px;">
+                            <div class="c-alert__content">
+                                <span class="c-alert__title">Applicant Notes</span>
+                                <p style="white-space: pre-line;">@item.ApplicantNotes</p>
+                            </div>
+                        </div>
+                    }
+
+                    @if (item.HasPendingIdentityChange && item.PendingIdentityChange is not null)
+                    {
+                        var diff = item.PendingIdentityChange;
+                        <div style="margin-top: 14px;">
+                            <span class="c-label">Staged Identity Change Diff (Requested @diff.RequestedAt.ToString("dd MMM yyyy, HH:mm 'UTC'"))</span>
+                            <div class="c-table-wrap" style="margin-top: 6px;">
+                                <table class="c-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Identity Field</th>
+                                            <th scope="col">Current Live Verified</th>
+                                            <th scope="col">Proposed Update</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Studio Name</strong></td>
+                                            <td>@item.StudioName</td>
+                                            <td>
+                                                <strong>@diff.ProposedName</strong>
+                                                @if (!string.Equals(item.StudioName, diff.ProposedName, StringComparison.Ordinal))
+                                                {
+                                                    <span class="c-badge c-badge--accent" style="margin-left: 6px;">Diff</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Public URL Slug</strong></td>
+                                            <td><code>/studios/@item.StudioSlug</code></td>
+                                            <td>
+                                                <code>/studios/@diff.ProposedSlug</code>
+                                                @if (!string.Equals(item.StudioSlug, diff.ProposedSlug, StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <span class="c-badge c-badge--accent" style="margin-left: 6px;">Diff</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Indian GSTIN</strong></td>
+                                            <td><code>@(string.IsNullOrWhiteSpace(item.Gstin) ? "None" : item.Gstin)</code></td>
+                                            <td>
+                                                <code>@(string.IsNullOrWhiteSpace(diff.ProposedGstin) ? "None" : diff.ProposedGstin)</code>
+                                                @if (!string.Equals(item.Gstin ?? string.Empty, diff.ProposedGstin ?? string.Empty, StringComparison.Ordinal))
+                                                {
+                                                    <span class="c-badge c-badge--accent" style="margin-left: 6px;">Diff</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Moderation Action Form -->
+                    @if (item.VerificationStatus == StudioVerificationStatus.Verified && !item.HasPendingIdentityChange)
+                    {
+                        <details style="margin-top: 16px;">
+                            <summary style="cursor: pointer; font-weight: 600;" class="u-muted">
+                                Moderation Actions (Revoke Verified Status)
+                            </summary>
+
+                            <form asp-controller="Admin"
+                                  asp-action="ReviewStudioVerification"
+                                  method="post"
+                                  class="p-sg-stack"
+                                  style="margin-top: 12px;"
+                                  novalidate>
+                                <input type="hidden" name="StudioId" value="@item.StudioId" />
+                                <input type="hidden" name="ReturnFilter" value="@Model.ActiveTabKey" />
+
+                                <div class="p-sg-grid-2">
+                                    <div class="c-field">
+                                        <label class="c-label" for="reason-@item.StudioId">Internal Audit Reason (10–500 chars, required)</label>
+                                        <input id="reason-@item.StudioId"
+                                               type="text"
+                                               name="Reason"
+                                               value="@prefilledReason"
+                                               class="c-input"
+                                               minlength="@StudioVerificationRules.MinAdminReasonLength"
+                                               maxlength="@StudioVerificationRules.MaxAdminReasonLength"
+                                               required
+                                               placeholder="Logged to audit_logs.reason (never shown publicly)" />
+                                    </div>
+
+                                    <div class="c-field">
+                                        <label class="c-label" for="feedback-@item.StudioId">Studio-Facing Revocation Explanation (required)</label>
+                                        <input id="feedback-@item.StudioId"
+                                               type="text"
+                                               name="ReviewerFeedback"
+                                               value="@prefilledFeedback"
+                                               class="c-input"
+                                               minlength="@StudioVerificationRules.MinRejectionFeedbackLength"
+                                               maxlength="@StudioVerificationRules.MaxReviewerNotesLength"
+                                               required
+                                               placeholder="Sent to the Studio Owner explaining what needs attention" />
+                                    </div>
+                                </div>
+
+                                <div class="p-sg-row" style="justify-content: flex-end;">
+                                    <button type="submit"
+                                            name="Decision"
+                                            value="@StudioVerificationDecision.Revoke"
+                                            class="c-btn c-btn--danger c-btn--sm"
+                                            onclick="return confirm('Revoke Verified status for this studio? Their public studio page will return to Preview Mode until re-verified.');">
+                                        Revoke Studio Verification
+                                    </button>
+                                </div>
+                            </form>
+                        </details>
+                    }
+                    else
+                    {
+                        <form asp-controller="Admin"
+                              asp-action="ReviewStudioVerification"
+                              method="post"
+                              class="p-sg-stack"
+                              style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle);"
+                              novalidate>
+                            <input type="hidden" name="StudioId" value="@item.StudioId" />
+                            <input type="hidden" name="ReturnFilter" value="@Model.ActiveTabKey" />
+
+                            <div class="p-sg-grid-2">
+                                <div class="c-field">
+                                    <label class="c-label" for="reason-@item.StudioId">Internal Audit Reason <span aria-hidden="true">*</span></label>
+                                    <input id="reason-@item.StudioId"
+                                           type="text"
+                                           name="Reason"
+                                           value="@prefilledReason"
+                                           class="c-input"
+                                           minlength="@StudioVerificationRules.MinAdminReasonLength"
+                                           maxlength="@StudioVerificationRules.MaxAdminReasonLength"
+                                           required
+                                           placeholder="10–500 chars · e.g. 'Verified Steam publisher page + active domain'" />
+                                    <p class="c-hint">Persisted to <code>audit_logs.reason</code> (<code>ADR-010</code>). Internal only.</p>
+                                </div>
+
+                                <div class="c-field">
+                                    <label class="c-label" for="feedback-@item.StudioId">Studio-Facing Reviewer Note (required when rejecting)</label>
+                                    <input id="feedback-@item.StudioId"
+                                           type="text"
+                                           name="ReviewerFeedback"
+                                           value="@prefilledFeedback"
+                                           class="c-input"
+                                           maxlength="@StudioVerificationRules.MaxReviewerNotesLength"
+                                           placeholder="Optional note on Approve; required (10+ chars) when requesting changes" />
+                                    <p class="c-hint">Shown on <code>/Studio/Verification</code> and emailed to the Studio Owner.</p>
+                                </div>
+                            </div>
+
+                            <div class="p-sg-row" style="justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+                                @if (item.HasPendingIdentityChange)
+                                {
+                                    <button type="submit"
+                                            name="Decision"
+                                            value="@StudioVerificationDecision.RejectIdentityChange"
+                                            class="c-btn c-btn--secondary">
+                                        Reject Identity Update (Keep Verified)
+                                    </button>
+                                    <button type="submit"
+                                            name="Decision"
+                                            value="@StudioVerificationDecision.ApproveIdentityChange"
+                                            class="c-btn c-btn--primary">
+                                        Approve Identity Update
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit"
+                                            name="Decision"
+                                            value="@StudioVerificationDecision.Reject"
+                                            class="c-btn c-btn--secondary">
+                                        Request Changes (Reject)
+                                    </button>
+                                    <button type="submit"
+                                            name="Decision"
+                                            value="@StudioVerificationDecision.Approve"
+                                            class="c-btn c-btn--primary">
+                                        Approve &amp; Verify Studio
+                                    </button>
+                                }
+                            </div>
+                        </form>
+                    }
+                </article>
+            }
+        </div>
+    }
+</div>

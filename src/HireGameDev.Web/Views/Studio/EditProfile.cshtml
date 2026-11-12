@@ -133,16 +133,60 @@
 
         @if (s.VerificationStatus != StudioVerificationStatus.Verified)
         {
+            var alertVariant = s.VerificationStatus == StudioVerificationStatus.Rejected
+                ? "c-alert--warning"
+                : "c-alert--info";
+            <div class="c-alert @alertVariant" role="note" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <div class="p-sg-row" style="justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1 1 320px;">
+                            <span class="c-alert__title">
+                                @(s.VerificationStatus switch
+                                {
+                                    StudioVerificationStatus.Pending => "Verification Request Under Review (24–48h SLA)",
+                                    StudioVerificationStatus.Rejected => "Action Needed to Complete Studio Verification",
+                                    _ => "Verify Your Studio to Unlock Public Visibility & Job Publishing"
+                                })
+                            </span>
+                            <p>
+                                Your studio page at <code>/studios/@s.Slug</code> is currently in <strong>Preview Mode</strong> (visible to your team and HireGameDev admins) until verified.
+                                @if (!string.IsNullOrWhiteSpace(s.VerificationNotes))
+                                {
+                                    <br /><strong>Reviewer feedback:</strong> @s.VerificationNotes
+                                }
+                            </p>
+                        </div>
+                        <a asp-controller="Studio"
+                           asp-action="Verification"
+                           asp-route-studioId="@s.Id"
+                           class="c-btn c-btn--sm @(s.VerificationStatus == StudioVerificationStatus.Pending ? "c-btn--secondary" : "c-btn--primary")">
+                            @(s.VerificationStatus switch
+                            {
+                                StudioVerificationStatus.Pending => "View Pending Status",
+                                StudioVerificationStatus.Rejected => "Review & Resubmit",
+                                _ => "Submit for Verification"
+                            })
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (s.PendingIdentityChange is not null)
+        {
             <div class="c-alert c-alert--info" role="note" style="margin-top: 12px;">
                 <div class="c-alert__content">
-                    <span class="c-alert__title">Public Visibility &amp; Verification</span>
-                    <p>
-                        Your studio page at <code>/studios/@s.Slug</code> is currently visible in <strong>Preview Mode</strong> to your studio team and HireGameDev admins, and returns <code>404</code> to anonymous visitors until verified (<code>M1.10</code>).
-                        @if (!string.IsNullOrWhiteSpace(s.VerificationNotes))
-                        {
-                            <br /><strong>Reviewer note:</strong> @s.VerificationNotes
-                        }
-                    </p>
+                    <div class="p-sg-row" style="justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <p style="margin: 0;">
+                            <strong>Controlled identity update pending review:</strong>
+                            Proposed <code>@s.PendingIdentityChange.ProposedName</code> (<code>/studios/@s.PendingIdentityChange.ProposedSlug</code>) is under admin review while your live verified badge remains active.
+                        </p>
+                        <a asp-controller="Studio"
+                           asp-action="Verification"
+                           asp-route-studioId="@s.Id"
+                           class="c-btn c-btn--secondary c-btn--sm">
+                            Manage Request
+                        </a>
+                    </div>
                 </div>
             </div>
         }

@@ -7,8 +7,10 @@ using HireGameDev.Domain.Rules;
 using HireGameDev.Web.Authorization;
 using HireGameDev.Web.Models.Studio;
 using HireGameDev.Web.Portals;
+using HireGameDev.Web.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HireGameDev.Web.Controllers;
 
@@ -21,6 +23,7 @@ public sealed class StudioController : Controller
     private readonly IStudioProfileService _studioProfileService;
     private readonly IStudioLogoService _studioLogoService;
     private readonly IStudioTeamService _studioTeamService;
+    private readonly IStudioVerificationService _studioVerificationService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
@@ -28,12 +31,14 @@ public sealed class StudioController : Controller
         IStudioProfileService studioProfileService,
         IStudioLogoService studioLogoService,
         IStudioTeamService studioTeamService,
+        IStudioVerificationService studioVerificationService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
         _studioProfileService = studioProfileService;
         _studioLogoService = studioLogoService;
         _studioTeamService = studioTeamService;
+        _studioVerificationService = studioVerificationService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -561,6 +566,259 @@ public sealed class StudioController : Controller
         }
 
         return RedirectToAction(nameof(Team), new { studioId });
+    }
+
+    [HttpGet("Verification")]
+    public async Task<IActionResult> Verification(Guid? studioId = null, CancellationToken cancellationToken = default)
+    {
+        if (TryBuildStudioPortalRedirect(out var portalRedirect))
+        {
+            return Redirect(portalRedirect);
+        }
+
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var memberships = await _studioProfileService.GetUserMembershipsAsync(userId, cancellationToken);
+        if (memberships.Count == 0)
+        {
+            return RedirectToAction(nameof(Onboarding));
+        }
+
+        var targetStudioId = ResolveRequestedOrRememberedStudioId(studioId, memberships);
+        var workspaceResult = await _studioVerificationService.GetVerificationWorkspaceAsync(
+            userId,
+            targetStudioId,
+            cancellationToken);
+
+        if (workspaceResult.IsFailure)
+        {
+            TempData["ErrorMessage"] = workspaceResult.Error.Message;
+            return RedirectToAction(nameof(EditProfile));
+        }
+
+        RememberActiveStudioCookie(workspaceResult.Value.StudioId);
+        var vm = BuildVerificationPageViewModel(
+            workspaceResult.Value,
+            memberships,
+            submitFormOverride: null,
+            identityFormOverride: null,
+            expandIdentityForm: false);
+
+        return View("Verification", vm);
+    }
+
+    [HttpPost("Verification/Submit")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.StudioVerificationSubmit)]
+    public async Task<IActionResult> SubmitVerification(
+        [Bind(Prefix = "SubmitForm")] SubmitStudioVerificationInputModel? submitForm,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        submitForm ??= new SubmitStudioVerificationInputModel();
+        var memberships = await _studioProfileService.GetUserMembershipsAsync(userId, cancellationToken);
+        if (memberships.Count == 0)
+        {
+            return RedirectToAction(nameof(Onboarding));
+        }
+
+        var targetStudioId = ResolveRequestedOrRememberedStudioId(submitForm.StudioId, memberships);
+        if (!targetStudioId.HasValue)
+        {
+            return RedirectToAction(nameof(Onboarding));
+        }
+
+        var submitResult = await _studioVerificationService.SubmitForVerificationAsync(
+            new SubmitStudioVerificationCommand(
+                ActorUserId: userId,
+                StudioId: targetStudioId.Value,
+                Website: submitForm.Website,
+                Gstin: submitForm.Gstin,
+                ProofUrls: (IReadOnlyList<string>?)submitForm.ProofUrls ?? Array.Empty<string>(),
+                ApplicantNotes: submitForm.ApplicantNotes),
+            cancellationToken);
+
+        if (submitResult.IsFailure)
+        {
+            var currentWorkspace = await _studioVerificationService.GetVerificationWorkspaceAsync(
+                userId,
+                targetStudioId,
+                cancellationToken);
+
+            if (currentWorkspace.IsFailure)
+            {
+                TempData["ErrorMessage"] = submitResult.Error.Message;
+                return RedirectToAction(nameof(Verification));
+            }
+
+            ModelState.AddModelError(string.Empty, submitResult.Error.Message);
+            var vm = BuildVerificationPageViewModel(
+                currentWorkspace.Value,
+                memberships,
+                submitFormOverride: submitForm,
+                identityFormOverride: null,
+                expandIdentityForm: false);
+
+            return View("Verification", vm);
+        }
+
+        TempData["StatusMessage"] = "Verification request submitted! Our team reviews studio submissions within 24–48 hours.";
+        return RedirectToAction(nameof(Verification), new { studioId = submitResult.Value.StudioId });
+    }
+
+    [HttpPost("Verification/RequestIdentityChange")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.StudioVerificationSubmit)]
+    public async Task<IActionResult> RequestIdentityChange(
+        [Bind(Prefix = "IdentityChangeForm")] RequestStudioIdentityChangeInputModel? identityForm,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        identityForm ??= new RequestStudioIdentityChangeInputModel();
+        var memberships = await _studioProfileService.GetUserMembershipsAsync(userId, cancellationToken);
+        if (memberships.Count == 0)
+        {
+            return RedirectToAction(nameof(Onboarding));
+        }
+
+        var targetStudioId = ResolveRequestedOrRememberedStudioId(identityForm.StudioId, memberships);
+        if (!targetStudioId.HasValue)
+        {
+            return RedirectToAction(nameof(Onboarding));
+        }
+
+        var requestResult = await _studioVerificationService.RequestIdentityChangeAsync(
+            new RequestStudioIdentityChangeCommand(
+                ActorUserId: userId,
+                StudioId: targetStudioId.Value,
+                ProposedName: identityForm.ProposedName ?? string.Empty,
+                ProposedSlug: identityForm.ProposedSlug ?? string.Empty,
+                ProposedGstin: identityForm.ProposedGstin,
+                ProofUrls: (IReadOnlyList<string>?)identityForm.ProofUrls ?? Array.Empty<string>(),
+                ApplicantNotes: identityForm.ApplicantNotes ?? string.Empty),
+            cancellationToken);
+
+        if (requestResult.IsFailure)
+        {
+            var currentWorkspace = await _studioVerificationService.GetVerificationWorkspaceAsync(
+                userId,
+                targetStudioId,
+                cancellationToken);
+
+            if (currentWorkspace.IsFailure)
+            {
+                TempData["ErrorMessage"] = requestResult.Error.Message;
+                return RedirectToAction(nameof(Verification));
+            }
+
+            ModelState.AddModelError(string.Empty, requestResult.Error.Message);
+            var vm = BuildVerificationPageViewModel(
+                currentWorkspace.Value,
+                memberships,
+                submitFormOverride: null,
+                identityFormOverride: identityForm,
+                expandIdentityForm: true);
+
+            return View("Verification", vm);
+        }
+
+        TempData["StatusMessage"] = "Identity re-verification request submitted. Your live verified studio page and badge stay active under your current details until admin review completes.";
+        return RedirectToAction(nameof(Verification), new { studioId = requestResult.Value.StudioId });
+    }
+
+    [HttpPost("Verification/CancelIdentityChange")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelIdentityChange(
+        Guid studioId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var cancelResult = await _studioVerificationService.CancelIdentityChangeAsync(
+            new CancelStudioIdentityChangeCommand(userId, studioId),
+            cancellationToken);
+
+        if (cancelResult.IsFailure)
+        {
+            TempData["ErrorMessage"] = cancelResult.Error.Message;
+        }
+        else
+        {
+            TempData["StatusMessage"] = "Pending identity update request cancelled. Your live verified identity remains unchanged.";
+        }
+
+        return RedirectToAction(nameof(Verification), new { studioId });
+    }
+
+    private static StudioVerificationPageViewModel BuildVerificationPageViewModel(
+        StudioVerificationWorkspaceModel workspace,
+        IReadOnlyList<StudioMembershipSummary> memberships,
+        SubmitStudioVerificationInputModel? submitFormOverride,
+        RequestStudioIdentityChangeInputModel? identityFormOverride,
+        bool expandIdentityForm)
+    {
+        var ownedStudio = memberships.FirstOrDefault(m => m.MemberRole == StudioMemberRole.Owner);
+
+        var submitForm = submitFormOverride ?? new SubmitStudioVerificationInputModel
+        {
+            StudioId = workspace.StudioId,
+            Website = workspace.Website,
+            Gstin = workspace.Gstin,
+            ProofUrls = workspace.VerificationProofUrls.Count > 0
+                ? workspace.VerificationProofUrls.ToList()
+                : new List<string> { string.Empty },
+            ApplicantNotes = workspace.VerificationApplicantNotes
+        };
+
+        submitForm.StudioId = workspace.StudioId;
+        submitForm.ProofUrls ??= new List<string> { string.Empty };
+        if (submitForm.ProofUrls.Count == 0)
+        {
+            submitForm.ProofUrls.Add(string.Empty);
+        }
+
+        var identityForm = identityFormOverride ?? new RequestStudioIdentityChangeInputModel
+        {
+            StudioId = workspace.StudioId,
+            ProposedName = workspace.StudioName,
+            ProposedSlug = workspace.StudioSlug,
+            ProposedGstin = workspace.Gstin,
+            ProofUrls = workspace.VerificationProofUrls.Count > 0
+                ? workspace.VerificationProofUrls.ToList()
+                : new List<string> { string.Empty },
+            ApplicantNotes = string.Empty
+        };
+
+        identityForm.StudioId = workspace.StudioId;
+        identityForm.ProofUrls ??= new List<string> { string.Empty };
+        if (identityForm.ProofUrls.Count == 0)
+        {
+            identityForm.ProofUrls.Add(string.Empty);
+        }
+
+        return new StudioVerificationPageViewModel
+        {
+            Workspace = workspace,
+            OwnedActiveStudio = ownedStudio,
+            Memberships = memberships,
+            SubmitForm = submitForm,
+            IdentityChangeForm = identityForm,
+            ExpandIdentityChangeForm = expandIdentityForm
+        };
     }
 
     private async Task<StudioWorkspacePageViewModel> BuildWorkspacePageViewModelAsync(

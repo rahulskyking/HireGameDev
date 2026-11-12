@@ -98,6 +98,49 @@ public sealed class PublicStudioPageViewModel
     public string CanonicalPublicUrl { get; init; } = string.Empty;
 }
 
+public sealed class SubmitStudioVerificationInputModel
+{
+    public Guid StudioId { get; set; }
+
+    public string? Website { get; set; }
+
+    public string? Gstin { get; set; }
+
+    public List<string> ProofUrls { get; set; } = [];
+
+    public string? ApplicantNotes { get; set; }
+}
+
+public sealed class RequestStudioIdentityChangeInputModel
+{
+    public Guid StudioId { get; set; }
+
+    public string ProposedName { get; set; } = string.Empty;
+
+    public string ProposedSlug { get; set; } = string.Empty;
+
+    public string? ProposedGstin { get; set; }
+
+    public List<string> ProofUrls { get; set; } = [];
+
+    public string ApplicantNotes { get; set; } = string.Empty;
+}
+
+public sealed class StudioVerificationPageViewModel
+{
+    public required StudioVerificationWorkspaceModel Workspace { get; init; }
+
+    public StudioMembershipSummary? OwnedActiveStudio { get; init; }
+
+    public IReadOnlyList<StudioMembershipSummary> Memberships { get; init; } = [];
+
+    public SubmitStudioVerificationInputModel SubmitForm { get; init; } = new();
+
+    public RequestStudioIdentityChangeInputModel IdentityChangeForm { get; init; } = new();
+
+    public bool ExpandIdentityChangeForm { get; init; }
+}
+
 public static class StudioUiFormatters
 {
     public static readonly IReadOnlyList<(string Slug, string Label)> PlatformOptions =

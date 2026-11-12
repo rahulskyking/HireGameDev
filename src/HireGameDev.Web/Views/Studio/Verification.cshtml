@@ -1,0 +1,582 @@
+@model StudioVerificationPageViewModel
+@{
+    var w = Model.Workspace;
+    ViewData["Title"] = $"Studio Verification · {w.StudioName}";
+
+    var monogram = StudioUiFormatters.BuildMonogram(w.StudioName);
+    var hasLogo = !string.IsNullOrWhiteSpace(w.LogoUrl);
+
+    var statusBadge = w.VerificationStatus switch
+    {
+        StudioVerificationStatus.Verified => ("Verified Studio", "c-badge--success"),
+        StudioVerificationStatus.Pending => ("Verification Pending · 24–48h SLA", "c-badge--info"),
+        StudioVerificationStatus.Rejected => ("Needs Changes", "c-badge--warning"),
+        _ => ("Unverified · Preview Only", "c-badge--neutral")
+    };
+
+    var domainBadgeClass = w.DomainAssessment.Signal switch
+    {
+        StudioEmailDomainSignal.DomainMatched => "c-badge--success",
+        StudioEmailDomainSignal.CompanyDomainUnmatched => "c-badge--warning",
+        StudioEmailDomainSignal.CompanyDomainNoWebsite => "c-badge--info",
+        _ => "c-badge--neutral"
+    };
+
+    var submitProofRows = Model.SubmitForm.ProofUrls is { Count: > 0 }
+        ? Model.SubmitForm.ProofUrls
+        : new List<string> { string.Empty };
+
+    var identityProofRows = Model.IdentityChangeForm.ProofUrls is { Count: > 0 }
+        ? Model.IdentityChangeForm.ProofUrls
+        : new List<string> { string.Empty };
+}
+
+<div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="@(new StudioWorkspaceNavViewModel(w.StudioId, "verification", Model.OwnedActiveStudio, Model.Memberships))" />
+
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content"><p>@errorMessage</p></div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content">
+                <span class="c-alert__title">Please review the highlighted verification details</span>
+                <div asp-validation-summary="All"></div>
+            </div>
+        </div>
+    }
+
+    <!-- 1. Studio Verification Status Header -->
+    <section class="c-card" aria-labelledby="studio-verification-heading">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div class="c-entity-head">
+                @if (hasLogo)
+                {
+                    <img src="@w.LogoUrl" alt="@w.StudioName logo" class="c-avatar c-avatar--lg" />
+                }
+                else
+                {
+                    <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@monogram</span>
+                }
+
+                <div>
+                    <h1 id="studio-verification-heading" style="margin: 0; font-size: 24px;">Studio Verification</h1>
+                    <p class="u-muted" style="margin: 4px 0 0 0;">
+                        <strong>@w.StudioName</strong> &middot; <code>/studios/@w.StudioSlug</code>
+                    </p>
+                </div>
+            </div>
+
+            <div class="c-btn-group">
+                <a asp-controller="Studio"
+                   asp-action="EditProfile"
+                   asp-route-studioId="@w.StudioId"
+                   class="c-btn c-btn--secondary c-btn--sm">
+                    Edit Studio Profile
+                </a>
+                <a asp-controller="Studio"
+                   asp-action="Preview"
+                   asp-route-studioId="@w.StudioId"
+                   target="_blank"
+                   rel="noopener"
+                   class="c-btn c-btn--ghost c-btn--sm">
+                    @(w.VerificationStatus == StudioVerificationStatus.Verified ? "Open Public Page" : "Preview Studio Page") &#8599;
+                </a>
+            </div>
+        </div>
+
+        <div class="c-badge-row">
+            <span class="c-badge @statusBadge.Item2">@statusBadge.Item1</span>
+            <span class="c-badge @domainBadgeClass">@w.DomainAssessment.Signal.ToDisplayLabel()</span>
+            <span class="c-badge c-badge--accent">Owner: @w.OwnerDisplayName (@w.OwnerEmail)</span>
+            @if (w.VerifiedAt.HasValue && w.VerificationStatus == StudioVerificationStatus.Verified)
+            {
+                <span class="c-badge c-badge--neutral">Verified @w.VerifiedAt.Value.ToString("dd MMM yyyy")</span>
+            }
+        </div>
+
+        <p class="c-hint" style="margin-top: 12px;">
+            @if (w.DomainAssessment.Signal == StudioEmailDomainSignal.DomainMatched)
+            {
+                <span>Your verified Owner email (<code>@w.OwnerEmail</code>) matches your studio website domain (<code>@w.DomainAssessment.WebsiteDomain</code>), accelerating studio verification.</span>
+            }
+            else if (w.DomainAssessment.IsFreeMail)
+            {
+                <span>Indie friendly: signing up with a personal email (<code>@w.OwnerEmail</code>) is welcome! Attach your Steam / Play Store / itch.io page, LinkedIn company page, official website, or optional GSTIN so our team can verify your studio within 24–48 hours.</span>
+            }
+            else
+            {
+                <span>Owner email domain: <code>@w.DomainAssessment.OwnerEmailDomain</code>. Adding an official <code>https://</code> website on the same domain or attaching store/company links speeds up review.</span>
+            }
+        </p>
+
+        @if (!string.IsNullOrWhiteSpace(w.ReviewerFeedback))
+        {
+            var feedbackVariant = w.VerificationStatus == StudioVerificationStatus.Rejected
+                ? "c-alert--warning"
+                : "c-alert--info";
+            <div class="c-alert @feedbackVariant" role="note" style="margin-top: 12px;">
+                <div class="c-alert__content">
+                    <span class="c-alert__title">Note from HireGameDev Verification Team</span>
+                    <p>@w.ReviewerFeedback</p>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (w.VerificationStatus != StudioVerificationStatus.Verified)
+    {
+        <!-- 2. Readiness Checklist -->
+        <section class="c-card" aria-labelledby="verification-readiness-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="verification-readiness-heading" style="margin: 0; font-size: 19px;">Verification Readiness Checklist</h2>
+                    <p class="c-hint" style="margin: 4px 0 0 0;">All core profile items plus at least one verifiable public presence signal are required to submit.</p>
+                </div>
+                <span class="c-badge @(w.Readiness.CanSubmit ? "c-badge--success" : "c-badge--warning")">
+                    @(w.Readiness.CanSubmit ? "Ready to Submit" : "Action Needed")
+                </span>
+            </div>
+
+            <div class="c-table-wrap">
+                <table class="c-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Requirement</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in w.Readiness.Items)
+                        {
+                            <tr>
+                                <td><strong>@item.Label</strong></td>
+                                <td>
+                                    @if (item.IsMet)
+                                    {
+                                        <span class="c-badge c-badge--success">Complete</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="c-badge c-badge--warning">Missing</span>
+                                    }
+                                </td>
+                                <td class="u-muted">@item.Detail</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (w.VerificationStatus == StudioVerificationStatus.Pending)
+    {
+        <!-- 3A. Pending Review Card -->
+        <section class="c-card" aria-labelledby="pending-review-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="pending-review-heading" style="margin: 0; font-size: 19px;">Verification Under Review</h2>
+                    <p class="c-hint" style="margin: 4px 0 0 0;">
+                        Submitted @(w.VerificationSubmittedAt?.ToString("dd MMM yyyy, HH:mm 'UTC'") ?? "recently") &middot; Target turnaround: <strong>24–48 hours</strong>.
+                    </p>
+                </div>
+                <span class="c-badge c-badge--info">In Queue</span>
+            </div>
+
+            <p class="u-muted" style="margin-top: 0;">
+                While review is in progress, direct edits to <strong>Studio Name</strong>, <strong>Public URL Slug</strong>, and <strong>GSTIN</strong> are locked so our team can verify your identity cleanly. You can continue updating your description, logo, culture tags, tech stack, and shipped titles anytime.
+            </p>
+
+            @if (w.VerificationProofUrls.Count > 0)
+            {
+                <div style="margin-top: 12px;">
+                    <span class="c-label">Submitted Proof Links</span>
+                    <ul style="margin: 6px 0 0 18px; padding: 0;">
+                        @foreach (var url in w.VerificationProofUrls)
+                        {
+                            if (AdminStudioVerificationPageViewModel.TryBuildSafeHttpsHref(url, out var safeHref))
+                            {
+                                <li><a href="@safeHref" target="_blank" rel="noopener noreferrer">@safeHref</a></li>
+                            }
+                        }
+                    </ul>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(w.VerificationApplicantNotes))
+            {
+                <div style="margin-top: 12px;">
+                    <span class="c-label">Notes for Reviewer</span>
+                    <p class="u-muted" style="margin: 4px 0 0 0; white-space: pre-line;">@w.VerificationApplicantNotes</p>
+                </div>
+            }
+        </section>
+    }
+    else if (w.VerificationStatus is StudioVerificationStatus.Unverified or StudioVerificationStatus.Rejected)
+    {
+        <!-- 3B. Submit / Resubmit Verification Form -->
+        @if (!w.IsOwner)
+        {
+            <section class="c-card" aria-labelledby="owner-only-heading">
+                <h2 id="owner-only-heading" style="margin: 0 0 8px 0; font-size: 19px;">Owner Submission Required</h2>
+                <p class="u-muted" style="margin: 0;">
+                    Your workspace role is <strong>@w.CallerRole.ToDisplayLabel()</strong>. Only the Studio Owner (<strong>@w.OwnerDisplayName</strong>) can submit or resubmit a studio verification request.
+                </p>
+            </section>
+        }
+        else
+        {
+            <section class="c-card" aria-labelledby="submit-verification-heading">
+                <div class="c-card__header">
+                    <div>
+                        <h2 id="submit-verification-heading" style="margin: 0; font-size: 19px;">
+                            @(w.VerificationStatus == StudioVerificationStatus.Rejected ? "Update & Resubmit for Verification" : "Submit Studio for Verification")
+                        </h2>
+                        <p class="c-hint" style="margin: 4px 0 0 0;">
+                            Verified studios unlock public discovery at <code>/studios/@w.StudioSlug</code> and job publishing across HireGameDev.
+                        </p>
+                    </div>
+                </div>
+
+                <form asp-controller="Studio" asp-action="SubmitVerification" method="post" class="p-sg-stack" novalidate>
+                    <input type="hidden" name="SubmitForm.StudioId" value="@w.StudioId" />
+
+                    <div class="p-sg-grid-2">
+                        <div class="c-field">
+                            <label class="c-label" for="verify-website-input">Official Studio Website (optional for indies)</label>
+                            <input id="verify-website-input"
+                                   type="url"
+                                   name="SubmitForm.Website"
+                                   value="@Model.SubmitForm.Website"
+                                   class="c-input"
+                                   maxlength="500"
+                                   placeholder="https://yourstudio.com" />
+                            <p class="c-hint">Must start with <code>https://</code>. Matching your Owner email domain accelerates approval.</p>
+                        </div>
+
+                        <div class="c-field">
+                            <label class="c-label" for="verify-gstin-input">Indian GSTIN (optional — Indie Friendly)</label>
+                            <input id="verify-gstin-input"
+                                   type="text"
+                                   name="SubmitForm.Gstin"
+                                   value="@Model.SubmitForm.Gstin"
+                                   class="c-input"
+                                   maxlength="20"
+                                   placeholder="e.g. 29ABCDE1234F1Z5 (leave blank if unregistered)" />
+                            <p class="c-hint">15-character GSTIN if incorporated; unregistered indie studios can leave blank and attach store/social proof links below.</p>
+                        </div>
+                    </div>
+
+                    <div class="c-field" data-proof-links-group data-input-prefix="SubmitForm.ProofUrls" data-max-rows="@StudioVerificationRules.MaxProofUrls">
+                        <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                            <label class="c-label" style="margin: 0;">Public Presence &amp; Proof Links (up to @StudioVerificationRules.MaxProofUrls <code>https://</code> URLs)</label>
+                            <button type="button"
+                                    class="c-btn c-btn--secondary c-btn--sm"
+                                    data-add-proof-link
+                                    disabled="@(submitProofRows.Count >= StudioVerificationRules.MaxProofUrls ? "disabled" : null)">
+                                + Add Proof Link
+                            </button>
+                        </div>
+                        <p class="c-hint" style="margin-bottom: 8px;">
+                            Examples: Steam / Google Play / App Store / itch.io developer page, LinkedIn company page, MCA / UDYAM listing, or official press kit.
+                            @if (w.TitlesWithStoreUrls.Count > 0)
+                            {
+                                <span>(We also include the @w.TitlesWithStoreUrls.Count store link(s) already listed on your studio profile.)</span>
+                            }
+                        </p>
+
+                        <div class="p-sg-stack" style="gap: 8px;" data-proof-links-list>
+                            @for (var i = 0; i < submitProofRows.Count; i++)
+                            {
+                                <div class="p-sg-row" style="gap: 8px;" data-proof-link-row>
+                                    <input type="url"
+                                           name="SubmitForm.ProofUrls[@i]"
+                                           value="@submitProofRows[i]"
+                                           class="c-input"
+                                           maxlength="500"
+                                           placeholder="https://store.steampowered.com/developer/yourstudio" />
+                                    <button type="button"
+                                            class="c-btn c-btn--ghost c-btn--sm"
+                                            data-remove-proof-link
+                                            aria-label="Remove proof link">
+                                        Remove
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="c-field">
+                        <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                            <label class="c-label" for="verify-notes-input" style="margin: 0;">Context for Reviewer (optional)</label>
+                            <span class="c-badge c-badge--neutral" data-char-counter-for="verify-notes-input" data-max-chars="@StudioVerificationRules.MaxApplicantNotesLength">
+                                @((Model.SubmitForm.ApplicantNotes ?? string.Empty).Trim().Length) / @StudioVerificationRules.MaxApplicantNotesLength chars
+                            </span>
+                        </div>
+                        <textarea id="verify-notes-input"
+                                  name="SubmitForm.ApplicantNotes"
+                                  class="c-textarea"
+                                  rows="3"
+                                  maxlength="@StudioVerificationRules.MaxApplicantNotesLength"
+                                  placeholder="Optional context (e.g. '2-person indie team in Pune; our founder name is listed on our itch.io and Steam developer pages').">@Model.SubmitForm.ApplicantNotes</textarea>
+                    </div>
+
+                    <div class="c-alert c-alert--info" role="note">
+                        <div class="c-alert__content">
+                            <p>
+                                <strong>Identity protection notice:</strong> Submitting locks direct edits to <strong>Studio Name</strong>, <strong>Public URL Slug</strong>, and <strong>GSTIN</strong>. After verification, any future rebrand or legal entity/GSTIN update uses our controlled re-verification workflow so your verified badge never loses trust.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="p-sg-row" style="justify-content: flex-end; gap: 12px;">
+                        <button type="submit" class="c-btn c-btn--primary c-btn--lg">
+                            @(w.VerificationStatus == StudioVerificationStatus.Rejected ? "Resubmit for Verification" : "Submit for Verification")
+                        </button>
+                    </div>
+                </form>
+            </section>
+        }
+    }
+    else
+    {
+        <!-- 3C. Verified Studio Summary + Controlled Identity Re-Verification Workflow (ADR-019 Decision #3) -->
+        <section class="c-card" aria-labelledby="verified-identity-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="verified-identity-heading" style="margin: 0; font-size: 19px;">Verified Studio Identity</h2>
+                    <p class="c-hint" style="margin: 4px 0 0 0;">
+                        Your public studio profile is live and job publishing is unlocked. Core identity fields below are protected by your Verified badge.
+                    </p>
+                </div>
+                <span class="c-badge c-badge--success">Active &amp; Live</span>
+            </div>
+
+            <div class="c-table-wrap">
+                <table class="c-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Verified Identity Field</th>
+                            <th scope="col">Live Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Studio Name</strong></td>
+                            <td>@w.StudioName</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Public Studio URL</strong></td>
+                            <td><code>/studios/@w.StudioSlug</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Indian GSTIN</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(w.Gstin) ? "Not provided (Indie verified)" : w.Gstin)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @if (w.PendingIdentityChange is not null)
+        {
+            <section class="c-card" aria-labelledby="pending-identity-diff-heading">
+                <div class="c-card__header">
+                    <div>
+                        <h2 id="pending-identity-diff-heading" style="margin: 0; font-size: 19px;">Controlled Identity Re-Verification Pending</h2>
+                        <p class="c-hint" style="margin: 4px 0 0 0;">
+                            Requested @w.PendingIdentityChange.RequestedAt.ToString("dd MMM yyyy, HH:mm 'UTC'") &middot; Your live Verified badge and <code>/studios/@w.StudioSlug</code> page remain active during review.
+                        </p>
+                    </div>
+                    <span class="c-badge c-badge--info">Pending Admin Approval</span>
+                </div>
+
+                <div class="c-table-wrap">
+                    <table class="c-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Field</th>
+                                <th scope="col">Current Live Identity</th>
+                                <th scope="col">Proposed Update</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Studio Name</strong></td>
+                                <td>@w.StudioName</td>
+                                <td>
+                                    <strong>@w.PendingIdentityChange.ProposedName</strong>
+                                    @if (!string.Equals(w.StudioName, w.PendingIdentityChange.ProposedName, StringComparison.Ordinal))
+                                    {
+                                        <span class="c-badge c-badge--accent" style="margin-left: 6px;">Changed</span>
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Public URL Slug</strong></td>
+                                <td><code>/studios/@w.StudioSlug</code></td>
+                                <td>
+                                    <code>/studios/@w.PendingIdentityChange.ProposedSlug</code>
+                                    @if (!string.Equals(w.StudioSlug, w.PendingIdentityChange.ProposedSlug, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="c-badge c-badge--accent" style="margin-left: 6px;">Reserved</span>
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Indian GSTIN</strong></td>
+                                <td>@(string.IsNullOrWhiteSpace(w.Gstin) ? "None" : w.Gstin)</td>
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(w.PendingIdentityChange.ProposedGstin) ? "None" : w.PendingIdentityChange.ProposedGstin)
+                                    @if (!string.Equals(w.Gstin ?? string.Empty, w.PendingIdentityChange.ProposedGstin ?? string.Empty, StringComparison.Ordinal))
+                                    {
+                                        <span class="c-badge c-badge--accent" style="margin-left: 6px;">Changed</span>
+                                    }
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (w.IsOwner)
+                {
+                    <form asp-controller="Studio"
+                          asp-action="CancelIdentityChange"
+                          method="post"
+                          style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                        <input type="hidden" name="studioId" value="@w.StudioId" />
+                        <button type="submit"
+                                class="c-btn c-btn--danger-outline c-btn--sm"
+                                onclick="return confirm('Cancel this pending identity update request? Your live verified identity will remain unchanged.');">
+                            Cancel Identity Update Request
+                        </button>
+                    </form>
+                }
+            </section>
+        }
+        else if (w.IsOwner)
+        {
+            <details class="c-card" open="@(Model.ExpandIdentityChangeForm ? "open" : null)">
+                <summary style="cursor: pointer; font-weight: 600; font-size: 17px; list-style-position: inside;">
+                    Need to update Studio Name, URL Slug, or GSTIN? (Controlled Re-Verification)
+                </summary>
+
+                <div class="p-sg-stack" style="margin-top: 16px;">
+                    <p class="u-muted" style="margin: 0;">
+                        To protect the integrity of your Verified Studio badge, changes to <strong>Studio Name</strong>, <strong>Public URL Slug</strong>, or <strong>GSTIN</strong> are staged for admin review (24–48h). Your live public page and active roles remain online under your current verified identity until approved.
+                    </p>
+
+                    <form asp-controller="Studio" asp-action="RequestIdentityChange" method="post" class="p-sg-stack" novalidate>
+                        <input type="hidden" name="IdentityChangeForm.StudioId" value="@w.StudioId" />
+
+                        <div class="p-sg-grid-3">
+                            <div class="c-field">
+                                <label class="c-label" for="id-change-name">Proposed Studio Name <span aria-hidden="true">*</span></label>
+                                <input id="id-change-name"
+                                       type="text"
+                                       name="IdentityChangeForm.ProposedName"
+                                       value="@Model.IdentityChangeForm.ProposedName"
+                                       class="c-input"
+                                       minlength="@StudioProfileRules.MinStudioNameLength"
+                                       maxlength="@StudioProfileRules.MaxStudioNameLength"
+                                       required />
+                            </div>
+
+                            <div class="c-field">
+                                <label class="c-label" for="id-change-slug">Proposed URL Slug <span aria-hidden="true">*</span></label>
+                                <input id="id-change-slug"
+                                       type="text"
+                                       name="IdentityChangeForm.ProposedSlug"
+                                       value="@Model.IdentityChangeForm.ProposedSlug"
+                                       class="c-input"
+                                       maxlength="@StudioProfileRules.MaxStudioSlugLength"
+                                       required />
+                                <p class="c-hint">Changing your slug moves <code>/studios/@w.StudioSlug</code> once approved.</p>
+                            </div>
+
+                            <div class="c-field">
+                                <label class="c-label" for="id-change-gstin">Proposed Indian GSTIN (optional)</label>
+                                <input id="id-change-gstin"
+                                       type="text"
+                                       name="IdentityChangeForm.ProposedGstin"
+                                       value="@Model.IdentityChangeForm.ProposedGstin"
+                                       class="c-input"
+                                       maxlength="20"
+                                       placeholder="e.g. 29ABCDE1234F1Z5" />
+                            </div>
+                        </div>
+
+                        <div class="c-field" data-proof-links-group data-input-prefix="IdentityChangeForm.ProofUrls" data-max-rows="@StudioVerificationRules.MaxProofUrls">
+                            <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                                <label class="c-label" style="margin: 0;">Supporting Proof Links (up to @StudioVerificationRules.MaxProofUrls <code>https://</code> URLs)</label>
+                                <button type="button"
+                                        class="c-btn c-btn--secondary c-btn--sm"
+                                        data-add-proof-link
+                                        disabled="@(identityProofRows.Count >= StudioVerificationRules.MaxProofUrls ? "disabled" : null)">
+                                    + Add Proof Link
+                                </button>
+                            </div>
+                            <div class="p-sg-stack" style="gap: 8px; margin-top: 8px;" data-proof-links-list>
+                                @for (var i = 0; i < identityProofRows.Count; i++)
+                                {
+                                    <div class="p-sg-row" style="gap: 8px;" data-proof-link-row>
+                                        <input type="url"
+                                               name="IdentityChangeForm.ProofUrls[@i]"
+                                               value="@identityProofRows[i]"
+                                               class="c-input"
+                                               maxlength="500"
+                                               placeholder="https://store.steampowered.com/publisher/yourstudio" />
+                                        <button type="button"
+                                                class="c-btn c-btn--ghost c-btn--sm"
+                                                data-remove-proof-link
+                                                aria-label="Remove proof link">
+                                            Remove
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="c-field">
+                            <div class="p-sg-row" style="justify-content: space-between; gap: 8px;">
+                                <label class="c-label" for="id-change-notes" style="margin: 0;">Reason for Identity Update <span aria-hidden="true">*</span></label>
+                                <span class="c-badge c-badge--neutral" data-char-counter-for="id-change-notes" data-max-chars="@StudioVerificationRules.MaxApplicantNotesLength">
+                                    @((Model.IdentityChangeForm.ApplicantNotes ?? string.Empty).Trim().Length) / @StudioVerificationRules.MaxApplicantNotesLength chars
+                                </span>
+                            </div>
+                            <textarea id="id-change-notes"
+                                      name="IdentityChangeForm.ApplicantNotes"
+                                      class="c-textarea"
+                                      rows="3"
+                                      minlength="@StudioVerificationRules.MinIdentityChangeNotesLength"
+                                      maxlength="@StudioVerificationRules.MaxApplicantNotesLength"
+                                      required
+                                      placeholder="Explain the change (at least 10 characters — e.g. 'Incorporated as Pvt Ltd in Karnataka and received GSTIN', or 'Official studio rebrand announced on Steam & LinkedIn').">@Model.IdentityChangeForm.ApplicantNotes</textarea>
+                        </div>
+
+                        <div class="p-sg-row" style="justify-content: flex-end;">
+                            <button type="submit" class="c-btn c-btn--primary">
+                                Submit Identity Re-Verification Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </details>
+        }
+    }
+</div>
