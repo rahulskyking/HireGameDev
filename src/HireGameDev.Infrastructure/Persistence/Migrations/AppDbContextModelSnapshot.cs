@@ -498,6 +498,31 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateStudioBlock", b =>
+                {
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("candidate_id");
+
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("CandidateId", "StudioId")
+                        .HasName("pk_candidate_studio_blocks");
+
+                    b.HasIndex("StudioId")
+                        .HasDatabaseName("ix_candidate_studio_blocks_studio_id");
+
+                    b.ToTable("candidate_studio_blocks", (string)null);
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.City", b =>
                 {
                     b.Property<int>("Id")
@@ -1737,6 +1762,27 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("Candidate");
 
                     b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateStudioBlock", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
+                        .WithMany()
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_studio_blocks_candidate_profiles_candidate_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", "Studio")
+                        .WithMany()
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_candidate_studio_blocks_studio_profiles_studio_id");
+
+                    b.Navigation("Candidate");
+
+                    b.Navigation("Studio");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.ConsentRecord", b =>
