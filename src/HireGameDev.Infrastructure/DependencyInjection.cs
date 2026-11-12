@@ -219,6 +219,7 @@ public static class DependencyInjection
         services.AddScoped<ICandidateBackgroundService, CandidateBackgroundService>();
         services.AddScoped<ICandidateProofService, CandidateProofService>();
         services.AddScoped<ICandidateResumeImportService, CandidateResumeImportService>();
+        services.AddScoped<ICandidateSettingsService, CandidateSettingsService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();

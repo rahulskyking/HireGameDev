@@ -46,6 +46,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
     public DbSet<ResumeParseLog> ResumeParseLogs => Set<ResumeParseLog>();
 
+    public DbSet<CandidateStudioBlock> CandidateStudioBlocks => Set<CandidateStudioBlock>();
+
     public DbSet<StudioProfile> StudioProfiles => Set<StudioProfile>();
 
     public DbSet<StudioMember> StudioMembers => Set<StudioMember>();

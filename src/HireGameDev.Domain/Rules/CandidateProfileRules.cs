@@ -22,7 +22,8 @@ public sealed record CandidateCompletenessItem(
     string Label,
     short Points,
     bool IsComplete,
-    short OnboardingStep);
+    short OnboardingStep,
+    bool IsDeferred = false);
 
 public sealed record CandidateCompletenessBreakdown(
     short TotalScore,
@@ -33,7 +34,7 @@ public sealed record CandidateCompletenessBreakdown(
 
 /// <summary>
 /// Pure domain rules for candidate seniority derivation, notice-period validation,
-/// E.164 phone checks, and 0-100 profile completeness calculation (Blueprint v2.0 Section 5).
+/// E.164 phone checks, studio-view privacy invariants, and 0-100 profile completeness calculation (Blueprint v2.0 Section 5).
 /// </summary>
 public static class CandidateProfileRules
 {
@@ -41,6 +42,7 @@ public static class CandidateProfileRules
     public const short DiscoverableCompletenessThreshold = 70;
     public const decimal MinYearsExperience = 0.0m;
     public const decimal MaxYearsExperience = 50.0m;
+    public const decimal MaxCandidateCtcLpa = 500.0m;
     public const int MinOnboardingSkills = 3;
     public const int MinRequiredSkillsForCompleteness = 5;
     public const int MaxCandidateSkills = 25;
@@ -57,6 +59,9 @@ public static class CandidateProfileRules
     public const int MaxEvidencedSkillsPerLink = 15;
     public const short MinShippedTitleReleaseYear = 1990;
     public const short MaxShippedTitleReleaseYear = 2100;
+    public const int MaxBlockedStudios = 50;
+    public const int MaxStudioBlockSearchTermLength = 80;
+    public const int MaxStudioBlockSearchResults = 15;
 
     public static readonly IReadOnlyList<string> AllowedGamePlatforms = ["pc", "android", "ios", "console", "web"];
     public static readonly IReadOnlyList<short> AllowedNoticePeriodDays = [0, 15, 30, 45, 60, 90];
@@ -181,6 +186,21 @@ public static class CandidateProfileRules
         };
     }
 
+    public static bool IsDiscoverableByStudios(bool isDiscoverable, short completeness)
+    {
+        return isDiscoverable && completeness >= DiscoverableCompletenessThreshold;
+    }
+
+    public static bool ShouldDisplayCurrentCtcToStudio(decimal? currentCtcLpa, bool showCurrentCtc)
+    {
+        return currentCtcLpa.HasValue && showCurrentCtc;
+    }
+
+    public static bool IsPhoneVisibleToStudio(bool isShortlisted = false)
+    {
+        return isShortlisted;
+    }
+
     public static CandidateCompletenessBreakdown CalculateCompleteness(CandidateCompletenessInput input)
     {
         var isFresher = input.YearsExperience < 1.0m || input.Seniority == SeniorityLevel.Fresher;
@@ -226,7 +246,8 @@ public static class CandidateProfileRules
                 Label: "Verify your phone number via OTP",
                 Points: 10,
                 IsComplete: input.IsPhoneVerified,
-                OnboardingStep: 1),
+                OnboardingStep: 1,
+                IsDeferred: !input.IsPhoneVerified),
             new(
                 Key: "photo",
                 Label: "Upload a profile photo",
@@ -262,7 +283,7 @@ public static class CandidateProfileRules
             {
                 score += items[i].Points;
             }
-            else if (nextBest is null)
+            else if (!items[i].IsDeferred && nextBest is null)
             {
                 nextBest = items[i];
             }

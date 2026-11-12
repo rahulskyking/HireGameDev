@@ -147,15 +147,102 @@ public sealed class CandidatePhotoServiceTests
         Assert.True(studioBelowThreshold.IsFailure);
         Assert.Equal(ErrorType.Forbidden, studioBelowThreshold.Error.Type);
 
-        // 7. Studio when IsDiscoverable = true and Completeness = 75 (>= 70) -> Allowed!
+        // 7a. Studio user with NO studio membership -> Forbidden even when candidate >= 70%.
         profile.Completeness = 75;
+        await harness.DbContext.SaveChangesAsync();
+
+        var studioWithoutMembership = await harness.PhotoService.OpenAuthorizedAvatarAsync(
+            harness.CandidateId,
+            new CandidateMediaViewer(IsAuthenticated: true, UserId: Guid.NewGuid(), IsAdmin: false, IsStudio: true));
+        Assert.True(studioWithoutMembership.IsFailure);
+        Assert.Equal(ErrorType.Forbidden, studioWithoutMembership.Error.Type);
+
+        // 7b. Studio user whose studio is Pending (not yet Verified) -> Forbidden.
+        var pendingStudioUserId = Guid.NewGuid();
+        var pendingStudioId = Guid.NewGuid();
+        harness.DbContext.StudioProfiles.Add(new StudioProfile
+        {
+            Id = pendingStudioId,
+            OwnerUserId = pendingStudioUserId,
+            Name = "Pending Indie Works",
+            Slug = "pending-indie-works",
+            CityId = 1,
+            SizeBand = StudioSizeBand.Band1To10,
+            StudioType = StudioType.Indie,
+            VerificationStatus = StudioVerificationStatus.Pending
+        });
+        harness.DbContext.StudioMembers.Add(new StudioMember
+        {
+            StudioId = pendingStudioId,
+            UserId = pendingStudioUserId,
+            MemberRole = StudioMemberRole.Owner,
+            InvitedAt = DateTimeOffset.UtcNow,
+            AcceptedAt = DateTimeOffset.UtcNow
+        });
+        await harness.DbContext.SaveChangesAsync();
+
+        var pendingStudioResult = await harness.PhotoService.OpenAuthorizedAvatarAsync(
+            harness.CandidateId,
+            new CandidateMediaViewer(IsAuthenticated: true, UserId: pendingStudioUserId, IsAdmin: false, IsStudio: true));
+        Assert.True(pendingStudioResult.IsFailure);
+        Assert.Equal(ErrorType.Forbidden, pendingStudioResult.Error.Type);
+
+        // 7c. Active Verified Studio member when IsDiscoverable = true and Completeness = 75 (>= 70) -> Allowed!
+        var verifiedStudioUserId = Guid.NewGuid();
+        var verifiedStudioId = Guid.NewGuid();
+        harness.DbContext.StudioProfiles.Add(new StudioProfile
+        {
+            Id = verifiedStudioId,
+            OwnerUserId = verifiedStudioUserId,
+            Name = "Nodding Heads Games",
+            Slug = "nodding-heads-games",
+            CityId = 1,
+            SizeBand = StudioSizeBand.Band11To50,
+            StudioType = StudioType.GameStudio,
+            VerificationStatus = StudioVerificationStatus.Verified,
+            VerifiedAt = DateTimeOffset.UtcNow
+        });
+        harness.DbContext.StudioMembers.Add(new StudioMember
+        {
+            StudioId = verifiedStudioId,
+            UserId = verifiedStudioUserId,
+            MemberRole = StudioMemberRole.Recruiter,
+            InvitedAt = DateTimeOffset.UtcNow,
+            AcceptedAt = DateTimeOffset.UtcNow
+        });
         await harness.DbContext.SaveChangesAsync();
 
         var studioAllowed = await harness.PhotoService.OpenAuthorizedAvatarAsync(
             harness.CandidateId,
-            new CandidateMediaViewer(IsAuthenticated: true, UserId: Guid.NewGuid(), IsAdmin: false, IsStudio: true));
+            new CandidateMediaViewer(IsAuthenticated: true, UserId: verifiedStudioUserId, IsAdmin: false, IsStudio: true));
         Assert.True(studioAllowed.IsSuccess);
         await studioAllowed.Value.DisposeAsync();
+
+        // 7d. Candidate adds Verified Studio to candidate_studio_blocks -> immediately Forbidden!
+        var blockRow = new CandidateStudioBlock
+        {
+            CandidateId = harness.CandidateId,
+            StudioId = verifiedStudioId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        harness.DbContext.CandidateStudioBlocks.Add(blockRow);
+        await harness.DbContext.SaveChangesAsync();
+
+        var blockedStudioResult = await harness.PhotoService.OpenAuthorizedAvatarAsync(
+            harness.CandidateId,
+            new CandidateMediaViewer(IsAuthenticated: true, UserId: verifiedStudioUserId, IsAdmin: false, IsStudio: true));
+        Assert.True(blockedStudioResult.IsFailure);
+        Assert.Equal(ErrorType.Forbidden, blockedStudioResult.Error.Type);
+
+        // 7e. Candidate removes studio block -> Allowed again!
+        harness.DbContext.CandidateStudioBlocks.Remove(blockRow);
+        await harness.DbContext.SaveChangesAsync();
+
+        var unblockedStudioResult = await harness.PhotoService.OpenAuthorizedAvatarAsync(
+            harness.CandidateId,
+            new CandidateMediaViewer(IsAuthenticated: true, UserId: verifiedStudioUserId, IsAdmin: false, IsStudio: true));
+        Assert.True(unblockedStudioResult.IsSuccess);
+        await unblockedStudioResult.Value.DisposeAsync();
 
         // 8. Soft-deleted candidate -> NotFound for everyone.
         profile.DeletedAt = DateTimeOffset.UtcNow;

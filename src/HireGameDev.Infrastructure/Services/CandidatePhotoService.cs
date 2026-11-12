@@ -250,11 +250,22 @@ public sealed class CandidatePhotoService : ICandidatePhotoService
         var isOwner = viewer.UserId.HasValue && viewer.UserId.Value == candidate.UserId;
         var isAdmin = viewer.IsAdmin;
 
-        // Authorized Studios can view discoverable profiles meeting the >= 70% threshold.
-        // M1.11c candidate_studio_blocks and Phase 3 job-application overrides hook cleanly here.
-        var isAuthorizedStudio = viewer.IsStudio &&
-                                 candidate.IsDiscoverable &&
-                                 candidate.Completeness >= CandidateProfileRules.DiscoverableCompletenessThreshold;
+        // Authorized Studios can view discoverable profiles (>= 70%) only when the viewer belongs to
+        // at least one active Verified studio and zero active studios blocked by the candidate (ADR-020).
+        // Phase 3 explicit job-application overrides hook cleanly here alongside discovery checks.
+        var isAuthorizedStudio = false;
+        if (!isOwner &&
+            !isAdmin &&
+            viewer.IsStudio &&
+            viewer.UserId.HasValue &&
+            CandidateProfileRules.IsDiscoverableByStudios(candidate.IsDiscoverable, candidate.Completeness))
+        {
+            isAuthorizedStudio = await CandidateSettingsService.HasUnblockedVerifiedStudioMembershipAsync(
+                _dbContext,
+                candidate.Id,
+                viewer.UserId.Value,
+                cancellationToken);
+        }
 
         if (!isOwner && !isAdmin && !isAuthorizedStudio)
         {
