@@ -1112,6 +1112,22 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
 
+                    b.Property<string>("PendingIdentityGstin")
+                        .HasColumnType("text")
+                        .HasColumnName("pending_identity_gstin");
+
+                    b.Property<string>("PendingIdentityName")
+                        .HasColumnType("text")
+                        .HasColumnName("pending_identity_name");
+
+                    b.Property<DateTimeOffset?>("PendingIdentityRequestedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("pending_identity_requested_at");
+
+                    b.Property<string>("PendingIdentitySlug")
+                        .HasColumnType("citext")
+                        .HasColumnName("pending_identity_slug");
+
                     b.Property<decimal?>("ResponseRate90d")
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("response_rate_90d");
@@ -1137,9 +1153,20 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<string>("VerificationApplicantNotes")
+                        .HasColumnType("text")
+                        .HasColumnName("verification_applicant_notes");
+
                     b.Property<string>("VerificationNotes")
                         .HasColumnType("text")
                         .HasColumnName("verification_notes");
+
+                    b.Property<string[]>("VerificationProofUrls")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("verification_proof_urls")
+                        .HasDefaultValueSql("'{}'::text[]");
 
                     b.Property<string>("VerificationStatus")
                         .IsRequired()
@@ -1147,6 +1174,10 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("verification_status")
                         .HasDefaultValueSql("'unverified'");
+
+                    b.Property<DateTimeOffset?>("VerificationSubmittedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("verification_submitted_at");
 
                     b.Property<DateTimeOffset?>("VerifiedAt")
                         .HasColumnType("timestamptz")
@@ -1172,6 +1203,14 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.HasIndex("VerifiedBy")
                         .HasDatabaseName("ix_studio_profiles_verified_by");
 
+                    b.HasIndex(new[] { "PendingIdentityRequestedAt" }, "ix_studio_profiles_pending_identity_queue")
+                        .HasDatabaseName("ix_studio_profiles_pending_identity_queue")
+                        .HasFilter("deleted_at IS NULL AND pending_identity_requested_at IS NOT NULL");
+
+                    b.HasIndex(new[] { "VerificationStatus", "VerificationSubmittedAt" }, "ix_studio_profiles_verification_queue")
+                        .HasDatabaseName("ix_studio_profiles_verification_queue")
+                        .HasFilter("deleted_at IS NULL");
+
                     b.HasIndex(new[] { "VerificationStatus" }, "ix_studio_profiles_verification_status")
                         .HasDatabaseName("ix_studio_profiles_verification_status")
                         .HasFilter("deleted_at IS NULL");
@@ -1180,6 +1219,11 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_studio_profiles_owner_active")
                         .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex(new[] { "PendingIdentitySlug" }, "ux_studio_profiles_pending_identity_slug")
+                        .IsUnique()
+                        .HasDatabaseName("ux_studio_profiles_pending_identity_slug")
+                        .HasFilter("deleted_at IS NULL AND pending_identity_slug IS NOT NULL");
 
                     b.HasIndex(new[] { "Slug" }, "ux_studio_profiles_slug")
                         .IsUnique()
@@ -1201,6 +1245,12 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_studio_profiles_name_len", "char_length(btrim(name)) BETWEEN 2 AND 100");
 
+                            t.HasCheckConstraint("ck_studio_profiles_pending_identity_consistency", "(pending_identity_requested_at IS NULL AND pending_identity_name IS NULL AND pending_identity_slug IS NULL AND pending_identity_gstin IS NULL) OR (verification_status = 'verified' AND pending_identity_requested_at IS NOT NULL AND pending_identity_name IS NOT NULL AND char_length(btrim(pending_identity_name)) BETWEEN 2 AND 100 AND pending_identity_slug IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_studio_profiles_pending_identity_gstin", "pending_identity_gstin IS NULL OR pending_identity_gstin ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'");
+
+                            t.HasCheckConstraint("ck_studio_profiles_pending_identity_slug", "pending_identity_slug IS NULL OR (char_length(pending_identity_slug) BETWEEN 2 AND 100 AND pending_identity_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')");
+
                             t.HasCheckConstraint("ck_studio_profiles_response_rate_90d", "response_rate_90d IS NULL OR (response_rate_90d >= 0 AND response_rate_90d <= 100)");
 
                             t.HasCheckConstraint("ck_studio_profiles_size_band", "size_band IN ('1-10', '11-50', '51-200', '200+')");
@@ -1209,7 +1259,11 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_studio_profiles_studio_type", "studio_type IN ('indie', 'game_studio', 'outsourcing', 'publisher', 'other')");
 
+                            t.HasCheckConstraint("ck_studio_profiles_verification_applicant_notes_len", "verification_applicant_notes IS NULL OR char_length(verification_applicant_notes) <= 1000");
+
                             t.HasCheckConstraint("ck_studio_profiles_verification_notes_len", "verification_notes IS NULL OR char_length(verification_notes) <= 2000");
+
+                            t.HasCheckConstraint("ck_studio_profiles_verification_proof_urls", "cardinality(verification_proof_urls) <= 5");
 
                             t.HasCheckConstraint("ck_studio_profiles_verification_status", "verification_status IN ('unverified', 'pending', 'verified', 'rejected')");
 
