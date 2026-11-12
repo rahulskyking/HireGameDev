@@ -4,8 +4,7 @@
     var jobsUrl = ViewData["JobsUrl"] as string ?? "/";
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var hasStudioRole = isAuthenticated &&
-                        (User.IsInRole(HireGameDevRoleNames.Studio) ||
-                         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase);
 }
 
 <div class="p-sg-stack">
@@ -29,11 +28,7 @@
             }
             else if (isAuthenticated)
             {
-                <form asp-controller="Account" asp-action="EnableRole" method="post" class="u-inline-form">
-                    <input type="hidden" name="targetRole" value="@AccountType.Studio" />
-                    <input type="hidden" name="returnUrl" value="/Studio" />
-                    <button type="submit" class="c-btn c-btn--primary c-btn--lg">Enable Studio Workspace on Your Account</button>
-                </form>
+                <p class="c-hint">You are signed in as a Candidate. Studio access requires a separate Studio account with a different email.</p>
             }
             else
             {

@@ -9,8 +9,7 @@ namespace HireGameDev.Infrastructure.Identity;
 
 /// <summary>
 /// Embeds lightweight HireGameDev claims (`account_type`, `display_name`, `theme`)
-/// plus `ClaimTypes.Role` entries from `user_roles` so single-email dual-role accounts
-/// (`candidate` + `studio`) authorize across portals with zero extra DB queries.
+/// plus admin roles. Candidate/Studio access follows the immutable primary account type.
 /// </summary>
 public sealed class ApplicationUserClaimsPrincipalFactory
     : UserClaimsPrincipalFactory<ApplicationUser, ApplicationRole>
@@ -29,6 +28,16 @@ public sealed class ApplicationUserClaimsPrincipalFactory
 
         var accountTypeText = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
         var themeText = SnakeCaseEnumValueConverter<ThemePreference>.ToSnakeCaseValue(user.ThemePreference);
+
+        // Ignore legacy cross-account roles without deleting profiles or memberships.
+        foreach (var claim in identity.FindAll(ClaimTypes.Role).ToArray())
+        {
+            if ((claim.Value == HireGameDevRoleNames.Candidate || claim.Value == HireGameDevRoleNames.Studio) &&
+                claim.Value != accountTypeText)
+            {
+                identity.RemoveClaim(claim);
+            }
+        }
 
         if (!identity.HasClaim(ClaimTypes.Role, accountTypeText))
         {

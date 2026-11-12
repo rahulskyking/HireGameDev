@@ -58,12 +58,12 @@ public sealed class AccountController : Controller
         {
             if (portal == PortalSite.Studio && !UserHasRole(HireGameDevRoleNames.Studio) && !UserHasRole(HireGameDevRoleNames.Admin))
             {
-                return RedirectToAction(nameof(EnableRole), new { role = AccountType.Studio, returnUrl });
+                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Candidate/Profile"));
             }
 
             if (portal == PortalSite.Jobs && !UserHasRole(HireGameDevRoleNames.Candidate) && !UserHasRole(HireGameDevRoleNames.Admin))
             {
-                return RedirectToAction(nameof(EnableRole), new { role = AccountType.Candidate, returnUrl });
+                return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/Studio"));
             }
 
             return RedirectAfterAuth(returnUrl, GetCurrentUserRoles());
@@ -442,22 +442,8 @@ public sealed class AccountController : Controller
     [HttpGet]
     public IActionResult EnableRole(AccountType role = AccountType.Studio, string? returnUrl = null)
     {
-        var normalizedRole = role == AccountType.Candidate ? AccountType.Candidate : AccountType.Studio;
-        var roleClaimName = normalizedRole == AccountType.Candidate
-            ? HireGameDevRoleNames.Candidate
-            : HireGameDevRoleNames.Studio;
-
-        if (UserHasRole(roleClaimName))
-        {
-            return RedirectAfterAuth(returnUrl, GetCurrentUserRoles());
-        }
-
-        return View(new EnableRoleViewModel
-        {
-            TargetRole = normalizedRole,
-            Email = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name ?? string.Empty,
-            ReturnUrl = returnUrl
-        });
+        TempData["ErrorMessage"] = "Candidate and Studio accounts are separate. Register the other account type with a different email.";
+        return RedirectToAction(nameof(Manage));
     }
 
     [Authorize]
@@ -859,16 +845,16 @@ public sealed class AccountController : Controller
         var hasStudio = roles.Any(r => string.Equals(r, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
         var hasCandidate = roles.Any(r => string.Equals(r, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase));
 
-        // If user authenticated on Studio portal without Studio role yet, offer 1-click dual-role enablement.
+        // Wrong-portal sign-ins return to the account's own workspace.
         if (portal == PortalSite.Studio && !hasStudio && !hasAdmin)
         {
-            return RedirectToAction(nameof(EnableRole), new { role = AccountType.Studio, returnUrl });
+            return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Candidate/Profile"));
         }
 
-        // If user authenticated on Jobs portal without Candidate role yet, offer 1-click dual-role enablement.
+        // Studio accounts never acquire Candidate access.
         if (portal == PortalSite.Jobs && !hasCandidate && !hasAdmin)
         {
-            return RedirectToAction(nameof(EnableRole), new { role = AccountType.Candidate, returnUrl });
+            return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Studio, HttpContext, "/Studio"));
         }
 
         if (!string.IsNullOrWhiteSpace(returnUrl) && _portalNavigator.IsSafeReturnUrl(returnUrl, HttpContext))
