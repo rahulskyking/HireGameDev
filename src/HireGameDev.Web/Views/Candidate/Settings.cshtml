@@ -1,0 +1,366 @@
+@model CandidateSettingsPageViewModel
+@{
+    ViewData["Title"] = "Privacy, Discoverability & Studio Blocklist";
+    var s = Model.Settings;
+    var c = Model.Completeness;
+    var f = Model.PrivacyForm;
+
+    var blockLimitReached = Model.BlockedStudios.Count >= CandidateProfileRules.MaxBlockedStudios;
+    var workspaceNav = new CandidateWorkspaceNavViewModel("settings", c.TotalScore, Model.BlockedStudios.Count);
+}
+
+<div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="workspaceNav" />
+
+    @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content"><p>@statusMessage</p></div>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content"><p>@errorMessage</p></div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="c-alert c-alert--danger" role="alert">
+            <div class="c-alert__content" asp-validation-summary="All"></div>
+        </div>
+    }
+
+    <!-- Live Studio Search Visibility Status -->
+    @if (s.IsActivelyVisibleInStudioSearch)
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content">
+                <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                    <div>
+                        <span class="c-alert__title">Your profile is discoverable by verified studios (@c.TotalScore% complete)</span>
+                        <p style="margin: 4px 0 0 0;">
+                            Verified hiring teams can find you in talent search@(Model.BlockedStudios.Count > 0 ? $" — except the {Model.BlockedStudios.Count} {(Model.BlockedStudios.Count == 1 ? "studio" : "studios")} on your blocklist below" : string.Empty).
+                        </p>
+                    </div>
+                    <a asp-controller="Candidate" asp-action="Preview" class="c-btn c-btn--secondary c-btn--sm">
+                        Preview Studio View
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (!s.IsDiscoverable)
+    {
+        <div class="c-alert c-alert--info" role="status">
+            <div class="c-alert__content">
+                <span class="c-alert__title">Studio search discoverability is turned off</span>
+                <p style="margin: 4px 0 0 0;">
+                    Studios cannot find your profile in unsolicited searches. You can still apply directly to jobs once your profile is at least <strong>60% complete</strong> (currently <strong>@c.TotalScore%</strong>).
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="c-alert c-alert--warning" role="status">
+            <div class="c-alert__content">
+                <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                    <div>
+                        <span class="c-alert__title">Discoverability is enabled, waiting on the 70% completeness gate (@c.TotalScore% / 70%)</span>
+                        <p style="margin: 4px 0 0 0;">
+                            Add <strong>+@(CandidateProfileRules.DiscoverableCompletenessThreshold - c.TotalScore) points</strong> to appear in verified studio searches.
+                            @if (c.NextBestStep is not null)
+                            {
+                                <span>Next best step: <strong>@c.NextBestStep.Label (+@c.NextBestStep.Points)</strong>.</span>
+                            }
+                        </p>
+                    </div>
+                    <a asp-controller="Candidate" asp-action="Profile" asp-fragment="completeness-checklist" class="c-btn c-btn--primary c-btn--sm">
+                        View Checklist
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Card 1: Discoverability, Availability & Compensation Privacy -->
+    <section class="c-card" aria-labelledby="privacy-settings-heading">
+        <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <h1 id="privacy-settings-heading" style="font-size: 22px; margin: 0 0 4px 0;">Discoverability &amp; Compensation Privacy</h1>
+                <p class="c-hint">Control who can find your profile, signal your availability, and choose whether Current CTC stays locked.</p>
+            </div>
+            <a asp-controller="Candidate" asp-action="Preview" class="c-btn c-btn--secondary c-btn--sm">
+                Preview as Studio
+            </a>
+        </div>
+
+        <form asp-controller="Candidate" asp-action="UpdatePrivacySettings" method="post" class="p-sg-stack">
+            <div class="c-repeat-card">
+                <label class="c-check" style="align-items: flex-start; gap: 10px;">
+                    <input asp-for="PrivacyForm.IsDiscoverable" type="checkbox" />
+                    <span>
+                        <strong style="display: block; color: var(--text);">Allow verified studios to discover my profile in talent search</strong>
+                        <span class="c-hint" style="display: block; margin-top: 4px;">
+                            When on (and your profile is &ge; 70% complete), verified game studios can view your skills, experience, non-NDA credits, and expected CTC.
+                            <strong>Phone and direct email stay hidden until shortlist</strong>, NDA projects remain redacted, and blocked studios below never see you.
+                        </span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="p-sg-grid-2" style="align-items: start;" data-current-ctc-group>
+                <div class="c-field">
+                    <label asp-for="PrivacyForm.Availability" class="c-label">Current availability</label>
+                    <select asp-for="PrivacyForm.Availability" class="c-select">
+                        <option value="@CandidateAvailability.ActivelyLooking">Actively looking &mdash; ready to interview</option>
+                        <option value="@CandidateAvailability.OpenToOffers">Open to offers &mdash; selective about roles</option>
+                        <option value="@CandidateAvailability.NotLooking">Not looking right now</option>
+                    </select>
+                    <span asp-validation-for="PrivacyForm.Availability" class="c-field__error"></span>
+                </div>
+
+                <div class="c-field">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <label asp-for="PrivacyForm.CurrentCtcLpa" class="c-label" style="margin: 0;">Current CTC (&#8377; LPA, optional)</label>
+                        <span class="c-badge @(f.CurrentCtcLpa.HasValue && f.ShowCurrentCtc ? "c-badge--info" : "c-badge--neutral")"
+                              data-current-ctc-status-badge>
+                            @(f.CurrentCtcLpa.HasValue && f.ShowCurrentCtc ? "Visible to verified studios" : "Current CTC: hidden")
+                        </span>
+                    </div>
+                    <input asp-for="PrivacyForm.CurrentCtcLpa"
+                           type="number"
+                           step="0.01"
+                           min="0"
+                           max="500"
+                           placeholder="e.g. 16.5"
+                           class="c-input"
+                           data-current-ctc-input />
+                    <span asp-validation-for="PrivacyForm.CurrentCtcLpa" class="c-field__error"></span>
+
+                    <label class="c-check" style="margin-top: 8px;">
+                        <input asp-for="PrivacyForm.ShowCurrentCtc"
+                               type="checkbox"
+                               data-show-current-ctc-check />
+                        <span>Show my Current CTC on studio views (leave unchecked to display <code>Current CTC: hidden</code>)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Read-only Step 5 Summary + Quick Link -->
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg);">
+                <div class="c-badge-row" style="gap: 8px;">
+                    <span class="c-label" style="margin: 0;">Step 5 Preferences:</span>
+                    <span class="c-badge c-badge--neutral">
+                        Expected: @(s.ExpectedCtcLpa.HasValue ? $"₹ {s.ExpectedCtcLpa.Value:0.##} LPA" : "Not set")
+                    </span>
+                    <span class="c-badge c-badge--neutral">
+                        Notice: @(s.NoticePeriodDays.HasValue ? (s.NoticePeriodDays.Value == 0 ? "Immediate" : $"{s.NoticePeriodDays.Value} days") : "Not set")
+                    </span>
+                    <span class="c-badge c-badge--neutral">
+                        Remote: @(s.OpenToRemote ? "Yes" : "No")
+                    </span>
+                    <span class="c-badge c-badge--neutral">
+                        Relocate: @(s.WillingToRelocate ? "Yes" : "No")
+                    </span>
+                </div>
+                <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="5" class="c-btn c-btn--ghost c-btn--sm">
+                    Edit in Step 5 &rarr;
+                </a>
+            </div>
+
+            <div class="p-sg-row" style="justify-content: flex-end;">
+                <button type="submit" class="c-btn c-btn--primary">Save Privacy Settings</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Card 2: Hide Profile from Chosen Studios (candidate_studio_blocks) -->
+    <section id="hide-studios" class="c-card" aria-labelledby="hide-studios-heading">
+        <div class="c-card__header" style="align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <h2 id="hide-studios-heading" style="font-size: 20px; margin: 0 0 4px 0;">Hide Profile from Chosen Studios</h2>
+                <p class="c-hint">
+                    Hide your profile from your current employer or specific verified studios. Members of blocked studios cannot find you in talent search or open your profile or avatar unsolicited.
+                    <strong>Applying directly to a job at a blocked studio stays possible</strong> because it is an explicit action.
+                </p>
+            </div>
+            <span class="c-badge @(Model.BlockedStudios.Count > 0 ? "c-badge--warning" : "c-badge--neutral")">
+                @Model.BlockedStudios.Count / @CandidateProfileRules.MaxBlockedStudios blocked
+            </span>
+        </div>
+
+        <!-- Progressive-Enhancement Studio Search (Works with JS live fetch and non-JS GET fallback) -->
+        <div class="p-sg-stack"
+             data-studio-block-picker
+             data-search-url="@Url.Action("SearchBlockableStudios", "Candidate")"
+             data-block-limit-reached="@(blockLimitReached ? "true" : "false")">
+            <form asp-controller="Candidate"
+                  asp-action="Settings"
+                  method="get"
+                  class="p-sg-row"
+                  style="align-items: stretch; gap: 8px;"
+                  data-studio-block-search-form>
+                <div style="flex: 1 1 280px;">
+                    <label for="studio-block-search-input" class="u-sr-only">Search verified studios to hide from</label>
+                    <input id="studio-block-search-input"
+                           name="studioQuery"
+                           type="search"
+                           value="@Model.StudioSearchQuery"
+                           maxlength="@CandidateProfileRules.MaxStudioBlockSearchTermLength"
+                           autocomplete="off"
+                           placeholder="Search verified studios by name or slug (min 2 chars)..."
+                           class="c-input"
+                           data-studio-block-search-input />
+                </div>
+                <button type="submit" class="c-btn c-btn--secondary">Search Studios</button>
+                @if (!string.IsNullOrWhiteSpace(Model.StudioSearchQuery))
+                {
+                    <a asp-controller="Candidate" asp-action="Settings" class="c-btn c-btn--ghost">Clear</a>
+                }
+            </form>
+
+            <p class="c-hint" style="margin: 0;">
+                Only verified studios appear in search so unverified workspace drafts stay confidential.
+            </p>
+
+            <!-- Hidden CSRF POST form template cloned by site.js for 1-click live search blocking -->
+            <form asp-controller="Candidate"
+                  asp-action="BlockStudio"
+                  method="post"
+                  hidden
+                  data-studio-block-post-template>
+                <input type="hidden" name="studioId" value="" />
+            </form>
+
+            <div class="p-sg-stack" data-studio-block-live-results aria-live="polite">
+                @if (!string.IsNullOrWhiteSpace(Model.StudioSearchQuery))
+                {
+                    if (Model.StudioSearchQuery.Length < 2)
+                    {
+                        <p class="c-hint" style="margin: 0;">Enter at least 2 characters to search verified studios.</p>
+                    }
+                    else if (Model.SearchResults.Count == 0)
+                    {
+                        <p class="c-hint" style="margin: 0;">No verified studios matched &ldquo;@Model.StudioSearchQuery&rdquo;.</p>
+                    }
+                    else
+                    {
+                        <div class="c-studio-block-list">
+                            @foreach (var item in Model.SearchResults)
+                            {
+                                var monogram = StudioUiFormatters.BuildMonogram(item.Name);
+                                var location = !string.IsNullOrWhiteSpace(item.CityName)
+                                    ? (!string.IsNullOrWhiteSpace(item.StateCode) ? $"{item.CityName}, {item.StateCode}" : item.CityName)
+                                    : null;
+
+                                <div class="c-studio-block-row">
+                                    <div class="c-entity-head">
+                                        @if (!string.IsNullOrWhiteSpace(item.LogoUrl))
+                                        {
+                                            <img src="@item.LogoUrl" alt="@item.Name logo" class="c-avatar c-avatar--sm" />
+                                        }
+                                        else
+                                        {
+                                            <span class="c-entity-mark c-entity-mark--accent c-avatar--sm" aria-hidden="true">@monogram</span>
+                                        }
+                                        <div>
+                                            <div class="p-sg-row" style="gap: 6px;">
+                                                <a href="@item.PublicStudioUrl" target="_blank" rel="noopener noreferrer"><strong>@item.Name</strong></a>
+                                                <span class="c-badge c-badge--neutral">@item.StudioType.ToDisplayLabel()</span>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(location))
+                                            {
+                                                <div class="c-hint" style="margin: 2px 0 0 0;">@location</div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @if (item.IsAlreadyBlocked)
+                                    {
+                                        <span class="c-badge c-badge--warning">Already hidden</span>
+                                    }
+                                    else if (blockLimitReached)
+                                    {
+                                        <span class="c-badge c-badge--neutral">Limit reached (50)</span>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Candidate" asp-action="BlockStudio" method="post" style="margin: 0;">
+                                            <input type="hidden" name="studioId" value="@item.StudioId" />
+                                            <input type="hidden" name="studioQuery" value="@Model.StudioSearchQuery" />
+                                            <button type="submit" class="c-btn c-btn--secondary c-btn--sm">Hide Profile</button>
+                                        </form>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <hr />
+
+        <!-- Currently Blocked Studios List -->
+        <div>
+            <h3 style="font-size: 16px; margin: 0 0 10px 0;">Blocked Studios (@Model.BlockedStudios.Count)</h3>
+
+            @if (Model.BlockedStudios.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">
+                    You haven&rsquo;t hidden your profile from any studios yet. Search above to block your current employer or any verified studio.
+                </p>
+            }
+            else
+            {
+                <div class="c-studio-block-list">
+                    @foreach (var blocked in Model.BlockedStudios)
+                    {
+                        var monogram = StudioUiFormatters.BuildMonogram(blocked.Name);
+                        var location = !string.IsNullOrWhiteSpace(blocked.CityName)
+                            ? (!string.IsNullOrWhiteSpace(blocked.StateCode) ? $"{blocked.CityName}, {blocked.StateCode}" : blocked.CityName)
+                            : null;
+
+                        <div class="c-studio-block-row">
+                            <div class="c-entity-head">
+                                @if (!string.IsNullOrWhiteSpace(blocked.LogoUrl))
+                                {
+                                    <img src="@blocked.LogoUrl" alt="@blocked.Name logo" class="c-avatar c-avatar--sm" />
+                                }
+                                else
+                                {
+                                    <span class="c-entity-mark c-entity-mark--accent c-avatar--sm" aria-hidden="true">@monogram</span>
+                                }
+                                <div>
+                                    <div class="p-sg-row" style="gap: 6px;">
+                                        <a href="@blocked.PublicStudioUrl" target="_blank" rel="noopener noreferrer"><strong>@blocked.Name</strong></a>
+                                        <span class="c-badge c-badge--neutral">@blocked.StudioType.ToDisplayLabel()</span>
+                                        <span class="c-badge c-badge--warning">Hidden</span>
+                                    </div>
+                                    <div class="c-hint" style="margin: 2px 0 0 0;">
+                                        @if (!string.IsNullOrWhiteSpace(location))
+                                        {
+                                            <span>@location &middot; </span>
+                                        }
+                                        <span>Blocked @blocked.BlockedAt.ToString("dd MMM yyyy")</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <form asp-controller="Candidate" asp-action="UnblockStudio" method="post" style="margin: 0;">
+                                <input type="hidden" name="studioId" value="@blocked.StudioId" />
+                                <button type="submit" class="c-btn c-btn--ghost c-btn--sm">Unblock</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</div>

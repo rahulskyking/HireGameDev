@@ -96,6 +96,8 @@ public sealed class PublicStudioPageViewModel
     public required PublicStudioPageModel Studio { get; init; }
 
     public string CanonicalPublicUrl { get; init; } = string.Empty;
+
+    public bool IsExplicitPreviewRequest { get; init; }
 }
 
 public sealed class SubmitStudioVerificationInputModel

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.ReferenceData;
+using HireGameDev.Application.Abstractions.Storage;
 using HireGameDev.Application.Features.Candidates;
 using HireGameDev.Application.Features.ReferenceData;
 using HireGameDev.Domain.Enums;
@@ -25,6 +26,8 @@ public sealed class CandidateController : Controller
     private readonly ICandidateBackgroundService _backgroundService;
     private readonly ICandidateProofService _proofService;
     private readonly ICandidateResumeImportService _resumeImportService;
+    private readonly ICandidateSettingsService _settingsService;
+    private readonly IFileStorageService _fileStorageService;
     private readonly IReferenceDataService _referenceDataService;
     private readonly IPortalNavigator _portalNavigator;
 
@@ -35,6 +38,8 @@ public sealed class CandidateController : Controller
         ICandidateBackgroundService backgroundService,
         ICandidateProofService proofService,
         ICandidateResumeImportService resumeImportService,
+        ICandidateSettingsService settingsService,
+        IFileStorageService fileStorageService,
         IReferenceDataService referenceDataService,
         IPortalNavigator portalNavigator)
     {
@@ -44,6 +49,8 @@ public sealed class CandidateController : Controller
         _backgroundService = backgroundService;
         _proofService = proofService;
         _resumeImportService = resumeImportService;
+        _settingsService = settingsService;
+        _fileStorageService = fileStorageService;
         _referenceDataService = referenceDataService;
         _portalNavigator = portalNavigator;
     }
@@ -71,6 +78,8 @@ public sealed class CandidateController : Controller
         var background = await _backgroundService.GetBackgroundForUserAsync(userId, cancellationToken);
         var ownerProof = await _proofService.GetOwnerProofForUserAsync(userId, cancellationToken);
         var publicProof = await _proofService.GetPublicProofForCandidateAsync(state.Profile.Id, cancellationToken);
+        var settingsResult = await _settingsService.GetSettingsAsync(userId, cancellationToken);
+        var blockedStudiosCount = settingsResult.IsSuccess ? settingsResult.Value.BlockedStudios.Count : 0;
 
         return View(new CandidateProfileOverviewViewModel
         {
@@ -80,8 +89,238 @@ public sealed class CandidateController : Controller
             Experiences = background.Experiences,
             Education = background.Education,
             OwnerProof = ownerProof,
-            PublicProof = publicProof
+            PublicProof = publicProof,
+            BlockedStudiosCount = blockedStudiosCount
         });
+    }
+
+    [HttpGet("Profile/Edit")]
+    public IActionResult EditProfile(short? step = null)
+    {
+        if (TryBuildJobsPortalRedirect(out var portalRedirect))
+        {
+            return Redirect(portalRedirect);
+        }
+
+        return RedirectToAction(nameof(Onboarding), new { step = step ?? 1 });
+    }
+
+    [HttpGet("Profile/Preview")]
+    public async Task<IActionResult> Preview(CancellationToken cancellationToken)
+    {
+        if (TryBuildJobsPortalRedirect(out var portalRedirect))
+        {
+            return Redirect(portalRedirect);
+        }
+
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var state = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+        if (state.Profile is null)
+        {
+            TempData["ErrorMessage"] = "Complete Step 1 (Basics) before previewing how studios see your profile.";
+            return RedirectToAction(nameof(Onboarding), new { step = 1 });
+        }
+
+        Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        Response.Headers["Cache-Control"] = "private, no-store";
+
+        var skills = await _skillsService.GetSkillsForUserAsync(userId, cancellationToken);
+        var background = await _backgroundService.GetBackgroundForUserAsync(userId, cancellationToken);
+        var publicProof = await _proofService.GetPublicProofForCandidateAsync(state.Profile.Id, cancellationToken);
+        var settingsResult = await _settingsService.GetSettingsAsync(userId, cancellationToken);
+        var blockedStudiosCount = settingsResult.IsSuccess ? settingsResult.Value.BlockedStudios.Count : 0;
+
+        return View(new CandidateProfilePreviewViewModel
+        {
+            Profile = state.Profile,
+            Completeness = state.CompletenessBreakdown,
+            Skills = skills,
+            Experiences = background.Experiences,
+            Education = background.Education,
+            PublicProof = publicProof,
+            BlockedStudiosCount = blockedStudiosCount
+        });
+    }
+
+    [HttpGet("Settings")]
+    public async Task<IActionResult> Settings(
+        string? studioQuery = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryBuildJobsPortalRedirect(out var portalRedirect))
+        {
+            return Redirect(portalRedirect);
+        }
+
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var settingsResult = await _settingsService.GetSettingsAsync(userId, cancellationToken);
+        if (settingsResult.IsFailure)
+        {
+            TempData["ErrorMessage"] = settingsResult.Error.Message;
+            return RedirectToAction(nameof(Onboarding), new { step = 1 });
+        }
+
+        var viewModel = await BuildSettingsPageViewModelAsync(
+            userId,
+            settingsResult.Value,
+            studioQuery,
+            privacyFormOverride: null,
+            cancellationToken);
+
+        return View(viewModel);
+    }
+
+    [HttpPost("Settings/Privacy")]
+    [EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> UpdatePrivacySettings(
+        [Bind(Prefix = "PrivacyForm")] UpdateCandidatePrivacyInputModel input,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var currentSettings = await _settingsService.GetSettingsAsync(userId, cancellationToken);
+            if (currentSettings.IsFailure)
+            {
+                return RedirectToAction(nameof(Onboarding), new { step = 1 });
+            }
+
+            var invalidVm = await BuildSettingsPageViewModelAsync(
+                userId,
+                currentSettings.Value,
+                studioQuery: null,
+                privacyFormOverride: input,
+                cancellationToken);
+
+            return View("Settings", invalidVm);
+        }
+
+        var updateResult = await _settingsService.UpdatePrivacySettingsAsync(
+            new UpdateCandidatePrivacySettingsCommand(
+                UserId: userId,
+                IsDiscoverable: input.IsDiscoverable,
+                Availability: input.Availability,
+                CurrentCtcLpa: input.CurrentCtcLpa,
+                ShowCurrentCtc: input.ShowCurrentCtc),
+            cancellationToken);
+
+        if (updateResult.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, updateResult.Error.Message);
+            var currentSettings = await _settingsService.GetSettingsAsync(userId, cancellationToken);
+            if (currentSettings.IsFailure)
+            {
+                return RedirectToAction(nameof(Onboarding), new { step = 1 });
+            }
+
+            var failedVm = await BuildSettingsPageViewModelAsync(
+                userId,
+                currentSettings.Value,
+                studioQuery: null,
+                privacyFormOverride: input,
+                cancellationToken);
+
+            return View("Settings", failedVm);
+        }
+
+        TempData["StatusMessage"] = "Discoverability and compensation privacy settings updated.";
+        return RedirectToAction(nameof(Settings));
+    }
+
+    [HttpGet("Settings/Studios/Search")]
+    public async Task<IActionResult> SearchBlockableStudios(
+        string? q = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _settingsService.SearchStudiosToBlockAsync(userId, q, cancellationToken);
+        if (result.IsFailure)
+        {
+            return BadRequest(new { error = result.Error.Message });
+        }
+
+        var items = result.Value.Select(s => new
+        {
+            studioId = s.StudioId,
+            name = s.Name,
+            slug = s.Slug,
+            logoUrl = ResolveStudioLogoUrlOrNull(s.LogoPath),
+            publicUrl = _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, $"/studios/{s.Slug}"),
+            location = FormatStudioLocation(s.CityName, s.StateCode),
+            studioTypeLabel = s.StudioType.ToDisplayLabel(),
+            isAlreadyBlocked = s.IsAlreadyBlocked
+        });
+
+        return Json(new { items });
+    }
+
+    [HttpPost("Settings/Studios/Block")]
+    [EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> BlockStudio(
+        Guid studioId,
+        string? studioQuery = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var result = await _settingsService.BlockStudioAsync(
+            new BlockStudioCommand(userId, studioId),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            TempData["ErrorMessage"] = result.Error.Message;
+            return string.IsNullOrWhiteSpace(studioQuery)
+                ? RedirectToAction(nameof(Settings))
+                : RedirectToAction(nameof(Settings), new { studioQuery = studioQuery.Trim() });
+        }
+
+        TempData["StatusMessage"] = $"Your profile is now hidden from {result.Value.Name} in studio searches and unsolicited views.";
+        return RedirectToAction(nameof(Settings));
+    }
+
+    [HttpPost("Settings/Studios/Unblock")]
+    [EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> UnblockStudio(
+        Guid studioId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var result = await _settingsService.UnblockStudioAsync(
+            new UnblockStudioCommand(userId, studioId),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            TempData["ErrorMessage"] = result.Error.Message;
+            return RedirectToAction(nameof(Settings));
+        }
+
+        TempData["StatusMessage"] = "Studio removed from your blocklist.";
+        return RedirectToAction(nameof(Settings));
     }
 
     [HttpGet("Onboarding")]
@@ -1003,6 +1242,97 @@ public sealed class CandidateController : Controller
             SkillCategory.Role => "Discipline",
             _ => category.ToString()
         };
+    }
+
+    private async Task<CandidateSettingsPageViewModel> BuildSettingsPageViewModelAsync(
+        Guid userId,
+        CandidateSettingsSnapshot settings,
+        string? studioQuery,
+        UpdateCandidatePrivacyInputModel? privacyFormOverride,
+        CancellationToken cancellationToken)
+    {
+        var state = await _profileService.GetOnboardingStateAsync(userId, cancellationToken);
+        var trimmedQuery = string.IsNullOrWhiteSpace(studioQuery) ? null : studioQuery.Trim();
+
+        IReadOnlyList<BlockableStudioSearchRowViewModel> searchResults = Array.Empty<BlockableStudioSearchRowViewModel>();
+        if (!string.IsNullOrWhiteSpace(trimmedQuery) && trimmedQuery.Length >= 2)
+        {
+            var searchOutcome = await _settingsService.SearchStudiosToBlockAsync(userId, trimmedQuery, cancellationToken);
+            if (searchOutcome.IsSuccess)
+            {
+                searchResults = searchOutcome.Value
+                    .Select(s => new BlockableStudioSearchRowViewModel(
+                        StudioId: s.StudioId,
+                        Name: s.Name,
+                        Slug: s.Slug,
+                        LogoUrl: ResolveStudioLogoUrlOrNull(s.LogoPath),
+                        PublicStudioUrl: _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, $"/studios/{s.Slug}"),
+                        CityName: s.CityName,
+                        StateCode: s.StateCode,
+                        StudioType: s.StudioType,
+                        IsAlreadyBlocked: s.IsAlreadyBlocked))
+                    .ToArray();
+            }
+            else
+            {
+                ModelState.AddModelError(string.Empty, searchOutcome.Error.Message);
+            }
+        }
+
+        var blockedRows = settings.BlockedStudios
+            .Select(b => new BlockedStudioRowViewModel(
+                StudioId: b.StudioId,
+                Name: b.Name,
+                Slug: b.Slug,
+                LogoUrl: ResolveStudioLogoUrlOrNull(b.LogoPath),
+                PublicStudioUrl: _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, $"/studios/{b.Slug}"),
+                CityName: b.CityName,
+                StateCode: b.StateCode,
+                StudioType: b.StudioType,
+                BlockedAt: b.BlockedAt))
+            .ToArray();
+
+        var privacyForm = privacyFormOverride ?? new UpdateCandidatePrivacyInputModel
+        {
+            IsDiscoverable = settings.IsDiscoverable,
+            Availability = settings.Availability,
+            CurrentCtcLpa = settings.CurrentCtcLpa,
+            ShowCurrentCtc = settings.ShowCurrentCtc
+        };
+
+        return new CandidateSettingsPageViewModel
+        {
+            Settings = settings,
+            Completeness = state.CompletenessBreakdown,
+            PrivacyForm = privacyForm,
+            BlockedStudios = blockedRows,
+            StudioSearchQuery = trimmedQuery,
+            SearchResults = searchResults
+        };
+    }
+
+    private string? ResolveStudioLogoUrlOrNull(string? logoPath)
+    {
+        if (string.IsNullOrWhiteSpace(logoPath))
+        {
+            return null;
+        }
+
+        return ObjectKeyRules.TryNormalize(logoPath, out var normalized, out _)
+            ? _fileStorageService.ResolvePublicUrl(normalized)
+            : null;
+    }
+
+    private static string? FormatStudioLocation(string? cityName, string? stateCode)
+    {
+        if (string.IsNullOrWhiteSpace(cityName))
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(stateCode)
+            ? cityName
+            : $"{cityName}, {stateCode}";
     }
 
     private static short ResolveTargetStep(CandidateOnboardingState state, short? requestedStep)

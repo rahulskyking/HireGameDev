@@ -1,0 +1,440 @@
+@model CandidateProfilePreviewViewModel
+@{
+    var p = Model.Profile;
+    var c = Model.Completeness;
+    ViewData["Title"] = $"{p.FullName} · Studio View Preview";
+
+    var isStudioDiscoverable = CandidateProfileRules.IsDiscoverableByStudios(p.IsDiscoverable, c.TotalScore);
+    var showCurrentCtcToStudio = CandidateProfileRules.ShouldDisplayCurrentCtcToStudio(p.CurrentCtcLpa, p.ShowCurrentCtc);
+    var isPhoneVisibleToStudio = CandidateProfileRules.IsPhoneVisibleToStudio(isShortlisted: false);
+
+    var availabilityBadge = p.Availability switch
+    {
+        CandidateAvailability.ActivelyLooking => ("Actively looking", "c-badge--success"),
+        CandidateAvailability.OpenToOffers => ("Open to offers", "c-badge--info"),
+        _ => ("Not looking", "c-badge--neutral")
+    };
+
+    var initials = !string.IsNullOrWhiteSpace(p.FullName)
+        ? char.ToUpperInvariant(p.FullName.Trim()[0]).ToString()
+        : "D";
+
+    var workspaceNav = new CandidateWorkspaceNavViewModel("preview", c.TotalScore, Model.BlockedStudiosCount);
+}
+
+<div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="workspaceNav" />
+
+    <!-- Studio-Perspective Context Banner -->
+    <div class="c-alert @(isStudioDiscoverable ? "c-alert--info" : "c-alert--warning")" role="status">
+        <div class="c-alert__content">
+            <div class="p-sg-row" style="justify-content: space-between; gap: 12px; align-items: flex-start;">
+                <div style="flex: 1 1 320px;">
+                    <span class="c-alert__title">
+                        Studio View Preview &middot;
+                        @if (isStudioDiscoverable)
+                        {
+                            <span>Live in Studio Search (&ge; 70% complete)</span>
+                        }
+                        else if (!p.IsDiscoverable)
+                        {
+                            <span>Discoverability Paused</span>
+                        }
+                        else
+                        {
+                            <span>Not Yet in Studio Search (@c.TotalScore% / 70% required)</span>
+                        }
+                    </span>
+                    <p style="margin: 4px 0 0 0;">
+                        This page renders your profile <strong>exactly as a verified game studio sees it</strong>.
+                        Phone and direct email remain locked until you are shortlisted, NDA credits stay redacted,
+                        @if (Model.BlockedStudiosCount > 0)
+                        {
+                            <span>and <strong>@Model.BlockedStudiosCount blocked @(Model.BlockedStudiosCount == 1 ? "studio" : "studios")</strong> cannot discover or open this profile.</span>
+                        }
+                        else
+                        {
+                            <span>and you can hide your profile from specific employers anytime in Privacy &amp; Settings.</span>
+                        }
+                    </p>
+                </div>
+
+                <div class="c-btn-group">
+                    <a asp-controller="Candidate" asp-action="Settings" class="c-btn c-btn--secondary c-btn--sm">
+                        Privacy &amp; Blocklist
+                    </a>
+                    <a asp-controller="Candidate" asp-action="Profile" class="c-btn c-btn--ghost c-btn--sm">
+                        Back to Owner View
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Studio-Facing Candidate Hero Card (Zero owner edit buttons) -->
+    <section class="c-card" aria-labelledby="studio-preview-candidate-name">
+        <div class="c-card__header" style="align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div class="c-entity-head">
+                @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                {
+                    <img src="@Url.Action("CandidateAvatar", "Media", new { candidateId = p.Id, v = p.UpdatedAt.UtcTicks })"
+                         alt="@p.FullName profile photo"
+                         class="c-avatar c-avatar--lg" />
+                }
+                else
+                {
+                    <span class="c-entity-mark c-entity-mark--accent c-avatar--lg" aria-hidden="true">@initials</span>
+                }
+
+                <div>
+                    <h1 id="studio-preview-candidate-name" style="margin: 0; font-size: 24px;">@p.FullName</h1>
+                    <p class="u-muted" style="margin: 4px 0 0 0;">@p.Headline</p>
+                </div>
+            </div>
+
+            <div class="c-badge-row">
+                <span class="c-badge @availabilityBadge.Item2">@availabilityBadge.Item1</span>
+            </div>
+        </div>
+
+        <div class="c-badge-row">
+            <span class="c-badge c-badge--accent">@p.PrimaryCategory.ToString().ToLowerInvariant()</span>
+            <span class="c-badge c-badge--neutral">@p.Seniority.ToString().ToLowerInvariant() &middot; @p.YearsExperience.ToString("0.#") yrs</span>
+            @if (!string.IsNullOrWhiteSpace(p.CityName))
+            {
+                <span class="c-badge c-badge--neutral">@p.CityName, @p.CityStateCode</span>
+            }
+            @if (p.OpenToRemote)
+            {
+                <span class="c-badge c-badge--info">Open to remote</span>
+            }
+            @if (p.WillingToRelocate)
+            {
+                <span class="c-badge c-badge--info">Willing to relocate</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(p.Bio))
+        {
+            <p style="margin: 8px 0 0 0; white-space: pre-line;">@p.Bio</p>
+        }
+
+        <hr />
+
+        <!-- Explicit Studio Lock Indicators (Blueprint Page 33 verbatim) -->
+        <div class="p-sg-grid-3">
+            <div>
+                <span class="c-label">Expected Compensation &amp; Notice</span>
+                <div class="c-badge-row" style="margin-top: 6px; gap: 6px;">
+                    @if (p.ExpectedCtcLpa.HasValue)
+                    {
+                        <span class="c-comp-pill">&#8377; @p.ExpectedCtcLpa.Value.ToString("0.##") LPA</span>
+                    }
+                    else
+                    {
+                        <span class="c-badge c-badge--neutral">Expected CTC not specified</span>
+                    }
+                    <span class="c-badge c-badge--neutral">
+                        @(p.NoticePeriodDays.HasValue
+                            ? (p.NoticePeriodDays.Value == 0 ? "Immediate joiner" : $"{p.NoticePeriodDays.Value}d notice")
+                            : "Notice not specified")
+                    </span>
+                </div>
+            </div>
+
+            <div>
+                <span class="c-label">Current Compensation</span>
+                <div style="margin-top: 6px;">
+                    @if (showCurrentCtcToStudio)
+                    {
+                        <span class="c-comp-pill">&#8377; @p.CurrentCtcLpa!.Value.ToString("0.##") LPA</span>
+                    }
+                    else
+                    {
+                        <span class="c-lock-pill">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="3" y="7" width="10" height="7" rx="1.5" />
+                                <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+                            </svg>
+                            <span>Current CTC: hidden</span>
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <span class="c-label">Direct Contact</span>
+                <div class="c-badge-row" style="margin-top: 6px; gap: 6px;">
+                    @if (!isPhoneVisibleToStudio)
+                    {
+                        <span class="c-lock-pill">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="3" y="7" width="10" height="7" rx="1.5" />
+                                <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+                            </svg>
+                            <span>Phone: hidden until shortlist</span>
+                        </span>
+                    }
+                    <span class="c-lock-pill">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="7" width="10" height="7" rx="1.5" />
+                            <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+                        </svg>
+                        <span>Email: hidden until shortlist</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Studio-Facing Skills & Evidence Matrix -->
+    <section class="c-card" aria-labelledby="studio-preview-skills-heading">
+        <div class="c-card__header">
+            <div>
+                <h2 id="studio-preview-skills-heading" style="font-size: 20px; margin-bottom: 4px;">Skills &amp; Proficiency (@Model.Skills.Count)</h2>
+                <p class="c-hint">Skill proficiency and evidence level derived from submitted credits, portfolio links, and experience.</p>
+            </div>
+        </div>
+
+        @if (Model.Skills.Count == 0)
+        {
+            <p class="c-hint" style="margin: 0;">No skills listed yet.</p>
+        }
+        else
+        {
+            <div class="p-sg-grid-2" style="gap: 10px;">
+                @foreach (var skill in Model.Skills)
+                {
+                    var evidenceBadgeVariant = skill.EvidenceLevel switch
+                    {
+                        SkillEvidenceLevel.Verified => "c-badge--success",
+                        SkillEvidenceLevel.Backed => "c-badge--info",
+                        _ => "c-badge--neutral"
+                    };
+                    var yearsSuffix = skill.YearsUsed.HasValue ? $" · {skill.YearsUsed.Value:0.#} yrs" : string.Empty;
+                    var lastUsedSuffix = skill.LastUsedYear.HasValue ? $" · Last used {skill.LastUsedYear.Value}" : string.Empty;
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2);">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                @if (skill.IsPrimary)
+                                {
+                                    <span class="c-badge c-badge--accent">Primary</span>
+                                }
+                                <strong>@skill.SkillName</strong>
+                            </div>
+                            <span class="c-hint">@skill.Proficiency@yearsSuffix@lastUsedSuffix</span>
+                        </div>
+                        <span class="c-badge @evidenceBadgeVariant">@skill.EvidenceLevel.ToDisplayLabel()</span>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <!-- Studio-Facing Shipped Titles & Portfolio Proof (NDA-redacted, zero private owner data or internal flags) -->
+    <div class="p-sg-grid-2" style="align-items: start;">
+        <section class="c-card" aria-labelledby="studio-preview-shipped-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="studio-preview-shipped-heading" style="font-size: 20px; margin-bottom: 4px;">Shipped Game Credits (@Model.PublicProof.ShippedTitles.Count)</h2>
+                    <p class="c-hint">Shipped commercial, indie, and NDA-protected game projects.</p>
+                </div>
+            </div>
+
+            @if (Model.PublicProof.ShippedTitles.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No shipped credits listed yet.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var pubTitle in Model.PublicProof.ShippedTitles)
+                    {
+                        string? resolvedStoreHref = !pubTitle.IsNda &&
+                                                    !string.IsNullOrWhiteSpace(pubTitle.PublicStoreUrl) &&
+                                                    ExternalUrlRules.TryNormalizeHttpsUrl(pubTitle.PublicStoreUrl, out var safeStoreHref, out _)
+                            ? safeStoreHref
+                            : null;
+
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@pubTitle.DisplayTitle</strong>
+                                @if (pubTitle.IsNda)
+                                {
+                                    <span class="c-badge c-badge--warning">Under NDA</span>
+                                }
+                            </div>
+
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">
+                                @pubTitle.Role &middot; @pubTitle.DisplayStudio@(pubTitle.ReleaseYear.HasValue ? $" · {pubTitle.ReleaseYear.Value}" : string.Empty)
+                            </div>
+
+                            <div class="c-badge-row" style="margin-top: 6px; gap: 6px;">
+                                @if (!string.IsNullOrWhiteSpace(pubTitle.EngineSkillName))
+                                {
+                                    <span class="c-badge c-badge--accent">@pubTitle.EngineSkillName</span>
+                                }
+                                @foreach (var plat in pubTitle.Platforms)
+                                {
+                                    <span class="c-badge c-badge--neutral">@plat.ToUpperInvariant()</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(resolvedStoreHref))
+                                {
+                                    <a href="@resolvedStoreHref"
+                                       target="_blank"
+                                       rel="noopener noreferrer ugc"
+                                       style="font-size: 13px;">
+                                        Store / Page &nearr;
+                                    </a>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="c-card" aria-labelledby="studio-preview-portfolio-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="studio-preview-portfolio-heading" style="font-size: 20px; margin-bottom: 4px;">Portfolio &amp; Playable Links (@Model.PublicProof.PortfolioLinks.Count)</h2>
+                    <p class="c-hint">External code, playable builds, reels, and art portfolios.</p>
+                </div>
+            </div>
+
+            @if (Model.PublicProof.PortfolioLinks.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No portfolio links listed yet.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var link in Model.PublicProof.PortfolioLinks)
+                    {
+                        var isSafeUrl = ExternalUrlRules.TryNormalizeHttpsUrl(link.Url, out var safePortfolioHref, out _);
+                        var typeLabel = link.LinkType switch
+                        {
+                            PortfolioLinkType.Github => "GitHub",
+                            PortfolioLinkType.Itchio => "itch.io",
+                            PortfolioLinkType.Artstation => "ArtStation",
+                            PortfolioLinkType.Behance => "Behance",
+                            PortfolioLinkType.Youtube => "YouTube",
+                            PortfolioLinkType.Website => "Website",
+                            PortfolioLinkType.Linkedin => "LinkedIn",
+                            _ => "Other"
+                        };
+
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <div>
+                                    <span class="c-badge c-badge--neutral" style="margin-right: 6px;">@typeLabel</span>
+                                    @if (isSafeUrl)
+                                    {
+                                        <a href="@safePortfolioHref" target="_blank" rel="noopener noreferrer ugc">
+                                            <strong>@(string.IsNullOrWhiteSpace(link.Title) ? safePortfolioHref : link.Title)</strong> &nearr;
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <strong>@(string.IsNullOrWhiteSpace(link.Title) ? "Portfolio Item" : link.Title)</strong>
+                                    }
+                                </div>
+                            </div>
+
+                            @if (link.EvidencedSkills.Count > 0)
+                            {
+                                <div class="c-chip-list" style="margin-top: 8px;">
+                                    @foreach (var sk in link.EvidencedSkills)
+                                    {
+                                        <span class="c-chip">@sk.SkillName</span>
+                                    }
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+
+    <!-- Studio-Facing Work Experience & Education -->
+    <div class="p-sg-grid-2" style="align-items: start;">
+        <section class="c-card" aria-labelledby="studio-preview-experience-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="studio-preview-experience-heading" style="font-size: 20px; margin-bottom: 4px;">Work Experience (@Model.Experiences.Count)</h2>
+                    <p class="c-hint">Studio, contract, and engineering timeline.</p>
+                </div>
+            </div>
+
+            @if (Model.Experiences.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No work history listed.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var exp in Model.Experiences)
+                    {
+                        var dateRange = exp.IsCurrent
+                            ? $"{exp.StartDate:MMM yyyy} – Present"
+                            : exp.EndDate.HasValue
+                                ? $"{exp.StartDate:MMM yyyy} – {exp.EndDate.Value:MMM yyyy}"
+                                : $"{exp.StartDate:MMM yyyy}";
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@exp.Title</strong>
+                                <span class="c-badge @(exp.IsCurrent ? "c-badge--success" : "c-badge--neutral")">@dateRange</span>
+                            </div>
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">@exp.CompanyName</div>
+                            @if (!string.IsNullOrWhiteSpace(exp.Description))
+                            {
+                                <p style="margin: 6px 0 0 0; font-size: 14px; white-space: pre-line;">@exp.Description</p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="c-card" aria-labelledby="studio-preview-education-heading">
+            <div class="c-card__header">
+                <div>
+                    <h2 id="studio-preview-education-heading" style="font-size: 20px; margin-bottom: 4px;">Education (@Model.Education.Count)</h2>
+                    <p class="c-hint">Degrees, game-dev institutes, and diplomas.</p>
+                </div>
+            </div>
+
+            @if (Model.Education.Count == 0)
+            {
+                <p class="c-hint" style="margin: 0;">No education entries listed.</p>
+            }
+            else
+            {
+                <div class="p-sg-stack">
+                    @foreach (var edu in Model.Education)
+                    {
+                        var yearsText = edu.StartYear.HasValue && edu.EndYear.HasValue
+                            ? $"{edu.StartYear} – {edu.EndYear}"
+                            : edu.EndYear.HasValue
+                                ? $"Class of {edu.EndYear}"
+                                : edu.StartYear.HasValue
+                                    ? $"Started {edu.StartYear}"
+                                    : null;
+                        <article style="padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline;">
+                                <strong>@edu.Degree@(!string.IsNullOrWhiteSpace(edu.Field) ? $" · {edu.Field}" : string.Empty)</strong>
+                                @if (!string.IsNullOrWhiteSpace(yearsText))
+                                {
+                                    <span class="c-badge c-badge--neutral">@yearsText</span>
+                                }
+                            </div>
+                            <div class="u-muted" style="font-size: 14px; margin-top: 2px;">@edu.Institution</div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+</div>

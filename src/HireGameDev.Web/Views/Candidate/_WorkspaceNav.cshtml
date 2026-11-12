@@ -1,0 +1,48 @@
+@model CandidateWorkspaceNavViewModel
+@{
+    var activeTab = Model.ActiveTab;
+}
+
+<nav class="c-btn-group" aria-label="Candidate workspace sections">
+    <a asp-controller="Candidate"
+       asp-action="Profile"
+       aria-current="@(activeTab == "profile" ? "page" : null)"
+       class="c-btn c-btn--sm @(activeTab == "profile" ? "c-btn--primary" : "c-btn--secondary")">
+        Developer Profile
+        <span class="c-badge c-badge--neutral" style="margin-left: 4px;">@Model.CompletenessScore%</span>
+    </a>
+
+    <a asp-controller="Candidate"
+       asp-action="Preview"
+       aria-current="@(activeTab == "preview" ? "page" : null)"
+       class="c-btn c-btn--sm @(activeTab == "preview" ? "c-btn--primary" : "c-btn--secondary")">
+        Preview as Studio
+    </a>
+
+    <a asp-controller="Candidate"
+       asp-action="Settings"
+       aria-current="@(activeTab == "settings" ? "page" : null)"
+       class="c-btn c-btn--sm @(activeTab == "settings" ? "c-btn--primary" : "c-btn--secondary")">
+        Privacy &amp; Settings
+        @if (Model.BlockedStudiosCount > 0)
+        {
+            <span class="c-badge c-badge--warning" style="margin-left: 4px;" title="Studios hidden from discovering you">
+                @Model.BlockedStudiosCount hidden
+            </span>
+        }
+    </a>
+
+    <a asp-controller="Candidate"
+       asp-action="ResumeImport"
+       aria-current="@(activeTab == "resume" ? "page" : null)"
+       class="c-btn c-btn--sm @(activeTab == "resume" ? "c-btn--primary" : "c-btn--secondary")">
+        Resume AI Import
+    </a>
+
+    <a asp-controller="Candidate"
+       asp-action="EditProfile"
+       aria-current="@(activeTab == "edit" ? "page" : null)"
+       class="c-btn c-btn--ghost c-btn--sm">
+        Edit Wizard
+    </a>
+</nav>

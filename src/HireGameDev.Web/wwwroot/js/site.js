@@ -1141,4 +1141,223 @@
     var count = (field.value || '').trim().length;
     counter.textContent = count + ' / ' + maxChars + ' chars';
   });
+
+  // Candidate Privacy Settings: Current CTC visibility sync + live Verified Studio blocklist search (M1.11b)
+  function syncCurrentCtcGroup(group) {
+    if (!group) return;
+    var input = group.querySelector('[data-current-ctc-input]');
+    var checkbox = group.querySelector('[data-show-current-ctc-check]');
+    var badge = group.querySelector('[data-current-ctc-status-badge]');
+    if (!input || !checkbox) return;
+
+    var raw = (input.value || '').trim();
+    var numeric = parseFloat(raw);
+    var hasValidValue = raw.length > 0 && !isNaN(numeric) && numeric >= 0;
+
+    if (!hasValidValue) {
+      checkbox.checked = false;
+      checkbox.disabled = true;
+    } else {
+      checkbox.disabled = false;
+    }
+
+    if (badge) {
+      var visible = hasValidValue && checkbox.checked;
+      badge.textContent = visible ? 'Visible to verified studios' : 'Current CTC: hidden';
+      badge.classList.toggle('c-badge--info', visible);
+      badge.classList.toggle('c-badge--neutral', !visible);
+    }
+  }
+
+  var initialCtcGroup = document.querySelector('[data-current-ctc-group]');
+  if (initialCtcGroup) {
+    syncCurrentCtcGroup(initialCtcGroup);
+  }
+
+  document.addEventListener('input', function (event) {
+    if (event.target.matches('[data-current-ctc-input]')) {
+      syncCurrentCtcGroup(event.target.closest('[data-current-ctc-group]'));
+    }
+  });
+
+  document.addEventListener('change', function (event) {
+    if (event.target.matches('[data-show-current-ctc-check]')) {
+      syncCurrentCtcGroup(event.target.closest('[data-current-ctc-group]'));
+    }
+  });
+
+  function buildStudioMonogram(name) {
+    var trimmed = (name || '').trim();
+    if (!trimmed) return 'ST';
+    var parts = trimmed.split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  function renderStudioBlockSearchResults(picker, query, items) {
+    var container = picker.querySelector('[data-studio-block-live-results]');
+    if (!container) return;
+    container.textContent = '';
+
+    if (!query || query.length < 2) {
+      return;
+    }
+
+    if (!items || items.length === 0) {
+      var empty = document.createElement('p');
+      empty.className = 'c-hint';
+      empty.style.margin = '0';
+      empty.textContent = 'No verified studios matched "' + query + '".';
+      container.appendChild(empty);
+      return;
+    }
+
+    var blockLimitReached = picker.getAttribute('data-block-limit-reached') === 'true';
+    var formTemplate = picker.querySelector('[data-studio-block-post-template]');
+    var list = document.createElement('div');
+    list.className = 'c-studio-block-list';
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var row = document.createElement('div');
+      row.className = 'c-studio-block-row';
+
+      var head = document.createElement('div');
+      head.className = 'c-entity-head';
+
+      if (item.logoUrl) {
+        var img = document.createElement('img');
+        img.src = item.logoUrl;
+        img.alt = item.name + ' logo';
+        img.className = 'c-avatar c-avatar--sm';
+        head.appendChild(img);
+      } else {
+        var mark = document.createElement('span');
+        mark.className = 'c-entity-mark c-entity-mark--accent c-avatar--sm';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.textContent = buildStudioMonogram(item.name);
+        head.appendChild(mark);
+      }
+
+      var info = document.createElement('div');
+      var topLine = document.createElement('div');
+      topLine.className = 'p-sg-row';
+      topLine.style.gap = '6px';
+
+      var link = document.createElement('a');
+      link.href = item.publicUrl || ('/studios/' + encodeURIComponent(item.slug || ''));
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      var strong = document.createElement('strong');
+      strong.textContent = item.name || 'Studio';
+      link.appendChild(strong);
+      topLine.appendChild(link);
+
+      if (item.studioTypeLabel) {
+        var typeBadge = document.createElement('span');
+        typeBadge.className = 'c-badge c-badge--neutral';
+        typeBadge.textContent = item.studioTypeLabel;
+        topLine.appendChild(typeBadge);
+      }
+
+      info.appendChild(topLine);
+
+      if (item.location) {
+        var loc = document.createElement('div');
+        loc.className = 'c-hint';
+        loc.style.margin = '2px 0 0 0';
+        loc.textContent = item.location;
+        info.appendChild(loc);
+      }
+
+      head.appendChild(info);
+      row.appendChild(head);
+
+      if (item.isAlreadyBlocked) {
+        var alreadyBadge = document.createElement('span');
+        alreadyBadge.className = 'c-badge c-badge--warning';
+        alreadyBadge.textContent = 'Already hidden';
+        row.appendChild(alreadyBadge);
+      } else if (blockLimitReached) {
+        var capBadge = document.createElement('span');
+        capBadge.className = 'c-badge c-badge--neutral';
+        capBadge.textContent = 'Limit reached (50)';
+        row.appendChild(capBadge);
+      } else if (formTemplate) {
+        var postForm = formTemplate.cloneNode(true);
+        postForm.hidden = false;
+        postForm.removeAttribute('data-studio-block-post-template');
+        postForm.style.margin = '0';
+
+        var studioIdInput = postForm.querySelector('input[name="studioId"]');
+        if (studioIdInput) {
+          studioIdInput.value = item.studioId || '';
+        }
+
+        var submitBtn = document.createElement('button');
+        submitBtn.type = 'submit';
+        submitBtn.className = 'c-btn c-btn--secondary c-btn--sm';
+        submitBtn.textContent = 'Hide Profile';
+        postForm.appendChild(submitBtn);
+        row.appendChild(postForm);
+      }
+
+      list.appendChild(row);
+    }
+
+    container.appendChild(list);
+  }
+
+  var studioBlockDebounceTimer = null;
+  var studioBlockRequestSeq = 0;
+
+  document.addEventListener('input', function (event) {
+    if (!event.target.matches('[data-studio-block-search-input]')) {
+      return;
+    }
+
+    var input = event.target;
+    var picker = input.closest('[data-studio-block-picker]');
+    if (!picker) return;
+
+    var searchUrl = picker.getAttribute('data-search-url');
+    if (!searchUrl) return;
+
+    var query = (input.value || '').trim();
+    if (studioBlockDebounceTimer) {
+      clearTimeout(studioBlockDebounceTimer);
+    }
+
+    if (query.length < 2) {
+      var resultsBox = picker.querySelector('[data-studio-block-live-results]');
+      if (resultsBox) resultsBox.textContent = '';
+      return;
+    }
+
+    var currentSeq = ++studioBlockRequestSeq;
+    studioBlockDebounceTimer = setTimeout(function () {
+      var sep = searchUrl.indexOf('?') >= 0 ? '&' : '?';
+      fetch(searchUrl + sep + 'q=' + encodeURIComponent(query), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+      })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('Search failed');
+          return resp.json();
+        })
+        .then(function (payload) {
+          if (currentSeq !== studioBlockRequestSeq) return;
+          renderStudioBlockSearchResults(picker, query, payload && payload.items ? payload.items : []);
+        })
+        .catch(function () {
+          // Keep server-side GET Search Studios button available if network fetch fails.
+        });
+    }, 240);
+  });
 })();
