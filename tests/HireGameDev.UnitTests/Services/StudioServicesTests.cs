@@ -107,6 +107,28 @@ public sealed class StudioServicesTests
         Assert.Single(created.Titles);
         Assert.Equal(new[] { "pc", "console", "android", "ios" }, created.Titles[0].Platforms);
 
+        var ownerAccount = await harness.DbContext.Users.SingleAsync(u => u.Id == harness.OwnerUserId);
+        ownerAccount.AccountType = AccountType.Candidate;
+        await harness.DbContext.SaveChangesAsync();
+        var crossAccountCreation = await harness.ProfileService.CreateStudioAsync(new CreateStudioProfileCommand(
+            ActorUserId: harness.OwnerUserId,
+            Name: "Forbidden Studio",
+            Slug: "forbidden-studio",
+            Website: null,
+            Description: ValidStudioDescription,
+            CityId: harness.PuneCityId,
+            SizeBand: StudioSizeBand.Band1To10,
+            StudioType: StudioType.Indie,
+            FoundedYear: 2024,
+            CultureTags: [],
+            Gstin: null,
+            SkillIds: [harness.UnitySkillId],
+            Titles: []));
+        Assert.True(crossAccountCreation.IsFailure);
+        Assert.Equal("StudioProfile.SeparateAccountRequired", crossAccountCreation.Error.Code);
+        ownerAccount.AccountType = AccountType.Studio;
+        await harness.DbContext.SaveChangesAsync();
+
         // 4. Attempting to create a second active owned studio for the same user fails (ADR-018 Decision #3).
         var duplicateOwnedResult = await harness.ProfileService.CreateStudioAsync(new CreateStudioProfileCommand(
             ActorUserId: harness.OwnerUserId,
@@ -150,7 +172,23 @@ public sealed class StudioServicesTests
         Assert.True(createdResult.IsSuccess, createdResult.Error.Message);
         var studioId = createdResult.Value.Id;
 
-        // 1. Team management: Owner adds confirmed-email Candidate user as Recruiter and another as Viewer.
+        // A legacy Candidate account cannot gain Studio access through a team invitation.
+        var recruiterAccount = await harness.DbContext.Users.SingleAsync(u => u.Id == harness.RecruiterUserId);
+        recruiterAccount.AccountType = AccountType.Candidate;
+        await harness.DbContext.SaveChangesAsync();
+        var rejectedCandidate = await harness.TeamService.AddMemberByEmailAsync(new AddStudioMemberCommand(
+            ActorUserId: harness.OwnerUserId,
+            StudioId: studioId,
+            Email: "recruiter@supergaming.com",
+            MemberRole: StudioMemberRole.Recruiter));
+        Assert.True(rejectedCandidate.IsFailure);
+        Assert.Equal("StudioTeam.UserNotEligible", rejectedCandidate.Error.Code);
+        Assert.False(await harness.DbContext.StudioMembers.AnyAsync(m => m.UserId == harness.RecruiterUserId));
+        Assert.False(await harness.DbContext.UserRoles.AnyAsync(r => r.UserId == harness.RecruiterUserId));
+        recruiterAccount.AccountType = AccountType.Studio;
+        await harness.DbContext.SaveChangesAsync();
+
+        // 1. Team management: Owner adds confirmed-email Studio user as Recruiter and another as Viewer.
         var addRecruiter = await harness.TeamService.AddMemberByEmailAsync(new AddStudioMemberCommand(
             ActorUserId: harness.OwnerUserId,
             StudioId: studioId,
@@ -507,7 +545,7 @@ public sealed class StudioServicesTests
                     NormalizedEmail = "RECRUITER@SUPERGAMING.COM",
                     EmailConfirmed = true,
                     DisplayName = "Ananya Joshi",
-                    AccountType = AccountType.Candidate,
+                    AccountType = AccountType.Studio,
                     IsActive = true
                 },
                 new ApplicationUser

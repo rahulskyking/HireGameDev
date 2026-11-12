@@ -12,22 +12,16 @@
         : string.Empty;
 
     var hasCandidateRole = isAuthenticated &&
-        (User.IsInRole(HireGameDevRoleNames.Candidate) ||
-         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase));
+        string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase);
     var hasStudioRole = isAuthenticated &&
-        (User.IsInRole(HireGameDevRoleNames.Studio) ||
-         string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase));
+        string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase);
     var hasAdminRole = isAuthenticated &&
         (User.IsInRole(HireGameDevRoleNames.Admin) ||
          string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
     var rolePillLabel = hasAdminRole
         ? "admin"
-        : (hasCandidateRole && hasStudioRole)
-            ? "dev+studio"
-            : hasStudioRole
-                ? "studio"
-                : "candidate";
+        : hasStudioRole ? "studio" : "candidate";
 
     var brandTag = currentPortal switch
     {

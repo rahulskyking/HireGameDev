@@ -604,7 +604,7 @@ internal sealed class IdentityAuthService : IAuthService
                         existingEmailUser.AccountType,
                         email,
                         providerDisplayName,
-                        $"{providerDisplayName} sign-in is available for Candidate accounts only. Sign in with Google or email/password first to enable Candidate access.",
+                        $"{providerDisplayName} sign-in is available for Candidate accounts only. Use a separate Candidate account with a different email.",
                         existingRoles);
                 }
 
@@ -918,40 +918,14 @@ internal sealed class IdentityAuthService : IAuthService
                 Error.NotFound("Auth.UserNotFound", "User account was not found."));
         }
 
-        await EnsureCoreRolesExistAsync();
-
-        var primaryRoleName = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
-        if (!await _userManager.IsInRoleAsync(user, primaryRoleName))
+        if (user.AccountType != targetRole)
         {
-            await _userManager.AddToRoleAsync(user, primaryRoleName);
+            return Result.Failure<IReadOnlyList<string>>(
+                Error.Forbidden("Auth.SeparateAccountRequired",
+                    "Candidate and Studio accounts are separate. Use a different email to register the other account type."));
         }
 
-        var targetRoleName = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(targetRole);
-        if (!await _userManager.IsInRoleAsync(user, targetRoleName))
-        {
-            var addRoleResult = await _userManager.AddToRoleAsync(user, targetRoleName);
-            if (!addRoleResult.Succeeded)
-            {
-                var message = string.Join(" ", addRoleResult.Errors.Select(e => e.Description));
-                return Result.Failure<IReadOnlyList<string>>(
-                    Error.Failure("Auth.EnableRoleFailed", message));
-            }
-
-            await _auditLogger.LogAsync(
-                new AuditLogEntry(
-                    Action: "auth.role_enabled",
-                    EntityType: "user",
-                    EntityId: user.Id.ToString(),
-                    ActorType: AuditActorType.User,
-                    ActorUserId: user.Id,
-                    AfterData: new { enabledRole = targetRoleName }),
-                cancellationToken);
-        }
-
-        await _signInManager.RefreshSignInAsync(user);
-
-        var updatedRoles = await GetEffectiveUserRolesAsync(user);
-        return Result.Success(updatedRoles);
+        return Result.Success(await GetEffectiveUserRolesAsync(user));
     }
 
     public async Task<Result<AccountManageState>> GetAccountManageStateAsync(
@@ -1355,7 +1329,9 @@ internal sealed class IdentityAuthService : IAuthService
         var dbRoles = await _userManager.GetRolesAsync(user);
         var primaryRole = SnakeCaseEnumValueConverter<AccountType>.ToSnakeCaseValue(user.AccountType);
 
-        var set = new HashSet<string>(dbRoles, StringComparer.OrdinalIgnoreCase)
+        var set = new HashSet<string>(dbRoles.Where(r =>
+            !string.Equals(r, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(r, HireGameDevRoleNames.Studio, StringComparison.OrdinalIgnoreCase)), StringComparer.OrdinalIgnoreCase)
         {
             primaryRole
         };

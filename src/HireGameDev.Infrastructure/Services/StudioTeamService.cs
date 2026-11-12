@@ -114,12 +114,12 @@ public sealed class StudioTeamService : IStudioTeamService
                      (u.Email != null && u.Email.ToLower() == normalizedEmail),
                 cancellationToken);
 
-        if (targetUser is null || !targetUser.IsActive || targetUser.DeletedAt is not null || !targetUser.EmailConfirmed)
+        if (targetUser is null || !targetUser.IsActive || targetUser.DeletedAt is not null || !targetUser.EmailConfirmed || targetUser.AccountType != AccountType.Studio)
         {
             return Result.Failure<StudioTeamState>(
                 Error.Validation(
                     "StudioTeam.UserNotEligible",
-                    "No active HireGameDev account with a confirmed email was found for that address. Ask your teammate to sign up and confirm their email first."));
+                    "An active Studio account with a confirmed email is required. Candidate accounts cannot join studio teams; use a separate email for a Studio account."));
         }
 
         var alreadyMember = await _dbContext.StudioMembers

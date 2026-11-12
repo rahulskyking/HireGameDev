@@ -79,10 +79,10 @@
             </div>
         </section>
 
-        <!-- 2. Portal Workspaces (Single-Email Dual-Role) -->
+        <!-- 2. Separate Account Types -->
         <section class="c-card" aria-labelledby="manage-roles-heading">
             <h2 id="manage-roles-heading" style="font-size: 20px;">Portal Workspaces</h2>
-            <p class="c-hint">Use one HireGameDev identity for both Candidate job search and Studio hiring without duplicate accounts.</p>
+            <p class="c-hint">Each email belongs to one account type: Candidate or Studio. To use both, register separate accounts with different emails.</p>
 
             <div class="c-badge-row">
                 @if (hasCandidate)
@@ -117,11 +117,7 @@
                     }
                     else
                     {
-                        <form asp-controller="Account" asp-action="EnableRole" method="post">
-                            <input type="hidden" name="targetRole" value="@AccountType.Candidate" />
-                            <input type="hidden" name="returnUrl" value="@currentPath" />
-                            <button type="submit" class="c-btn c-btn--primary c-btn--sm">Enable Candidate</button>
-                        </form>
+                        <span class="c-hint">Requires a separate account with a different email.</span>
                     }
                 </div>
 
@@ -136,11 +132,7 @@
                     }
                     else
                     {
-                        <form asp-controller="Account" asp-action="EnableRole" method="post">
-                            <input type="hidden" name="targetRole" value="@AccountType.Studio" />
-                            <input type="hidden" name="returnUrl" value="@currentPath" />
-                            <button type="submit" class="c-btn c-btn--primary c-btn--sm">Enable Studio</button>
-                        </form>
+                        <span class="c-hint">Requires a separate account with a different email.</span>
                     }
                 </div>
             </div>
@@ -257,7 +249,7 @@
                             <strong>@available.DisplayName</strong>
                             @if (!eligibleForRoles)
                             {
-                                <p class="c-hint">Enable Candidate access above to link @available.DisplayName.</p>
+                                <p class="c-hint">@available.DisplayName is available only for Candidate accounts.</p>
                             }
                         </div>
                         <form asp-controller="Account" asp-action="LinkExternal" method="post" class="c-btn-group">

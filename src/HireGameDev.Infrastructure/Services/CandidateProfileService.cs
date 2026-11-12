@@ -105,7 +105,7 @@ internal sealed class CandidateProfileService : ICandidateProfileService
 
         var userExists = await _dbContext.Users
             .AsNoTracking()
-            .AnyAsync(u => u.Id == command.UserId && u.DeletedAt == null && u.IsActive, cancellationToken);
+            .AnyAsync(u => u.Id == command.UserId && u.DeletedAt == null && u.IsActive && u.AccountType == AccountType.Candidate, cancellationToken);
         if (!userExists)
         {
             return Result.Failure<CandidateProfileSnapshot>(

@@ -248,6 +248,13 @@ public sealed class StudioProfileService : IStudioProfileService
                 Error.Unauthorized("StudioProfile.UserNotFound", "Active user account was not found."));
         }
 
+        if (actorUser.AccountType != AccountType.Studio)
+        {
+            return Result.Failure<StudioProfileDetail>(
+                Error.Forbidden("StudioProfile.SeparateAccountRequired",
+                    "Only Studio accounts can create a studio. Register with a different email for Studio access."));
+        }
+
         // ADR-018 Decision #3: Each user can own at most 1 active studio.
         var alreadyOwnsStudio = await _dbContext.StudioProfiles
             .AsNoTracking()
