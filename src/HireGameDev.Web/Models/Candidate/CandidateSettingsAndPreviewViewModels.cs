@@ -33,7 +33,7 @@ public sealed class CandidateProfilePreviewViewModel
 
     public CandidatePublicProofSnapshot PublicProof { get; init; } = new(
         Array.Empty<PublicShippedTitleItem>(),
-        Array.Empty<PortfolioLinkItem>());
+        Array.Empty<CandidatePortfolioLinkItem>());
 
     public int BlockedStudiosCount { get; init; }
 }
