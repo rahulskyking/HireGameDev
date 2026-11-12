@@ -19,7 +19,19 @@
         Context,
         $"/Studio/Profile/Edit?studioId={s.StudioId}");
 
+    var verificationWorkspaceUrl = PortalNavigator.BuildPortalUrl(
+        PortalSite.Studio,
+        Context,
+        $"/Studio/Verification?studioId={s.StudioId}");
+
     var hasAnyStack = s.Engines.Count > 0 || s.Genres.Count > 0 || s.Platforms.Count > 0;
+}
+
+@section Styles {
+    @if (!s.IsPreviewMode && !Model.IsExplicitPreviewRequest && !string.IsNullOrWhiteSpace(Model.CanonicalPublicUrl))
+    {
+        <link rel="canonical" href="@Model.CanonicalPublicUrl" />
+    }
 }
 
 <div class="p-sg-stack">
@@ -30,16 +42,45 @@
                 <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
                     <div>
                         <span class="c-alert__title">
-                            Studio Workspace Preview &middot; @s.VerificationStatus.ToDisplayLabel()
+                            Candidate View Preview &middot; @s.VerificationStatus.ToDisplayLabel()
                         </span>
                         <p style="margin: 4px 0 0 0;">
-                            Only your studio team and HireGameDev admins can view this page right now. Anonymous visitors receive <code>404</code> until studio verification is approved.
+                            You are previewing how candidates will see <strong>@s.Name</strong> once verified. Only your studio team and HireGameDev admins can open this URL right now &mdash; anonymous visitors receive <code>404</code> until verification is approved.
+                        </p>
+                    </div>
+                    @if (s.ViewerMemberRole.HasValue)
+                    {
+                        <div class="c-btn-group">
+                            <a href="@verificationWorkspaceUrl" class="c-btn c-btn--primary c-btn--sm">
+                                Studio Verification
+                            </a>
+                            <a href="@editWorkspaceUrl" class="c-btn c-btn--secondary c-btn--sm">
+                                Edit Studio Profile
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (Model.IsExplicitPreviewRequest)
+    {
+        <div class="c-alert c-alert--success" role="status">
+            <svg class="c-alert__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="4 10.5 8 14.5 16 6.5" /></svg>
+            <div class="c-alert__content">
+                <div class="p-sg-row" style="justify-content: space-between; gap: 12px;">
+                    <div>
+                        <span class="c-alert__title">
+                            Candidate View Preview &middot; Live &amp; Publicly Verified
+                        </span>
+                        <p style="margin: 4px 0 0 0;">
+                            Below is your live public studio page exactly as game developers see it at <a href="@Model.CanonicalPublicUrl" class="u-mono">@Model.CanonicalPublicUrl</a>.
                         </p>
                     </div>
                     @if (s.ViewerMemberRole.HasValue)
                     {
                         <a href="@editWorkspaceUrl" class="c-btn c-btn--secondary c-btn--sm">
-                            Edit Studio Profile
+                            Back to Studio Workspace
                         </a>
                     }
                 </div>
@@ -102,7 +143,7 @@
                         @(websiteHost ?? "Official Website") &#8599;
                     </a>
                 }
-                @if (s.ViewerMemberRole.HasValue)
+                @if (s.ViewerMemberRole.HasValue && !Model.IsExplicitPreviewRequest && !s.IsPreviewMode)
                 {
                     <a href="@editWorkspaceUrl" class="c-btn c-btn--ghost c-btn--sm">
                         Manage Studio

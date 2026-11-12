@@ -237,6 +237,8 @@
                     @if (hasCandidateRole)
                     {
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile"))">Developer Profile</a>
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile/Preview"))">Preview as Studio</a>
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Settings"))">Privacy &amp; Settings</a>
                     }
 
                     @if (hasStudioRole)

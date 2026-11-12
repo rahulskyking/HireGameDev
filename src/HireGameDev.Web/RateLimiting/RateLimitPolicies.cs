@@ -32,6 +32,12 @@ public static class RateLimitPolicies
     /// </summary>
     public const string StudioVerificationSubmit = "studio-verification-submit";
 
+    /// <summary>
+    /// ADR-010 &amp; M1.11: Burst guard (30 requests per 15 minutes per user/IP) on candidate privacy
+    /// and studio-blocklist mutations.
+    /// </summary>
+    public const string CandidateSettingsWrite = "candidate-settings-write";
+
     public static IServiceCollection AddHireGameDevNetworkingAndRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -174,6 +180,18 @@ public static class RateLimitPolicies
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(15),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+
+            options.AddPolicy(CandidateSettingsWrite, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: BuildUserOrClientPartitionKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
                         Window = TimeSpan.FromMinutes(15),
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0,

@@ -4,7 +4,6 @@
     var c = Model.Completeness;
     ViewData["Title"] = $"{p.FullName} · Developer Profile";
 
-    var matchVariant = c.TotalScore >= 70 ? "c-match--strong" : c.TotalScore >= 60 ? "c-match--good" : "c-match--partial";
     var availabilityBadge = p.Availability switch
     {
         CandidateAvailability.ActivelyLooking => ("Actively looking", "c-badge--success"),
@@ -15,9 +14,14 @@
     var initials = !string.IsNullOrWhiteSpace(p.FullName)
         ? char.ToUpperInvariant(p.FullName.Trim()[0]).ToString()
         : "D";
+
+    var workspaceNav = new CandidateWorkspaceNavViewModel("profile", c.TotalScore, Model.BlockedStudiosCount);
+    var checklistVm = new CompletenessChecklistViewModel(c);
 }
 
 <div class="p-sg-stack">
+    <partial name="_WorkspaceNav" model="workspaceNav" />
+
     @if (TempData["StatusMessage"] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
     {
         <div class="c-alert c-alert--success" role="status">
@@ -65,7 +69,8 @@
             </div>
 
             <div class="c-btn-group">
-                <a asp-controller="Candidate" asp-action="ResumeImport" class="c-btn c-btn--secondary c-btn--sm">Import Resume PDF</a>
+                <a asp-controller="Candidate" asp-action="Preview" class="c-btn c-btn--secondary c-btn--sm">Preview as Studio</a>
+                <a asp-controller="Candidate" asp-action="Settings" class="c-btn c-btn--secondary c-btn--sm">Privacy &amp; Blocklist</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="1" class="c-btn c-btn--secondary c-btn--sm">Edit Basics</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="2" class="c-btn c-btn--secondary c-btn--sm">Edit Experience</a>
                 <a asp-controller="Candidate" asp-action="Onboarding" asp-route-step="3" class="c-btn c-btn--secondary c-btn--sm">Edit Skills</a>
@@ -76,6 +81,22 @@
 
         <div class="c-badge-row">
             <span class="c-badge @availabilityBadge.Item2">@availabilityBadge.Item1</span>
+            @if (CandidateProfileRules.IsDiscoverableByStudios(p.IsDiscoverable, c.TotalScore))
+            {
+                <span class="c-badge c-badge--success">Discoverable in studio search</span>
+            }
+            else if (!p.IsDiscoverable)
+            {
+                <span class="c-badge c-badge--warning">Discoverability paused</span>
+            }
+            else
+            {
+                <span class="c-badge c-badge--neutral">Studio search requires 70%</span>
+            }
+            @if (Model.BlockedStudiosCount > 0)
+            {
+                <span class="c-badge c-badge--warning">Hidden from @Model.BlockedStudiosCount @(Model.BlockedStudiosCount == 1 ? "studio" : "studios")</span>
+            }
             <span class="c-badge c-badge--accent">@p.PrimaryCategory.ToString().ToLowerInvariant()</span>
             <span class="c-badge c-badge--neutral">@p.Seniority.ToString().ToLowerInvariant() &middot; @p.YearsExperience.ToString("0.#") yrs</span>
             @if (!string.IsNullOrWhiteSpace(p.CityName))
@@ -448,74 +469,8 @@
         </section>
     </div>
 
-    <!-- Points-Sorted Completeness Checklist (Blueprint Section 5) -->
-    <section class="c-card" aria-labelledby="completeness-checklist-heading">
-        <div class="c-card__header" style="align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-                <h2 id="completeness-checklist-heading" style="font-size: 20px; margin-bottom: 4px;">Profile Completion Checklist</h2>
-                @if (c.NextBestStep is not null)
-                {
-                    <p class="c-hint">
-                        <strong>Next best step:</strong> @c.NextBestStep.Label (<strong>+@c.NextBestStep.Points pts</strong>)
-                    </p>
-                }
-                else
-                {
-                    <p class="c-hint">Your profile is 100% complete across every matching signal.</p>
-                }
-            </div>
-
-            <div class="c-match @matchVariant" style="min-width: 220px;">
-                <div class="c-match__top">
-                    <span>@(c.MeetsDiscoverabilityThreshold ? "Studio-discoverable (≥70%)" : c.MeetsApplyThreshold ? "Apply-ready (≥60%)" : "Below 60% apply gate")</span>
-                    <span class="c-match__score">@c.TotalScore%</span>
-                </div>
-                <div class="c-match__track">
-                    <div class="c-match__fill" style="width: @(c.TotalScore)%;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="c-table-wrap">
-            <table class="c-table">
-                <thead>
-                    <tr>
-                        <th scope="col">Signal</th>
-                        <th scope="col">Points</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in c.Items)
-                    {
-                        <tr>
-                            <td>@item.Label</td>
-                            <td class="u-mono">+@item.Points</td>
-                            <td>
-                                @if (item.IsComplete)
-                                {
-                                    <span class="c-badge c-badge--success">Complete</span>
-                                }
-                                else
-                                {
-                                    <span class="c-badge c-badge--neutral">Pending</span>
-                                }
-                            </td>
-                            <td>
-                                <a asp-controller="Candidate"
-                                   asp-action="Onboarding"
-                                   asp-route-step="@item.OnboardingStep"
-                                   class="c-btn c-btn--ghost c-btn--sm">
-                                    @(item.IsComplete ? "Review" : "Complete") (Step @item.OnboardingStep)
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </section>
+    <!-- Points-Sorted Completeness Checklist (Blueprint Section 5 / M1.11b) -->
+    <partial name="_CompletenessChecklistCard" model="checklistVm" />
 
     <dialog id="profile-photo-modal"
             class="c-modal c-avatar-modal"

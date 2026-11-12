@@ -256,4 +256,6 @@ public sealed class CandidateProfileOverviewViewModel
     public CandidateOwnerProofSnapshot OwnerProof { get; init; } = new([], []);
 
     public CandidatePublicProofSnapshot PublicProof { get; init; } = new([], []);
+
+    public int BlockedStudiosCount { get; init; }
 }

@@ -387,7 +387,7 @@ public sealed class StudioController : Controller
         var publicUrl = _portalNavigator.BuildPortalUrl(
             PortalSite.Jobs,
             HttpContext,
-            $"/studios/{studioResult.Value.Slug}");
+            $"/studios/{studioResult.Value.Slug}?preview=true");
 
         return Redirect(publicUrl);
     }

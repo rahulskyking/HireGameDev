@@ -27,12 +27,18 @@ public sealed class PublicDirectoryController : Controller
     }
 
     [HttpGet("studios/{slug}")]
-    public async Task<IActionResult> StudioProfile(string slug, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> StudioProfile(
+        string slug,
+        string? preview = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
             return RedirectToAction("Index", "Home");
         }
+
+        var isPreviewQuery = string.Equals(preview, "1", StringComparison.Ordinal) ||
+                             string.Equals(preview, "true", StringComparison.OrdinalIgnoreCase);
 
         var portal = _portalNavigator.ResolvePortal(HttpContext);
 
@@ -40,10 +46,11 @@ public sealed class PublicDirectoryController : Controller
         if (portal is PortalSite.Landing or PortalSite.Studio &&
             _portalNavigator.IsSubdomainRoutingActive(HttpContext))
         {
+            var previewSuffix = isPreviewQuery ? "?preview=true" : string.Empty;
             var canonical = _portalNavigator.BuildPortalUrl(
                 PortalSite.Jobs,
                 HttpContext,
-                $"/studios/{Uri.EscapeDataString(slug.Trim().ToLowerInvariant())}");
+                $"/studios/{Uri.EscapeDataString(slug.Trim().ToLowerInvariant())}{previewSuffix}");
 
             return RedirectPermanent(canonical);
         }
@@ -70,12 +77,24 @@ public sealed class PublicDirectoryController : Controller
         var studio = result.Value;
         if (!string.Equals(slug, studio.Slug, StringComparison.Ordinal))
         {
+            if (isPreviewQuery)
+            {
+                return RedirectToAction(nameof(StudioProfile), new { slug = studio.Slug, preview = "true" });
+            }
+
             return RedirectToAction(nameof(StudioProfile), new { slug = studio.Slug });
         }
 
-        if (studio.IsPreviewMode)
+        var isExplicitMemberOrAdminPreview = isPreviewQuery &&
+                                             (studio.ViewerMemberRole.HasValue || viewer.IsAdmin);
+
+        if (studio.IsPreviewMode || isPreviewQuery)
         {
             Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        }
+
+        if (studio.IsPreviewMode || isExplicitMemberOrAdminPreview)
+        {
             Response.Headers["Cache-Control"] = "private, no-store";
         }
 
@@ -87,7 +106,8 @@ public sealed class PublicDirectoryController : Controller
         return View("StudioProfile", new PublicStudioPageViewModel
         {
             Studio = studio,
-            CanonicalPublicUrl = canonicalPublicUrl
+            CanonicalPublicUrl = canonicalPublicUrl,
+            IsExplicitPreviewRequest = isExplicitMemberOrAdminPreview
         });
     }
 }

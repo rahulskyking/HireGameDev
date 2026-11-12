@@ -1687,3 +1687,93 @@
   background-color: var(--surface-2);
 }
 
+/* --------------------------------------------------------------------------
+   16. Preview Locks, Completeness Gates & Studio Blocklist (M1.11)
+   -------------------------------------------------------------------------- */
+.c-avatar--sm {
+  width: 38px;
+  height: 38px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+}
+
+.c-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  background-color: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.c-threshold-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.c-threshold-track-wrap {
+  position: relative;
+  padding: 4px 0;
+}
+
+.c-threshold-marker {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  background-color: var(--text-muted);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.c-threshold-marker--discover {
+  background-color: var(--text);
+}
+
+.c-threshold-gates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.c-threshold-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  font-size: 12px;
+}
+
+.c-threshold-gate.is-unlocked {
+  border-color: var(--success-border);
+  background-color: var(--success-subtle);
+  color: var(--success-ink);
+}
+
+.c-studio-block-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.c-studio-block-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+
