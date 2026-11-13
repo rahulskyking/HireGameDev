@@ -61,6 +61,12 @@ public sealed class StudioProfile : IAuditableEntity, ISoftDeletable
 
     public string? VerificationNotes { get; set; }
 
+    public DateTimeOffset? SuspendedAt { get; set; }
+
+    public Guid? SuspendedByUserId { get; set; }
+
+    public string? SuspensionReason { get; set; }
+
     public int Apps90d { get; set; }
 
     public decimal? ResponseRate90d { get; set; }
