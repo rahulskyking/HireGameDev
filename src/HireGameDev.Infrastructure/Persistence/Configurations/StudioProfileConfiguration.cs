@@ -13,6 +13,7 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
     {
         builder.ToTable("studio_profiles", t =>
         {
+            t.HasCheckConstraint("ck_studio_profiles_suspension", "(suspended_at IS NULL AND suspended_by_user_id IS NULL AND suspension_reason IS NULL) OR (suspended_at IS NOT NULL AND suspended_by_user_id IS NOT NULL AND suspension_reason IS NOT NULL AND char_length(btrim(suspension_reason)) BETWEEN 1 AND 1000)");
             t.HasCheckConstraint(
                 "ck_studio_profiles_name_len",
                 "char_length(btrim(name)) BETWEEN 2 AND 100");
@@ -215,6 +216,10 @@ internal sealed class StudioProfileConfiguration : IEntityTypeConfiguration<Stud
 
         builder.Property(s => s.DeletedAt)
             .HasColumnType("timestamptz");
+
+        builder.Property(x => x.SuspendedAt).HasColumnType("timestamptz");
+        builder.Property(x => x.SuspensionReason).HasMaxLength(1000);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.SuspendedByUserId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<ApplicationUser>()
             .WithMany()
