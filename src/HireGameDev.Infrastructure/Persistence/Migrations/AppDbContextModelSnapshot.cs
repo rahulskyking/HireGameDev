@@ -661,6 +661,434 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.Job", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<short>("ApplicationCap")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)50)
+                        .HasColumnName("application_cap");
+
+                    b.Property<int>("ApplicationsCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("applications_count");
+
+                    b.Property<string>("Category")
+                        .HasColumnType("text")
+                        .HasColumnName("category");
+
+                    b.Property<int?>("CityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("city_id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ContentFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_fingerprint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("FirstPublishedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("first_published_at");
+
+                    b.Property<bool>("FresherFriendly")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("fresher_friendly");
+
+                    b.Property<string>("JobType")
+                        .HasColumnType("text")
+                        .HasColumnName("job_type");
+
+                    b.Property<short?>("MaxNoticeDays")
+                        .HasColumnType("smallint")
+                        .HasColumnName("max_notice_days");
+
+                    b.Property<decimal?>("MaxYears")
+                        .HasPrecision(3, 1)
+                        .HasColumnType("numeric(3,1)")
+                        .HasColumnName("max_years");
+
+                    b.Property<decimal?>("MinYears")
+                        .HasPrecision(3, 1)
+                        .HasColumnType("numeric(3,1)")
+                        .HasColumnName("min_years");
+
+                    b.Property<string>("NormalizedTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("normalized_title");
+
+                    b.Property<short>("Openings")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("openings");
+
+                    b.Property<string>("PayUnit")
+                        .HasColumnType("text")
+                        .HasColumnName("pay_unit");
+
+                    b.Property<Guid>("PostedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("posted_by_user_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("published_at");
+
+                    b.Property<bool>("RelocationAssistance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("relocation_assistance");
+
+                    b.Property<string>("RemovalReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("removal_reason");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("removed_at");
+
+                    b.Property<Guid?>("RemovedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("removed_by_user_id");
+
+                    b.Property<decimal?>("SalaryMax")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("salary_max");
+
+                    b.Property<decimal?>("SalaryMin")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("salary_min");
+
+                    b.Property<string>("ScreeningQuestion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("screening_question");
+
+                    b.Property<string>("SeniorityMax")
+                        .HasColumnType("text")
+                        .HasColumnName("seniority_max");
+
+                    b.Property<string>("SeniorityMin")
+                        .HasColumnType("text")
+                        .HasColumnName("seniority_min");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("slug");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("draft")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("WorkMode")
+                        .HasColumnType("text")
+                        .HasColumnName("work_mode");
+
+                    b.HasKey("Id")
+                        .HasName("pk_jobs");
+
+                    b.HasIndex("CityId")
+                        .HasDatabaseName("ix_jobs_city_id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_jobs_expiry")
+                        .HasFilter("status IN ('active','paused','full')");
+
+                    b.HasIndex("PostedByUserId")
+                        .HasDatabaseName("ix_jobs_posted_by_user_id");
+
+                    b.HasIndex("RemovedByUserId")
+                        .HasDatabaseName("ix_jobs_removed_by_user_id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("ux_jobs_slug");
+
+                    b.HasIndex("StudioId", "ContentFingerprint")
+                        .HasDatabaseName("ix_jobs_studio_fingerprint");
+
+                    b.HasIndex("StudioId", "NormalizedTitle")
+                        .HasDatabaseName("ix_jobs_studio_title");
+
+                    b.HasIndex("StudioId", "Status", "UpdatedAt", "Id")
+                        .IsDescending(false, false, true, false)
+                        .HasDatabaseName("ix_jobs_studio_status_updated");
+
+                    b.ToTable("jobs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_jobs_capacity", "openings BETWEEN 1 AND 50 AND application_cap > 0 AND applications_count >= 0");
+
+                            t.HasCheckConstraint("ck_jobs_category", "category IN ('programming','art','design','audio','qa','production')");
+
+                            t.HasCheckConstraint("ck_jobs_closed", "(status <> 'closed' OR closed_at IS NOT NULL) AND (closed_at IS NULL OR status IN ('closed','removed'))");
+
+                            t.HasCheckConstraint("ck_jobs_dates", "(expires_at IS NULL OR (published_at IS NOT NULL AND expires_at > published_at)) AND (published_at IS NULL OR (first_published_at IS NOT NULL AND published_at >= first_published_at))");
+
+                            t.HasCheckConstraint("ck_jobs_fingerprint", "content_fingerprint IS NULL OR content_fingerprint ~ '^[0-9a-f]{64}$'");
+
+                            t.HasCheckConstraint("ck_jobs_job_type", "job_type IN ('full_time','contract','internship','part_time')");
+
+                            t.HasCheckConstraint("ck_jobs_lengths", "(title IS NULL OR char_length(title) <= 100) AND (description IS NULL OR char_length(description) <= 8000) AND (screening_question IS NULL OR char_length(screening_question) <= 300)");
+
+                            t.HasCheckConstraint("ck_jobs_notice", "max_notice_days IS NULL OR max_notice_days IN (0,15,30,45,60,90)");
+
+                            t.HasCheckConstraint("ck_jobs_pay_unit", "pay_unit IN ('lpa','monthly_inr')");
+
+                            t.HasCheckConstraint("ck_jobs_published", "status NOT IN ('active','paused','full','expired','removed') OR (first_published_at IS NOT NULL AND published_at IS NOT NULL AND expires_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_jobs_ranges", "(min_years IS NULL OR min_years >= 0) AND (max_years IS NULL OR max_years >= 0) AND (min_years IS NULL OR max_years IS NULL OR max_years >= min_years) AND (salary_min IS NULL OR salary_min > 0) AND (salary_max IS NULL OR salary_max > 0) AND (salary_min IS NULL OR salary_max IS NULL OR salary_max >= salary_min)");
+
+                            t.HasCheckConstraint("ck_jobs_ready", "status NOT IN ('active','paused','full','expired') OR (title IS NOT NULL AND char_length(btrim(title)) BETWEEN 5 AND 100 AND description IS NOT NULL AND char_length(btrim(description)) BETWEEN 100 AND 8000 AND category IS NOT NULL AND job_type IS NOT NULL AND seniority_min IS NOT NULL AND seniority_max IS NOT NULL AND min_years IS NOT NULL AND work_mode IS NOT NULL AND pay_unit IS NOT NULL AND salary_min IS NOT NULL AND salary_max IS NOT NULL AND normalized_title IS NOT NULL AND content_fingerprint IS NOT NULL AND ((work_mode = 'remote' AND city_id IS NULL) OR (work_mode IN ('onsite','hybrid') AND city_id IS NOT NULL)))");
+
+                            t.HasCheckConstraint("ck_jobs_removed", "(status = 'removed' AND removed_at IS NOT NULL AND removed_by_user_id IS NOT NULL AND removal_reason IS NOT NULL AND char_length(btrim(removal_reason)) BETWEEN 1 AND 1000) OR (status <> 'removed' AND removed_at IS NULL AND removed_by_user_id IS NULL AND removal_reason IS NULL)");
+
+                            t.HasCheckConstraint("ck_jobs_seniority_max", "seniority_max IN ('fresher','junior','mid','senior','lead')");
+
+                            t.HasCheckConstraint("ck_jobs_seniority_min", "seniority_min IN ('fresher','junior','mid','senior','lead')");
+
+                            t.HasCheckConstraint("ck_jobs_seniority_order", "seniority_min IS NULL OR seniority_max IS NULL OR array_position(ARRAY['fresher','junior','mid','senior','lead']::text[], seniority_min) <= array_position(ARRAY['fresher','junior','mid','senior','lead']::text[], seniority_max)");
+
+                            t.HasCheckConstraint("ck_jobs_slug", "char_length(slug) BETWEEN 2 AND 160 AND slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'");
+
+                            t.HasCheckConstraint("ck_jobs_status", "status IN ('draft','active','paused','full','expired','closed','removed')");
+
+                            t.HasCheckConstraint("ck_jobs_work_mode", "work_mode IN ('onsite','hybrid','remote')");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobPublicationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("ContentFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_fingerprint");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("NormalizedTitle")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("normalized_title");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("published_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("StudioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("studio_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_job_publication_events");
+
+                    b.HasIndex("ActorUserId")
+                        .HasDatabaseName("ix_job_publication_events_actor_user_id");
+
+                    b.HasIndex("JobId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_job_publications_initial")
+                        .HasFilter("kind = 'initial'");
+
+                    b.HasIndex("StudioId", "PublishedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_job_publications_studio_time");
+
+                    b.HasIndex("StudioId", "ContentFingerprint", "PublishedAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_job_publications_repeat");
+
+                    b.ToTable("job_publication_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_job_publication_fingerprint", "content_fingerprint ~ '^[0-9a-f]{64}$'");
+
+                            t.HasCheckConstraint("ck_job_publication_kind", "kind IN ('initial','renewal')");
+
+                            t.HasCheckConstraint("ck_job_publication_title", "char_length(btrim(normalized_title)) BETWEEN 1 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobSkill", b =>
+                {
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skill_id");
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_required");
+
+                    b.Property<short>("MinProficiency")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)2)
+                        .HasColumnName("min_proficiency");
+
+                    b.HasKey("JobId", "SkillId")
+                        .HasName("pk_job_skills");
+
+                    b.HasIndex("SkillId", "JobId")
+                        .HasDatabaseName("ix_job_skills_skill_job");
+
+                    b.ToTable("job_skills", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_job_skills_proficiency", "min_proficiency BETWEEN 1 AND 4");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActorType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("actor_type");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("new_status");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("occurred_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("PreviousStatus")
+                        .HasColumnType("text")
+                        .HasColumnName("previous_status");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reason_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_job_status_history");
+
+                    b.HasIndex("ActorUserId")
+                        .HasDatabaseName("ix_job_status_history_actor_user_id");
+
+                    b.HasIndex("JobId", "OccurredAt", "Id")
+                        .HasDatabaseName("ix_job_history_timeline");
+
+                    b.ToTable("job_status_history", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_job_history_actor", "(actor_type = 'user' AND actor_user_id IS NOT NULL) OR (actor_type = 'system' AND actor_user_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_job_history_new", "new_status IN ('draft','active','paused','full','expired','closed','removed')");
+
+                            t.HasCheckConstraint("ck_job_history_previous", "previous_status IS NULL OR previous_status IN ('draft','active','paused','full','expired','closed','removed')");
+
+                            t.HasCheckConstraint("ck_job_history_reason_code", "char_length(btrim(reason_code)) BETWEEN 1 AND 80");
+
+                            t.HasCheckConstraint("ck_job_history_removal", "new_status <> 'removed' OR (actor_type = 'user' AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 1 AND 1000)");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLink", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1172,6 +1600,19 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("studio_type");
 
+                    b.Property<DateTimeOffset?>("SuspendedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("suspended_at");
+
+                    b.Property<Guid?>("SuspendedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("suspended_by_user_id");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("suspension_reason");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamptz")
@@ -1224,6 +1665,9 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OwnerUserId")
                         .HasDatabaseName("ix_studio_profiles_owner_user_id");
+
+                    b.HasIndex("SuspendedByUserId")
+                        .HasDatabaseName("ix_studio_profiles_suspended_by_user_id");
 
                     b.HasIndex("VerifiedBy")
                         .HasDatabaseName("ix_studio_profiles_verified_by");
@@ -1283,6 +1727,8 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_studio_profiles_slug", "char_length(slug) BETWEEN 2 AND 100 AND slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'");
 
                             t.HasCheckConstraint("ck_studio_profiles_studio_type", "studio_type IN ('indie', 'game_studio', 'outsourcing', 'publisher', 'other')");
+
+                            t.HasCheckConstraint("ck_studio_profiles_suspension", "(suspended_at IS NULL AND suspended_by_user_id IS NULL AND suspension_reason IS NULL) OR (suspended_at IS NOT NULL AND suspended_by_user_id IS NOT NULL AND suspension_reason IS NOT NULL AND char_length(btrim(suspension_reason)) BETWEEN 1 AND 1000)");
 
                             t.HasCheckConstraint("ck_studio_profiles_verification_applicant_notes_len", "verification_applicant_notes IS NULL OR char_length(verification_applicant_notes) <= 1000");
 
@@ -1795,6 +2241,92 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_consent_records_users_user_id");
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.Job", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.City", null)
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_jobs_cities_city_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PostedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_jobs_users_posted_by_user_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RemovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_jobs_users_removed_by_user_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", null)
+                        .WithMany()
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_jobs_studio_profiles_studio_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobPublicationEvent", b =>
+                {
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_publication_events_users_actor_user_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Job", null)
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_publication_events_jobs_job_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.StudioProfile", null)
+                        .WithMany()
+                        .HasForeignKey("StudioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_publication_events_studio_profiles_studio_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobSkill", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.Job", null)
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_skills_jobs_job_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Skill", null)
+                        .WithMany()
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_skills_skills_skill_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobStatusHistory", b =>
+                {
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_job_status_history_users_actor_user_id");
+
+                    b.HasOne("HireGameDev.Domain.Entities.Job", null)
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_status_history_jobs_job_id");
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.PortfolioLink", b =>
                 {
                     b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", "Candidate")
@@ -1923,6 +2455,12 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_studio_profiles_users_owner_user_id");
+
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SuspendedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_studio_profiles_users_suspended_by_user_id");
 
                     b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
