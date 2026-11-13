@@ -65,14 +65,14 @@ public sealed class JobLifecycleServiceTests
     }
 
     [Fact]
-    public async Task ProductionChecker_FailsClosed_AndWarningsDoNotBlock()
+    public async Task BlockingFindingsPreventActivation_AndWarningsDoNotBlock()
     {
         await using var h = await Harness.Create();
         var job = await h.Draft();
-        var disabled = h.WithChecker(new PendingJobPublishChecker());
+        var disabled = h.WithChecker(new FakeChecker(new JobPublishFinding("Jobs.SalarySpread", JobFindingSeverity.BlockingError, "SalaryMax", "Narrow the salary range.")));
         var denied = await disabled.TransitionAsync(new(h.Owner, h.Studio, job.Id, JobLifecycleAction.Publish));
         Assert.False(denied.Value.Applied);
-        Assert.Equal("Jobs.PublishChecksUnavailable", denied.Value.Findings.Single().Code);
+        Assert.Equal("Jobs.SalarySpread", denied.Value.Findings.Single().Code);
         Assert.Empty(await h.Db.JobPublicationEvents.ToArrayAsync());
         var warned = h.WithChecker(new FakeChecker(new JobPublishFinding("quality", JobFindingSeverity.Warning, "Description", "Add more detail.")));
         var published = await warned.TransitionAsync(new(h.Owner, h.Studio, job.Id, JobLifecycleAction.Publish));

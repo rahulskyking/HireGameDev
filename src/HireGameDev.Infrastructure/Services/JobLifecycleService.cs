@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Jobs;
@@ -386,16 +383,9 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         var occupied = await _db.Jobs.CountAsync(x => x.StudioId == job.StudioId && x.Id != job.Id &&
             (x.Status == JobStatus.Active || x.Status == JobStatus.Full) && x.ExpiresAt > now, ct);
         if (occupied >= _limits.FreeActiveJobs) return Error.RateLimited("Jobs.ActiveLimit", "Active job limit reached. Existing jobs are unchanged.");
-        var others = await _db.Jobs.AsNoTracking().Where(x => x.StudioId == job.StudioId && x.Id != job.Id &&
-            (x.Status == JobStatus.Active || x.Status == JobStatus.Paused || x.Status == JobStatus.Full) && x.ExpiresAt > now)
-            .Select(x => new { x.NormalizedTitle, x.ContentFingerprint, x.CityId, x.WorkMode }).ToArrayAsync(ct);
-        if (others.Any(x => x.ContentFingerprint == job.ContentFingerprint ||
-            (x.NormalizedTitle == job.NormalizedTitle && x.CityId == job.CityId && x.WorkMode == job.WorkMode)))
-            return Error.Conflict("Jobs.Duplicate", "An equivalent studio listing already exists. Update its openings instead.");
-        var cutoff = now.AddDays(-_limits.RepeatCooldownDays);
-        if (await _db.JobPublicationEvents.AnyAsync(x => x.StudioId == job.StudioId && x.JobId != job.Id &&
-            x.ContentFingerprint == job.ContentFingerprint && x.PublishedAt > cutoff, ct))
-            return Error.Conflict("Jobs.RepeatCooldown", "Recently published identical content cannot be reposted yet, even after closing or removal.");
+        var duplicate = await new JobDuplicateDetector(_db, _clock, Options.Create(_limits))
+            .CheckAsync(new JobPublishContext(job.Id, job.StudioId, (await SnapshotAsync(job, ct)).Content), ct);
+        if (duplicate is not null) return Error.Conflict(duplicate.Code, duplicate.Message);
         if (publication && await _db.JobPublicationEvents.CountAsync(x => x.StudioId == job.StudioId && x.PublishedAt > now.AddHours(-24), ct) >= _limits.PublicationsPer24Hours)
             return Error.RateLimited("Jobs.PostingLimit", "Studio publication quota reached. Try again after the rolling window clears.");
         return null;
@@ -424,15 +414,10 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         j.SalaryMin = c.SalaryMin; j.SalaryMax = c.SalaryMax; j.MaxNoticeDays = c.MaxNoticeDays; j.Openings = c.Openings; j.ScreeningQuestion = c.ScreeningQuestion?.Trim();
         ApplyFingerprint(j, c);
     }
-    private static string Normalize(string? text) => string.Join(" ", (text ?? "").Normalize(NormalizationForm.FormKC)
-        .ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     private static void ApplyFingerprint(Job job, JobContent content)
     {
-        var normalized = Normalize(content.Title);
-        job.NormalizedTitle = normalized.Length > 100 ? normalized[..100] : normalized;
-        // Version 1: identity text only. Changing salary, openings or skill order must not bypass repeat detection.
-        var canonical = new { Title = Normalize(content.Title), Description = Normalize(content.Description) };
-        job.ContentFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("v1:" + JsonSerializer.Serialize(canonical)))).ToLowerInvariant();
+        job.NormalizedTitle = JobContentIdentity.NormalizedTitle(content);
+        job.ContentFingerprint = JobContentIdentity.Fingerprint(content);
     }
     private static bool IsStructurallyComplete(JobContent c) =>
         c.Title?.Trim().Length is >= 5 and <= 100 && c.Description?.Trim().Length is >= 100 and <= 8000 &&

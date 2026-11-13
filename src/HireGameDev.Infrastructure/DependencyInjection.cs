@@ -229,7 +229,8 @@ public static class DependencyInjection
                 x.PublicationsPer24Hours >= 1 && x.RepeatCooldownDays is >= 1 and <= 365 && x.MaxDraftsPerStudio >= 1,
                 "Job lifecycle limits must be positive; validity and cooldown cannot exceed 365 days.")
             .ValidateOnStart();
-        services.AddScoped<IJobPublishChecker, PendingJobPublishChecker>();
+        services.AddScoped<JobDuplicateDetector>();
+        services.AddScoped<IJobPublishChecker, JobPublishChecker>();
         services.AddScoped<IJobLifecycleService, JobLifecycleService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
