@@ -33,6 +33,25 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         _limits = options.Value;
     }
 
+    public async Task<Result<StudioJobList>> ListAsync(Guid actorUserId, Guid studioId, JobStatus? status = null,
+        int page = 1, CancellationToken cancellationToken = default)
+    {
+        if (!await HasAccessAsync(actorUserId, studioId, false, cancellationToken))
+            return Result.Failure<StudioJobList>(Denied());
+        if (status.HasValue && !Enum.IsDefined(status.Value))
+            return Result.Failure<StudioJobList>(Invalid("Status", "Unknown status."));
+        var query = _db.Jobs.AsNoTracking().Where(x => x.StudioId == studioId);
+        var counts = await query.GroupBy(x => x.Status).Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status, x => x.Count, cancellationToken);
+        if (status.HasValue) query = query.Where(x => x.Status == status.Value);
+        var total = await query.CountAsync(cancellationToken);
+        var pages = Math.Max(1, (total + 24) / 25);
+        page = Math.Clamp(page, 1, pages);
+        var items = await query.OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.Id).Skip((page - 1) * 25).Take(25)
+            .Select(x => new StudioJobListItem(x.Id, x.Title, x.Status, x.UpdatedAt, x.ExpiresAt)).ToArrayAsync(cancellationToken);
+        return Result.Success(new StudioJobList(items, counts, page, pages));
+    }
+
     public async Task<Result<JobSnapshot>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default)
     {
         if (!await HasAccessAsync(actorUserId, studioId, false, cancellationToken))

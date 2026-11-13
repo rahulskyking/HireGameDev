@@ -10,6 +10,9 @@ namespace HireGameDev.Web.RateLimiting;
 
 public static class RateLimitPolicies
 {
+    /// <summary>Per-user burst guard on Studio job mutations; database publication quotas remain authoritative.</summary>
+    public const string StudioJobsWrite = "studio-jobs-write";
+
     /// <summary>
     /// Blueprint Section 13.A: 5 attempts per 15 minutes per client IP for Login, ForgotPassword, and ResendConfirmation.
     /// </summary>
@@ -185,6 +188,12 @@ public static class RateLimitPolicies
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+
+            options.AddPolicy(StudioJobsWrite, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(BuildUserOrClientPartitionKey(httpContext), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+                }));
 
             options.AddPolicy(CandidateSettingsWrite, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(

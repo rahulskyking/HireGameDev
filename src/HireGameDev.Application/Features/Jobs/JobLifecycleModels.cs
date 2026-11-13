@@ -62,3 +62,8 @@ public sealed class JobLifecycleOptions
     public int RepeatCooldownDays { get; set; } = 7;
     public int MaxDraftsPerStudio { get; set; } = 20;
 }
+
+public sealed record StudioJobListItem(Guid Id, string? Title, JobStatus Status, DateTimeOffset UpdatedAt,
+    DateTimeOffset? ExpiresAt);
+public sealed record StudioJobList(IReadOnlyList<StudioJobListItem> Items,
+    IReadOnlyDictionary<JobStatus, int> Counts, int Page, int TotalPages);

@@ -44,6 +44,7 @@
 @if (activeStudioId.HasValue)
 {
     <nav class="c-btn-group" aria-label="Studio workspace sections">
+        <a asp-controller="StudioJobs" asp-action="Index" asp-route-studioId="@activeStudioId.Value" class="c-btn c-btn--sm c-btn--secondary">Jobs</a>
         <a asp-controller="Studio"
            asp-action="EditProfile"
            asp-route-studioId="@activeStudioId.Value"

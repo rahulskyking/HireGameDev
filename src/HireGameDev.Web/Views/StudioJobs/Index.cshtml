@@ -1,0 +1,40 @@
+@model HireGameDev.Web.Models.Jobs.JobListPage
+@{ ViewData["Title"] = "Studio Jobs"; }
+<div class="p-sg-stack">
+<h1>@Model.Studio.Name · Jobs</h1>
+<a asp-controller="Studio" asp-action="EditProfile" asp-route-studioId="@Model.Studio.StudioId">Back to Studio</a>
+<nav aria-label="Workspaces">
+@foreach (var membership in Model.Memberships)
+{
+    <a asp-action="Index" asp-route-studioId="@membership.StudioId">@membership.Name</a>
+}
+</nav>
+@if (TempData["StatusMessage"] is string message) { <p role="status">@message</p> }
+@if (Model.Studio.MemberRole is StudioMemberRole.Owner or StudioMemberRole.Recruiter)
+{
+    <a class="c-btn c-btn--primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId">Create draft</a>
+}
+<p>Verified Studios publish directly when checks pass. Warnings are advisory. Unverified Studios can prepare drafts.</p>
+<nav aria-label="Job status">
+<a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">All (@Model.Jobs.Counts.Values.Sum())</a>
+@foreach (var status in Enum.GetValues<JobStatus>())
+{
+    <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@status" aria-current="@(Model.Filter == status ? "page" : null)">@status (@Model.Jobs.Counts.GetValueOrDefault(status))</a>
+}
+</nav>
+@if (Model.Jobs.Items.Count == 0) { <p>No jobs in this view.</p> }
+@foreach (var job in Model.Jobs.Items)
+{
+    <article class="c-card" style="padding:16px">
+        <h2><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId">@(job.Title ?? "Untitled draft")</a></h2>
+        <p>@job.Status · Updated @job.UpdatedAt.ToString("u") · Expiry @(job.ExpiresAt?.ToString("u") ?? "Not published")</p>
+        <p>Open to view available actions. Past-expiry listings cannot accept applications, even before their stored status is updated.</p>
+    </article>
+}
+<nav aria-label="Pagination">
+@for (var pageNumber = Math.Max(1, Model.Jobs.Page - 2); pageNumber <= Math.Min(Model.Jobs.TotalPages, Model.Jobs.Page + 2); pageNumber++)
+{
+    <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@Model.Filter" asp-route-page="@pageNumber" aria-current="@(pageNumber == Model.Jobs.Page ? "page" : null)">@pageNumber</a>
+}
+</nav>
+</div>

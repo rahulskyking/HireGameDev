@@ -1,0 +1,58 @@
+@using HireGameDev.Application.Features.Jobs
+@model HireGameDev.Web.Models.Jobs.JobManagePage
+@{
+    var job = Model.Job;
+    ViewData["Title"] = job.Content.Title ?? "Job";
+    var expired = job.ExpiresAt.HasValue && job.ExpiresAt <= DateTimeOffset.UtcNow && (job.Status is JobStatus.Active or JobStatus.Paused or JobStatus.Full);
+    var effectiveStatus = expired ? JobStatus.Expired : job.Status;
+    var actions = effectiveStatus switch
+    {
+        JobStatus.Draft => new[] { JobLifecycleAction.Publish, JobLifecycleAction.Close },
+        JobStatus.Active => new[] { JobLifecycleAction.Pause, JobLifecycleAction.Close },
+        JobStatus.Paused => new[] { JobLifecycleAction.Resume, JobLifecycleAction.Close },
+        JobStatus.Full => new[] { JobLifecycleAction.ReopenFull, JobLifecycleAction.Close },
+        JobStatus.Expired => new[] { JobLifecycleAction.Renew, JobLifecycleAction.Close },
+        _ => Array.Empty<JobLifecycleAction>()
+    };
+}
+<div class="p-sg-stack">
+<a asp-action="Index" asp-route-studioId="@job.StudioId">Back to jobs</a>
+<h1>@(job.Content.Title ?? "Untitled draft")</h1>
+<p>Status: @effectiveStatus · Expiry: @(job.ExpiresAt?.ToString("u") ?? "Not published") · Applications: @job.ApplicationsCount / @job.ApplicationCap</p>
+@foreach (var key in new[] { "StatusMessage", "ErrorMessage", "Warnings" })
+{
+    if (TempData[key] is string message) { <p role="status">@message</p> }
+}
+<p>This is an internal management page, not a public listing or candidate preview.</p>
+@if (Model.CanWrite)
+{
+    if (effectiveStatus is JobStatus.Draft or JobStatus.Paused)
+    {
+        <a class="c-btn c-btn--secondary" asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit job</a>
+    }
+    foreach (var action in actions)
+    {
+        <form asp-action="Transition" asp-route-id="@job.Id" method="post" class="c-card" style="padding:16px">
+            <input type="hidden" name="studioId" value="@job.StudioId" />
+            <input type="hidden" name="version" value="@job.Version" />
+            <input type="hidden" name="lifecycleAction" value="@action" />
+            @if (action == JobLifecycleAction.Renew)
+            {
+                <p>Renew explicitly starts a fresh validity period after server-side publishing checks. It consumes a publication quota event.</p>
+            }
+            @if (action == JobLifecycleAction.Close) { <p>Closing is terminal. This job cannot be reopened.</p> }
+            <label><input type="checkbox" name="confirmed" value="true" required /> I confirm @action for this job.</label>
+            <button class="c-btn c-btn--secondary" type="submit">@action</button>
+        </form>
+    }
+    if (job.Status == JobStatus.Draft && job.FirstPublishedAt is null)
+    {
+        <form asp-action="Delete" asp-route-id="@job.Id" method="post">
+            <input type="hidden" name="studioId" value="@job.StudioId" />
+            <label><input type="checkbox" name="confirmed" value="true" required /> Permanently delete this draft. This cannot be undone.</label>
+            <button class="c-btn c-btn--secondary" type="submit">Delete draft</button>
+        </form>
+    }
+}
+else { <p>Your Viewer membership is read-only.</p> }
+</div>

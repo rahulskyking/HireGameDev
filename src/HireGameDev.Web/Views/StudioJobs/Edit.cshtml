@@ -1,0 +1,64 @@
+@model HireGameDev.Web.Models.Jobs.JobEditorModel
+@{ ViewData["Title"] = Model.JobId.HasValue ? "Edit job" : "Create draft"; }
+<div class="p-sg-stack">
+<a asp-action="Index" asp-route-studioId="@Model.StudioId">Back to jobs</a>
+<h1>@ViewData["Title"]</h1>
+<p>Save an incomplete draft whenever you need. Publishing checks run separately. Description is plain text, not HTML.</p>
+@if (TempData["StatusMessage"] is string message) { <p role="status">@message</p> }
+<div asp-validation-summary="All" role="alert"></div>
+<form asp-action="Save" method="post" class="p-sg-stack">
+<input asp-for="StudioId" type="hidden" /><input asp-for="JobId" type="hidden" /><input asp-for="Version" type="hidden" />
+<fieldset><legend>Role</legend>
+<label asp-for="Content.Title"></label><input class="c-input" asp-for="Content.Title" maxlength="100" /><span asp-validation-for="Content.Title"></span>
+<label asp-for="Content.Category"></label><select class="c-input" asp-for="Content.Category" asp-items="Html.GetEnumSelectList<DisciplineCategory>()"><option value="">Not set</option></select>
+<label asp-for="Content.JobType"></label><select class="c-input" asp-for="Content.JobType" asp-items="Html.GetEnumSelectList<JobType>()"><option value="">Not set</option></select>
+<label asp-for="Content.SeniorityMin"></label><select class="c-input" asp-for="Content.SeniorityMin" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Not set</option></select>
+<label asp-for="Content.SeniorityMax"></label><select class="c-input" asp-for="Content.SeniorityMax" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Not set</option></select>
+<label asp-for="Content.MinYears"></label><input class="c-input" asp-for="Content.MinYears" type="number" step="0.1" min="0" max="99.9" />
+<label asp-for="Content.MaxYears"></label><input class="c-input" asp-for="Content.MaxYears" type="number" step="0.1" min="0" max="99.9" />
+</fieldset><fieldset><legend>Location</legend>
+<label asp-for="Content.WorkMode"></label><select class="c-input" asp-for="Content.WorkMode" data-remote-value="@((int)JobWorkMode.Remote)" asp-items="Html.GetEnumSelectList<JobWorkMode>()"><option value="">Not set</option></select>
+<label asp-for="Content.CityId">City (leave blank for Remote)</label><select class="c-input" asp-for="Content.CityId"><option value="">No city</option>
+@foreach (var city in Model.Cities) { <option value="@city.Id">@city.Name, @city.StateCode</option> }
+</select>
+<label><input asp-for="Content.RelocationAssistance" /> Relocation assistance</label>
+</fieldset><fieldset><legend>Compensation and hiring</legend>
+<label asp-for="Content.PayUnit"></label><select class="c-input" asp-for="Content.PayUnit" asp-items="Html.GetEnumSelectList<JobPayUnit>()"><option value="">Not set</option></select>
+<label asp-for="Content.SalaryMin"></label><input class="c-input" asp-for="Content.SalaryMin" type="number" step="0.01" />
+<label asp-for="Content.SalaryMax"></label><input class="c-input" asp-for="Content.SalaryMax" type="number" step="0.01" />
+<label asp-for="Content.Openings"></label><input class="c-input" asp-for="Content.Openings" type="number" step="1" />
+<label asp-for="Content.MaxNoticeDays">Maximum notice days</label><select class="c-input" asp-for="Content.MaxNoticeDays"><option value="">Not specified</option>
+@foreach (var days in new[] { 0, 15, 30, 45, 60, 90 }) { <option value="@days">@days</option> }
+</select>
+<label><input asp-for="Content.FresherFriendly" /> Fresher friendly</label>
+<label asp-for="Content.ScreeningQuestion"></label><textarea class="c-input" asp-for="Content.ScreeningQuestion" maxlength="300"></textarea>
+</fieldset><fieldset><legend>Skills</legend>
+<label for="job-skill-search">Filter skill choices</label><input id="job-skill-search" class="c-input" type="search" placeholder="Search skills" />
+<p>Choose up to 12 skills. Publishing requires 3–12, with at least one required skill. Leave unused rows blank.</p>
+@for (var i = 0; i < Model.Skills.Count; i++)
+{
+    <div class="c-card" style="padding:12px">
+    <label asp-for="Skills[i].SkillId">Skill @(i + 1)</label>
+    <select class="c-input" asp-for="Skills[i].SkillId" data-job-skill-picker><option value="">Not selected</option>
+    @foreach (var skill in Model.AvailableSkills) { <option value="@skill.Id">@skill.Name</option> }
+    </select>
+    <label><input asp-for="Skills[i].IsRequired" /> Required (otherwise nice-to-have)</label>
+    <label asp-for="Skills[i].MinProficiency">Minimum proficiency</label>
+    <select class="c-input" asp-for="Skills[i].MinProficiency" asp-items="Html.GetEnumSelectList<SkillProficiency>()"></select>
+    </div>
+}
+</fieldset>
+<label asp-for="Content.Description">Description (plain text)</label><textarea class="c-input" asp-for="Content.Description" rows="16" maxlength="8000"></textarea>
+<p>Describe responsibilities, requirements and team context. Do not include contact details or application links.</p>
+<button class="c-btn c-btn--primary" type="submit">Save Draft / Changes</button>
+</form>
+@if (Model.JobId.HasValue)
+{
+    <a asp-action="Manage" asp-route-id="@Model.JobId" asp-route-studioId="@Model.StudioId">Manage status / Publish saved version</a>
+    <p>Save your changes before opening management actions. Only the saved version can be published.</p>
+}
+</div>
+
+@section Scripts {
+    <script src="~/js/studio-job-editor.js" asp-append-version="true" defer></script>
+}

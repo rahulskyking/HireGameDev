@@ -18,6 +18,51 @@ namespace HireGameDev.UnitTests.Services;
 public sealed class JobLifecycleServiceTests
 {
     [Fact]
+    public async Task StudioList_AllowsViewerReads_ButDeniesCandidateAndOtherStudio()
+    {
+        await using var h = await Harness.Create();
+        var job = await h.Draft();
+        var viewer = await h.Service.ListAsync(h.Viewer, h.Studio);
+        Assert.True(viewer.IsSuccess);
+        Assert.Equal(job.Id, Assert.Single(viewer.Value.Items).Id);
+        Assert.Equal("Jobs.Forbidden", (await h.Service.ListAsync(h.Candidate, h.Studio)).Error.Code);
+        Assert.Equal("Jobs.Forbidden", (await h.Service.ListAsync(h.Owner, Guid.NewGuid())).Error.Code);
+        Assert.Equal("Jobs.Forbidden", (await h.Service.DeleteDraftAsync(h.Viewer, h.Studio, job.Id)).Error.Code);
+    }
+
+    [Fact]
+    public async Task StudioList_FiltersAndCountsAcrossStatuses_WithoutChangingHistory()
+    {
+        await using var h = await Harness.Create();
+        await h.Draft("First developer");
+        var active = await h.Draft("Second developer");
+        await h.Act(active.Id, JobLifecycleAction.Publish);
+        var historyBefore = await h.Db.JobStatusHistory.CountAsync();
+        var list = await h.Service.ListAsync(h.Recruiter, h.Studio, JobStatus.Draft, -9);
+        Assert.True(list.IsSuccess);
+        Assert.Equal(JobStatus.Draft, Assert.Single(list.Value.Items).Status);
+        Assert.Equal(1, list.Value.Counts[JobStatus.Draft]);
+        Assert.Equal(1, list.Value.Counts[JobStatus.Active]);
+        Assert.Equal(1, list.Value.Page);
+        Assert.Equal(historyBefore, await h.Db.JobStatusHistory.CountAsync());
+        Assert.False((await h.Service.ListAsync(h.Owner, h.Studio, (JobStatus)99)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task StudioList_PaginatesWithBoundedPageSize()
+    {
+        await using var h = await Harness.Create(new JobLifecycleOptions { MaxDraftsPerStudio = 30 });
+        for (var i = 0; i < 26; i++) await h.Draft($"Developer role {i}");
+        var first = await h.Service.ListAsync(h.Owner, h.Studio);
+        var last = await h.Service.ListAsync(h.Owner, h.Studio, page: int.MaxValue);
+        Assert.Equal(25, first.Value.Items.Count);
+        Assert.Single(last.Value.Items);
+        Assert.Equal(2, last.Value.Page);
+        Assert.Equal(2, last.Value.TotalPages);
+        Assert.DoesNotContain(last.Value.Items[0].Id, first.Value.Items.Select(x => x.Id));
+    }
+
+    [Fact]
     public async Task Drafts_CanBeIncomplete_AndDeleted_WithHistoryAndSkills()
     {
         await using var h = await Harness.Create();
