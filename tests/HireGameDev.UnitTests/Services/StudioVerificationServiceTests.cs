@@ -204,7 +204,8 @@ public sealed class StudioVerificationServiceTests
                 ApplicantNotes: "Added official website https://monsoonpixel.in and company LinkedIn page."));
         Assert.True(resubmitted.IsSuccess, resubmitted.Error.Message);
         Assert.Equal(StudioVerificationStatus.Pending, resubmitted.Value.VerificationStatus);
-        Assert.Equal("https://monsoonpixel.in", resubmitted.Value.Website);
+        // Root HTTPS URLs are canonicalized through Uri.AbsoluteUri, including the trailing slash.
+        Assert.Equal("https://monsoonpixel.in/", resubmitted.Value.Website);
 
         // 9. Admin approves -> VerifiedAt & VerifiedBy populated, mandatory audit log persisted, public page live!
         harness.Clock.UtcNow = harness.Clock.UtcNow.AddHours(2);
