@@ -691,6 +691,13 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                     $"Provide clear studio-facing feedback (at least {StudioVerificationRules.MinRejectionFeedbackLength} characters) explaining what needs to be fixed or why verification was revoked."));
         }
 
+        // Serialize eligibility changes with JobLifecycleService publishing (Studio lock first).
+        await using var reviewTransaction = _dbContext.Database.IsRelational()
+            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+        if (_dbContext.Database.IsNpgsql())
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM studio_profiles WHERE id = {command.StudioId} FOR UPDATE", cancellationToken);
+
         var studio = await _dbContext.StudioProfiles
             .FirstOrDefaultAsync(s => s.Id == command.StudioId && s.DeletedAt == null, cancellationToken);
 
@@ -699,6 +706,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             return Result.Failure<ReviewStudioVerificationResult>(
                 Error.NotFound("Studio.NotFound", "Studio workspace was not found."));
         }
+
+        await _dbContext.Entry(studio).ReloadAsync(cancellationToken);
 
         var previousStatus = studio.VerificationStatus;
         var now = _clock.UtcNow;
@@ -866,6 +875,10 @@ internal sealed class StudioVerificationService : IStudioVerificationService
                     Error.Validation("StudioVerification.InvalidDecision", "Unsupported verification decision."));
         }
 
+        if (command.Decision == StudioVerificationDecision.Revoke)
+            await JobRestrictionTransitions.PauseActiveJobsAsync(_dbContext, studio.Id, command.AdminUserId,
+                now.ToUniversalTime(), "verification_revoked", trimmedReason, cancellationToken);
+
         _auditLogger.Enqueue(new AuditLogEntry(
             Action: auditAction,
             EntityType: "studio_profile",
@@ -878,6 +891,8 @@ internal sealed class StudioVerificationService : IStudioVerificationService
             RequireReason: true));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (reviewTransaction is not null) await reviewTransaction.CommitAsync(cancellationToken);
+
 
         var owner = await _dbContext.Users
             .AsNoTracking()

@@ -349,6 +349,17 @@ public sealed class StudioVerificationServiceTests
         Assert.True(newSlugAnon.IsSuccess, newSlugAnon.Error.Message);
         Assert.Equal("Monsoon Pixel Studios Pvt Ltd", newSlugAnon.Value.Name);
 
+        // Revocation must also pause published jobs atomically, without extending validity.
+        var publishedAt = harness.Clock.UtcNow;
+        var publishedJobId = Guid.NewGuid();
+        harness.DbContext.Jobs.Add(new Job
+        {
+            Id = publishedJobId, StudioId = studioId, PostedByUserId = harness.IndieOwnerUserId,
+            Slug = "revocation-regression", Status = JobStatus.Active,
+            FirstPublishedAt = publishedAt, PublishedAt = publishedAt, ExpiresAt = publishedAt.AddYears(1)
+        });
+        await harness.DbContext.SaveChangesAsync();
+
         // 11. Admin can Revoke a verified studio with mandatory audit reason + studio-facing explanation.
         var revoked = await harness.VerificationService.ReviewVerificationAsync(
             new ReviewStudioVerificationCommand(
@@ -359,6 +370,12 @@ public sealed class StudioVerificationServiceTests
                 ReviewerFeedback: "Your studio domain monsoonpixel.in is no longer resolving. Please update your website or proof links and resubmit."));
         Assert.True(revoked.IsSuccess, revoked.Error.Message);
         Assert.Equal(StudioVerificationStatus.Rejected, revoked.Value.NewStatus);
+        var pausedJob = await harness.DbContext.Jobs.AsNoTracking().SingleAsync(j => j.Id == publishedJobId);
+        Assert.Equal(JobStatus.Paused, pausedJob.Status);
+        Assert.Equal(publishedAt.AddYears(1), pausedJob.ExpiresAt);
+        var revocationHistory = await harness.DbContext.JobStatusHistory.SingleAsync(j => j.JobId == publishedJobId);
+        Assert.Equal("verification_revoked", revocationHistory.ReasonCode);
+        Assert.Equal(harness.AdminUserId, revocationHistory.ActorUserId);
     }
 
     private sealed class VerificationTestHarness : IAsyncDisposable

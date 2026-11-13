@@ -6,6 +6,8 @@ using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Abstractions.Media;
+using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
 using HireGameDev.Application.Abstractions.Storage;
@@ -220,6 +222,15 @@ public static class DependencyInjection
         services.AddScoped<ICandidateProofService, CandidateProofService>();
         services.AddScoped<ICandidateResumeImportService, CandidateResumeImportService>();
         services.AddScoped<ICandidateSettingsService, CandidateSettingsService>();
+
+        services.AddOptions<JobLifecycleOptions>()
+            .Bind(configuration.GetSection(JobLifecycleOptions.SectionName))
+            .Validate(x => x.ValidityDays is >= 1 and <= 365 && x.FreeActiveJobs >= 1 &&
+                x.PublicationsPer24Hours >= 1 && x.RepeatCooldownDays is >= 1 and <= 365 && x.MaxDraftsPerStudio >= 1,
+                "Job lifecycle limits must be positive; validity and cooldown cannot exceed 365 days.")
+            .ValidateOnStart();
+        services.AddScoped<IJobPublishChecker, PendingJobPublishChecker>();
+        services.AddScoped<IJobLifecycleService, JobLifecycleService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();
