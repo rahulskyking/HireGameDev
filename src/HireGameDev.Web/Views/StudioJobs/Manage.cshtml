@@ -5,54 +5,105 @@
     ViewData["Title"] = job.Content.Title ?? "Job";
     var expired = job.ExpiresAt.HasValue && job.ExpiresAt <= DateTimeOffset.UtcNow && (job.Status is JobStatus.Active or JobStatus.Paused or JobStatus.Full);
     var effectiveStatus = expired ? JobStatus.Expired : job.Status;
-    var actions = effectiveStatus switch
+    var editable = effectiveStatus is JobStatus.Draft or JobStatus.Paused;
+    var primaryAction = effectiveStatus switch
     {
-        JobStatus.Draft => new[] { JobLifecycleAction.Publish, JobLifecycleAction.Close },
-        JobStatus.Active => new[] { JobLifecycleAction.Pause, JobLifecycleAction.Close },
-        JobStatus.Paused => new[] { JobLifecycleAction.Resume, JobLifecycleAction.Close },
-        JobStatus.Full => new[] { JobLifecycleAction.ReopenFull, JobLifecycleAction.Close },
-        JobStatus.Expired => new[] { JobLifecycleAction.Renew, JobLifecycleAction.Close },
-        _ => Array.Empty<JobLifecycleAction>()
+        JobStatus.Draft => (JobLifecycleAction?)JobLifecycleAction.Publish,
+        JobStatus.Active => JobLifecycleAction.Pause,
+        JobStatus.Paused => JobLifecycleAction.Resume,
+        JobStatus.Full => JobLifecycleAction.ReopenFull,
+        JobStatus.Expired => JobLifecycleAction.Renew,
+        _ => null
     };
-}
-<div class="p-sg-stack">
-<a asp-action="Index" asp-route-studioId="@job.StudioId">Back to jobs</a>
-<h1>@(job.Content.Title ?? "Untitled draft")</h1>
-<p>Status: @effectiveStatus · Expiry: @(job.ExpiresAt?.ToString("u") ?? "Not published") · Applications: @job.ApplicationsCount / @job.ApplicationCap</p>
-@foreach (var key in new[] { "StatusMessage", "ErrorMessage", "Warnings" })
-{
-    if (TempData[key] is string message) { <p role="status">@message</p> }
-}
-<p>This is an internal management page, not a public listing or candidate preview.</p>
-@if (Model.CanWrite)
-{
-    if (effectiveStatus is JobStatus.Draft or JobStatus.Paused)
+    var primaryLabel = primaryAction switch
     {
-        <a class="c-btn c-btn--secondary" asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit job</a>
-    }
-    foreach (var action in actions)
+        JobLifecycleAction.Publish => "Publish job", JobLifecycleAction.Pause => "Pause listing",
+        JobLifecycleAction.Resume => "Resume listing", JobLifecycleAction.Renew => "Renew listing",
+        JobLifecycleAction.ReopenFull => "Reopen listing", _ => ""
+    };
+    var findings = Model.Findings ?? Array.Empty<JobPublishFinding>();
+}
+@section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
+<div class="jw">
+    <a asp-action="Index" asp-route-studioId="@job.StudioId" class="jw-help">← All jobs</a>
+    <header class="jw-header">
+        <div class="jw-heading"><span class="jw-eyebrow">Job management / Saved version</span><h1>@(string.IsNullOrWhiteSpace(job.Content.Title) ? "Untitled draft" : job.Content.Title)</h1><p class="jw-muted">@job.Content.JobType · @job.Content.WorkMode · @job.Content.SeniorityMin – @job.Content.SeniorityMax</p></div>
+        <span class="jw-badge" data-status="@effectiveStatus">@effectiveStatus</span>
+    </header>
+    @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status"><strong>@message</strong>@if (job.Status == JobStatus.Active && !expired) { <p>This saved job is Active. Find it under the Active tab in your job list.</p> }</div> }
+    @if (Model.Error is not null || findings.Any(x => x.Severity != JobFindingSeverity.Warning))
     {
-        <form asp-action="Transition" asp-route-id="@job.Id" method="post" class="c-card" style="padding:16px">
-            <input type="hidden" name="studioId" value="@job.StudioId" />
-            <input type="hidden" name="version" value="@job.Version" />
-            <input type="hidden" name="lifecycleAction" value="@action" />
-            @if (action == JobLifecycleAction.Renew)
+        <section class="jw-notice jw-notice--error" role="alert" tabindex="-1" id="publish-result">
+            <h2>Action not completed</h2><p>@Model.Error</p>
+            <ul>
+            @foreach (var finding in findings.Where(x => x.Severity != JobFindingSeverity.Warning))
             {
-                <p>Renew explicitly starts a fresh validity period after server-side publishing checks. It consumes a publication quota event.</p>
+                <li><strong>@(finding.Field ?? "Publishing restriction"):</strong> @finding.Message<br /><code>@finding.Code</code>
+                @if (editable && Model.CanWrite && finding.Field is not null)
+                { <a asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId" asp-fragment="@(finding.Field == "Skills" ? "job-skills" : "Content_" + finding.Field)">Fix this field →</a> }
+                </li>
             }
-            @if (action == JobLifecycleAction.Close) { <p>Closing is terminal. This job cannot be reopened.</p> }
-            <label><input type="checkbox" name="confirmed" value="true" required /> I confirm @action for this job.</label>
-            <button class="c-btn c-btn--secondary" type="submit">@action</button>
-        </form>
+            </ul>
+            <div class="jw-actions"><a asp-controller="Studio" asp-action="Verification" asp-route-studioId="@job.StudioId">Check Studio verification</a>@if (editable && Model.CanWrite) { <a asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit saved job →</a> }</div>
+        </section>
     }
-    if (job.Status == JobStatus.Draft && job.FirstPublishedAt is null)
-    {
-        <form asp-action="Delete" asp-route-id="@job.Id" method="post">
-            <input type="hidden" name="studioId" value="@job.StudioId" />
-            <label><input type="checkbox" name="confirmed" value="true" required /> Permanently delete this draft. This cannot be undone.</label>
-            <button class="c-btn c-btn--secondary" type="submit">Delete draft</button>
-        </form>
-    }
-}
-else { <p>Your Viewer membership is read-only.</p> }
+    @if (TempData["ErrorMessage"] is string oldError) { <div class="jw-notice jw-notice--error" role="alert">@oldError</div> }
+    @if (TempData["Warnings"] is string warnings) { <div class="jw-note"><strong>Quality suggestions (not blocking):</strong> @warnings</div> }
+    @if (findings.Any(x => x.Severity == JobFindingSeverity.Warning))
+    { <div class="jw-note"><strong>Quality suggestions · advisory only</strong><ul>@foreach (var warning in findings.Where(x => x.Severity == JobFindingSeverity.Warning)) { <li>@warning.Message</li> }</ul></div> }
+    <div class="jw-grid">
+        <div class="jw-stack">
+            <section class="jw-panel"><div class="jw-panel-head"><h2>Saved job details</h2><p>Internal management view. This is not the candidate preview.</p></div>
+                <div class="jw-fields">
+                    <div class="jw-stat"><small>Salary range</small><strong>@(job.Content.SalaryMin?.ToString("0.##") ?? "—") – @(job.Content.SalaryMax?.ToString("0.##") ?? "—") @job.Content.PayUnit</strong></div>
+                    <div class="jw-stat"><small>Experience</small><strong>@(job.Content.MinYears?.ToString("0.#") ?? "—") – @(job.Content.MaxYears?.ToString("0.#") ?? "Any") years</strong></div>
+                    <div class="jw-stat"><small>Applications</small><strong>@job.ApplicationsCount / @job.ApplicationCap</strong></div>
+                    <div class="jw-stat"><small>Openings</small><strong>@job.Content.Openings</strong></div>
+                </div>
+                <div class="jw-panel-head"><h2>Description</h2></div><p class="jw-description">@(string.IsNullOrWhiteSpace(job.Content.Description) ? "No description saved yet." : job.Content.Description)</p>
+            </section>
+            @if (Model.CanWrite && effectiveStatus is not (JobStatus.Closed or JobStatus.Removed))
+            {
+                <section class="jw-panel jw-danger"><div class="jw-panel-head"><h2>Close or delete</h2><p>Destructive actions are separate from publishing.</p></div>
+                    <details><summary>Close this job permanently</summary><form asp-action="Transition" asp-route-id="@job.Id" method="post" class="jw-stack">
+                        <input type="hidden" name="studioId" value="@job.StudioId" /><input type="hidden" name="version" value="@job.Version" /><input type="hidden" name="lifecycleAction" value="Close" />
+                        <p class="jw-help">Closing is terminal. The job and any application history are retained, but this job cannot be reopened.</p>
+                        <label class="jw-check"><input type="checkbox" name="confirmed" value="true" required /> I understand this job cannot be reopened.</label>
+                        <div><button class="c-btn c-btn--secondary" type="submit">Close job</button></div>
+                    </form></details>
+                    @if (job.Status == JobStatus.Draft && job.FirstPublishedAt is null)
+                    {
+                        <details><summary>Delete this unpublished draft</summary><form asp-action="Delete" asp-route-id="@job.Id" method="post" class="jw-stack">
+                            <input type="hidden" name="studioId" value="@job.StudioId" />
+                            <label class="jw-check"><input type="checkbox" name="confirmed" value="true" required /> Permanently delete this draft. This cannot be undone.</label><div><button class="c-btn c-btn--secondary" type="submit">Delete draft</button></div>
+                        </form></details>
+                    }
+                </section>
+            }
+        </div>
+        <aside class="jw-stack" aria-label="Listing controls">
+            <section class="jw-panel"><span class="jw-eyebrow">Listing status</span><span class="jw-badge" data-status="@effectiveStatus">@effectiveStatus</span>
+                <div class="jw-stat"><small>Expires · UTC</small><strong style="font-size:1rem">@(job.ExpiresAt?.ToString("dd MMM yyyy, HH:mm") ?? "Not published")</strong></div>
+                @if (Model.CanWrite)
+                {
+                    if (editable) { <a class="c-btn c-btn--secondary" asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit job details</a> }
+                    if (primaryAction.HasValue)
+                    {
+                        <form asp-action="Transition" asp-route-id="@job.Id" method="post" class="jw-stack">
+                            <input type="hidden" name="studioId" value="@job.StudioId" /><input type="hidden" name="version" value="@job.Version" /><input type="hidden" name="lifecycleAction" value="@primaryAction.Value" />
+                            @if (primaryAction == JobLifecycleAction.Renew) { <p class="jw-help">Renewal starts a fresh validity period and consumes a publication quota event. All publish checks run again.</p> }
+                            else if (primaryAction == JobLifecycleAction.Publish) { <p class="jw-help">Publish the saved version. Your Studio must be verified, and all mandatory checks must pass.</p> }
+                            else if (primaryAction == JobLifecycleAction.Pause) { <p class="jw-help">Pause this listing before editing published content. Pausing does not extend its expiry.</p> }
+                            else { <p class="jw-help">Resuming or reopening reruns server checks and does not extend the expiry date.</p> }
+                            <label class="jw-check"><input type="checkbox" name="confirmed" value="true" required /> I confirm this action on the saved job.</label>
+                            <button class="c-btn c-btn--primary" type="submit">@primaryLabel</button>
+                        </form>
+                    }
+                    else { <p class="jw-help">This job is terminal and cannot be republished.</p> }
+                }
+                else { <p class="jw-help">You have Viewer access. Only Owners and Recruiters can make changes.</p> }
+            </section>
+            <div class="jw-note"><strong>Self-service publishing</strong><p>There is no routine Admin approval. If a check blocks the action, the reason appears above.</p></div>
+        </aside>
+    </div>
 </div>

@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\HireGameDev.Web\HireGameDev.Web.csproj" />
     <ProjectReference Include="..\..\src\HireGameDev.Domain\HireGameDev.Domain.csproj" />
     <ProjectReference Include="..\..\src\HireGameDev.Application\HireGameDev.Application.csproj" />
     <ProjectReference Include="..\..\src\HireGameDev.Infrastructure\HireGameDev.Infrastructure.csproj" />

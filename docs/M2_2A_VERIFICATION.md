@@ -33,3 +33,25 @@ These are not HTTP integration tests: exercise the POST/antiforgery checks manua
 Security dependency note: owner's earlier restore reported ImageSharp 3.1.12
 advisories. That separate dependency remediation is still outstanding; these
 warnings must not be mistaken for resolved by the job-management changes.
+
+## Reopened acceptance: UI / Publish feedback
+
+Owner rejected the initial UI and reported Publish not showing Active. Acceptance
+is reopened; M2.2b must wait. Specific publication blocker has not been reproduced.
+
+- Verify new job list/table, grouped editor and management sidebar on mobile and
+  desktop, light and dark themes.
+- Change job content, click **Save & manage status**: verify the saved description
+  and salary on the management page match those changes before publishing.
+- Publish an incomplete draft: expect an **Action not completed** alert, Draft
+  badge, individual blocking findings/codes and links to editor fields.
+- Click a finding's Fix link: editor must open at that field. Skills uses the skill
+  section anchor. Studio verification links must preserve workspace scope.
+- Publish a valid saved draft from a verified Studio: expect "now Active", an
+  Active badge, and the job under the Active list tab after navigation/refresh.
+- If it remains Draft, report the exact visible finding code/message. Do not
+  weaken the publishing rules to force a status change.
+- Stale, malformed or unconfirmed requests must not report success. A stale
+  request reloads the current saved snapshot/version before allowing a retry.
+- Controller tests exercise response decisions, not browser/HTTP model binding.
+  The tests now reference the Web project, so `dotnet test` also builds its views.

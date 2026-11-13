@@ -66,7 +66,7 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
     }
 
     [HttpPost("Save"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.StudioJobsWrite)]
-    public async Task<IActionResult> Save(JobEditorModel model, CancellationToken cancellationToken)
+    public async Task<IActionResult> Save(JobEditorModel model, string? destination, CancellationToken cancellationToken)
     {
         if (await Membership(model.StudioId, true, cancellationToken) is null) return Forbid();
         if (ModelState.IsValid)
@@ -77,7 +77,7 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             if (result.IsSuccess)
             {
                 TempData["StatusMessage"] = "Job saved.";
-                return RedirectToAction(nameof(Edit), new { id = result.Value.Id, studioId = model.StudioId });
+                return RedirectToAction(destination == "manage" ? nameof(Manage) : nameof(Edit), new { id = result.Value.Id, studioId = model.StudioId });
             }
             ModelState.AddModelError("", result.Error.Message);
             if (result.Error.Code == "Jobs.StaleVersion") Response.StatusCode = StatusCodes.Status409Conflict;
@@ -102,17 +102,34 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
         bool confirmed, CancellationToken cancellationToken)
     {
         if (await Membership(studioId, true, cancellationToken) is null) return Forbid();
-        if (!ModelState.IsValid || !Enum.IsDefined(lifecycleAction)) return BadRequest();
-        if (!confirmed) { TempData["ErrorMessage"] = "Confirm the action before continuing."; }
-        else
+        if (!ModelState.IsValid || !Enum.IsDefined(lifecycleAction))
+            return await Rejected(id, studioId, "The action could not be read. Reload this page and try again.", cancellationToken);
+        if (!confirmed)
+            return await Rejected(id, studioId, "Confirm the action before continuing. No status change was requested.", cancellationToken);
+
+        var result = await jobs.TransitionAsync(new(Actor, studioId, id, lifecycleAction, version), cancellationToken);
+        if (result.IsFailure)
+            return await Rejected(id, studioId, result.Error.Message, cancellationToken);
+        if (!result.Value.Applied)
         {
-            var result = await jobs.TransitionAsync(new(Actor, studioId, id, lifecycleAction, version), cancellationToken);
-            TempData[result.IsSuccess && result.Value.Applied ? "StatusMessage" : "ErrorMessage"] = result.IsFailure
-                ? result.Error.Message : result.Value.Applied ? "Job status updated." : string.Join(" ", result.Value.Findings.Select(x => x.Message));
-            if (result.IsSuccess && result.Value.Applied && result.Value.Findings.Count > 0)
-                TempData["Warnings"] = string.Join(" ", result.Value.Findings.Select(x => x.Message));
+            // Keep structured findings in the response, rather than flattening them into a TempData cookie.
+            // A successful Result means evaluated, NOT published. Applied is the business outcome.
+            Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+            return View("Manage", new JobManagePage(result.Value.Job, true, result.Value.Findings,
+                $"{lifecycleAction} was not completed. The job is {result.Value.Job.Status}."));
         }
+        TempData["StatusMessage"] = $"{lifecycleAction} completed. The job is now {result.Value.Job.Status}.";
+        if (result.Value.Findings.Count > 0)
+            TempData["Warnings"] = string.Join(" ", result.Value.Findings.Select(x => x.Message));
         return RedirectToAction(nameof(Manage), new { id, studioId });
+    }
+
+    private async Task<IActionResult> Rejected(Guid id, Guid studioId, string error, CancellationToken ct)
+    {
+        var current = await jobs.GetAsync(Actor, studioId, id, ct);
+        if (current.IsFailure) return NotFound();
+        Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        return View("Manage", new JobManagePage(current.Value, true, Error: error));
     }
 
     [HttpPost("{id:guid}/Delete"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.StudioJobsWrite)]

@@ -1,64 +1,74 @@
 @model HireGameDev.Web.Models.Jobs.JobEditorModel
-@{ ViewData["Title"] = Model.JobId.HasValue ? "Edit job" : "Create draft"; }
-<div class="p-sg-stack">
-<a asp-action="Index" asp-route-studioId="@Model.StudioId">Back to jobs</a>
-<h1>@ViewData["Title"]</h1>
-<p>Save an incomplete draft whenever you need. Publishing checks run separately. Description is plain text, not HTML.</p>
-@if (TempData["StatusMessage"] is string message) { <p role="status">@message</p> }
-<div asp-validation-summary="All" role="alert"></div>
-<form asp-action="Save" method="post" class="p-sg-stack">
+@{ ViewData["Title"] = Model.JobId.HasValue ? "Edit job" : "Create a job"; }
+@section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
+<div class="jw">
+<a asp-action="Index" asp-route-studioId="@Model.StudioId" class="jw-help">← All jobs</a>
+<header class="jw-header"><div class="jw-heading"><span class="jw-eyebrow">Hiring workspace / Job editor</span><h1>@ViewData["Title"]</h1><p class="jw-muted">Tell the right developers what they’ll build with you.</p></div><span class="jw-badge">Manual save</span></header>
+@if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status">@message</div> }
+<div class="jw-validation"><div asp-validation-summary="All" class="jw-notice jw-notice--error" role="alert"></div></div>
+<form asp-action="Save" method="post" class="jw-stack">
 <input asp-for="StudioId" type="hidden" /><input asp-for="JobId" type="hidden" /><input asp-for="Version" type="hidden" />
-<fieldset><legend>Role</legend>
-<label asp-for="Content.Title"></label><input class="c-input" asp-for="Content.Title" maxlength="100" /><span asp-validation-for="Content.Title"></span>
-<label asp-for="Content.Category"></label><select class="c-input" asp-for="Content.Category" asp-items="Html.GetEnumSelectList<DisciplineCategory>()"><option value="">Not set</option></select>
-<label asp-for="Content.JobType"></label><select class="c-input" asp-for="Content.JobType" asp-items="Html.GetEnumSelectList<JobType>()"><option value="">Not set</option></select>
-<label asp-for="Content.SeniorityMin"></label><select class="c-input" asp-for="Content.SeniorityMin" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Not set</option></select>
-<label asp-for="Content.SeniorityMax"></label><select class="c-input" asp-for="Content.SeniorityMax" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Not set</option></select>
-<label asp-for="Content.MinYears"></label><input class="c-input" asp-for="Content.MinYears" type="number" step="0.1" min="0" max="99.9" />
-<label asp-for="Content.MaxYears"></label><input class="c-input" asp-for="Content.MaxYears" type="number" step="0.1" min="0" max="99.9" />
-</fieldset><fieldset><legend>Location</legend>
-<label asp-for="Content.WorkMode"></label><select class="c-input" asp-for="Content.WorkMode" data-remote-value="@((int)JobWorkMode.Remote)" asp-items="Html.GetEnumSelectList<JobWorkMode>()"><option value="">Not set</option></select>
-<label asp-for="Content.CityId">City (leave blank for Remote)</label><select class="c-input" asp-for="Content.CityId"><option value="">No city</option>
+<div class="jw-grid"><div class="jw-stack">
+<section class="jw-panel"><div class="jw-panel-head"><h2><span class="jw-step">01</span>The role</h2><p>A clear title and realistic experience range help the right people find you.</p></div><div class="jw-fields">
+<div class="jw-field jw-wide"><label asp-for="Content.Title">Job title</label><input class="c-input" asp-for="Content.Title" maxlength="100" placeholder="e.g. Unity Gameplay Developer" /><span asp-validation-for="Content.Title"></span><small>5–100 characters. No salary, contact details or ALL CAPS titles.</small></div>
+<div class="jw-field"><label asp-for="Content.Category">Discipline</label><select class="c-select" asp-for="Content.Category" asp-items="Html.GetEnumSelectList<DisciplineCategory>()"><option value="">Select an option</option></select></div>
+<div class="jw-field"><label asp-for="Content.JobType">Employment type</label><select class="c-select" asp-for="Content.JobType" asp-items="Html.GetEnumSelectList<JobType>()"><option value="">Select an option</option></select></div>
+<div class="jw-field"><label asp-for="Content.SeniorityMin">Minimum seniority</label><select class="c-select" asp-for="Content.SeniorityMin" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Select an option</option></select></div>
+<div class="jw-field"><label asp-for="Content.SeniorityMax">Maximum seniority</label><select class="c-select" asp-for="Content.SeniorityMax" asp-items="Html.GetEnumSelectList<SeniorityLevel>()"><option value="">Select an option</option></select></div>
+<div class="jw-field "><label asp-for="Content.MinYears">Minimum experience (years)</label><input class="c-input" asp-for="Content.MinYears" type="number" step="0.1" min="0" max="99.9" placeholder="e.g. 1" /><span asp-validation-for="Content.MinYears"></span></div>
+<div class="jw-field "><label asp-for="Content.MaxYears">Maximum experience (optional)</label><input class="c-input" asp-for="Content.MaxYears" type="number" step="0.1" min="0" max="99.9" placeholder="No maximum" /><span asp-validation-for="Content.MaxYears"></span></div>
+</div></section>
+<section class="jw-panel"><div class="jw-panel-head"><h2><span class="jw-step">02</span>Location &amp; flexibility</h2><p>Set expectations before the first conversation.</p></div><div class="jw-fields">
+<div class="jw-field"><label asp-for="Content.WorkMode">Work arrangement</label><select class="c-select" asp-for="Content.WorkMode" asp-items="Html.GetEnumSelectList<JobWorkMode>()" data-remote-value="@((int)JobWorkMode.Remote)"><option value="">Select an option</option></select></div>
+<div class="jw-field"><label asp-for="Content.CityId">Office city</label><select class="c-select" asp-for="Content.CityId"><option value="">Select a city</option>
 @foreach (var city in Model.Cities) { <option value="@city.Id">@city.Name, @city.StateCode</option> }
-</select>
-<label><input asp-for="Content.RelocationAssistance" /> Relocation assistance</label>
-</fieldset><fieldset><legend>Compensation and hiring</legend>
-<label asp-for="Content.PayUnit"></label><select class="c-input" asp-for="Content.PayUnit" asp-items="Html.GetEnumSelectList<JobPayUnit>()"><option value="">Not set</option></select>
-<label asp-for="Content.SalaryMin"></label><input class="c-input" asp-for="Content.SalaryMin" type="number" step="0.01" />
-<label asp-for="Content.SalaryMax"></label><input class="c-input" asp-for="Content.SalaryMax" type="number" step="0.01" />
-<label asp-for="Content.Openings"></label><input class="c-input" asp-for="Content.Openings" type="number" step="1" />
-<label asp-for="Content.MaxNoticeDays">Maximum notice days</label><select class="c-input" asp-for="Content.MaxNoticeDays"><option value="">Not specified</option>
-@foreach (var days in new[] { 0, 15, 30, 45, 60, 90 }) { <option value="@days">@days</option> }
-</select>
-<label><input asp-for="Content.FresherFriendly" /> Fresher friendly</label>
-<label asp-for="Content.ScreeningQuestion"></label><textarea class="c-input" asp-for="Content.ScreeningQuestion" maxlength="300"></textarea>
-</fieldset><fieldset><legend>Skills</legend>
-<label for="job-skill-search">Filter skill choices</label><input id="job-skill-search" class="c-input" type="search" placeholder="Search skills" />
-<p>Choose up to 12 skills. Publishing requires 3–12, with at least one required skill. Leave unused rows blank.</p>
-@for (var i = 0; i < Model.Skills.Count; i++)
+</select><small>Required for onsite / hybrid. Leave blank for Remote.</small></div>
+<label class="jw-check"><input asp-for="Content.RelocationAssistance" /> Relocation assistance available</label>
+</div></section>
+<section class="jw-panel"><div class="jw-panel-head"><h2><span class="jw-step">03</span>Compensation &amp; hiring</h2><p>Transparent pay is required to publish. Keep the range focused on this role.</p></div><div class="jw-fields">
+<div class="jw-field"><label asp-for="Content.PayUnit">Salary unit</label><select class="c-select" asp-for="Content.PayUnit" asp-items="Html.GetEnumSelectList<JobPayUnit>()"><option value="">Select an option</option></select><small>LPA for full-time / part-time. Monthly INR for contracts / internships.</small></div>
+<div class="jw-field "><label asp-for="Content.Openings">Number of openings</label><input class="c-input" asp-for="Content.Openings" type="number" step="1" min="1" max="50" /><span asp-validation-for="Content.Openings"></span></div>
+<div class="jw-field "><label asp-for="Content.SalaryMin">Minimum salary</label><input class="c-input" asp-for="Content.SalaryMin" type="number" step="0.01" min="0.01" placeholder="e.g. 10" /><span asp-validation-for="Content.SalaryMin"></span></div>
+<div class="jw-field "><label asp-for="Content.SalaryMax">Maximum salary</label><input class="c-input" asp-for="Content.SalaryMax" type="number" step="0.01" min="0.01" placeholder="e.g. 15" /><span asp-validation-for="Content.SalaryMax"></span></div>
+<div class="jw-field"><label asp-for="Content.MaxNoticeDays">Maximum notice period</label><select class="c-select" asp-for="Content.MaxNoticeDays"><option value="">Not specified</option>
+@foreach (var days in new[] { 0, 15, 30, 45, 60, 90 }) { <option value="@days">@days days</option> }
+</select></div>
+<label class="jw-check"><input asp-for="Content.FresherFriendly" /> Open to freshers</label>
+<div class="jw-field jw-wide"><label asp-for="Content.ScreeningQuestion">Screening question <span class="jw-muted">(optional)</span></label><textarea class="c-input" asp-for="Content.ScreeningQuestion" rows="3" maxlength="300" placeholder="One useful question about the candidate’s experience"></textarea><small>Up to 300 characters. No contact details or external links.</small></div>
+</div></section>
+<section class="jw-panel" id="job-skills"><div class="jw-panel-head"><h2><span class="jw-step">04</span>Skills that matter</h2><p>Select 3–12 distinct skills and mark at least one as required. Unused rows can stay blank.</p></div>
+<div class="jw-field"><label for="job-skill-search">Find a skill</label><input id="job-skill-search" class="c-input" type="search" placeholder="Filter choices, e.g. Unity, C++, Blender" /></div>
+<div class="jw-skills">
+@for (var i = 0; i < Math.Min(3, Model.Skills.Count); i++)
 {
-    <div class="c-card" style="padding:12px">
-    <label asp-for="Skills[i].SkillId">Skill @(i + 1)</label>
-    <select class="c-input" asp-for="Skills[i].SkillId" data-job-skill-picker><option value="">Not selected</option>
-    @foreach (var skill in Model.AvailableSkills) { <option value="@skill.Id">@skill.Name</option> }
-    </select>
-    <label><input asp-for="Skills[i].IsRequired" /> Required (otherwise nice-to-have)</label>
-    <label asp-for="Skills[i].MinProficiency">Minimum proficiency</label>
-    <select class="c-input" asp-for="Skills[i].MinProficiency" asp-items="Html.GetEnumSelectList<SkillProficiency>()"></select>
-    </div>
-}
-</fieldset>
-<label asp-for="Content.Description">Description (plain text)</label><textarea class="c-input" asp-for="Content.Description" rows="16" maxlength="8000"></textarea>
-<p>Describe responsibilities, requirements and team context. Do not include contact details or application links.</p>
-<button class="c-btn c-btn--primary" type="submit">Save Draft / Changes</button>
-</form>
-@if (Model.JobId.HasValue)
-{
-    <a asp-action="Manage" asp-route-id="@Model.JobId" asp-route-studioId="@Model.StudioId">Manage status / Publish saved version</a>
-    <p>Save your changes before opening management actions. Only the saved version can be published.</p>
-}
+<div class="jw-skill">
+<div class="jw-field"><label asp-for="Skills[i].SkillId">Skill @(i + 1)</label><select class="c-select" asp-for="Skills[i].SkillId" data-job-skill-picker><option value="">Choose a skill</option>
+@foreach (var skill in Model.AvailableSkills) { <option value="@skill.Id">@skill.Name</option> }
+</select></div>
+<div class="jw-field"><label asp-for="Skills[i].MinProficiency">Proficiency</label><select class="c-select" asp-for="Skills[i].MinProficiency" asp-items="Html.GetEnumSelectList<SkillProficiency>()"></select></div>
+<label class="jw-check"><input asp-for="Skills[i].IsRequired" /> Required</label>
 </div>
-
-@section Scripts {
-    <script src="~/js/studio-job-editor.js" asp-append-version="true" defer></script>
 }
+</div><details open="@(Model.Skills.Skip(3).Any(x => x.SkillId.HasValue) ? "open" : null)"><summary>Additional skills (up to 9 more)</summary><div class="jw-skills">
+@for (var i = 3; i < Model.Skills.Count; i++)
+{
+<div class="jw-skill">
+<div class="jw-field"><label asp-for="Skills[i].SkillId">Skill @(i + 1)</label><select class="c-select" asp-for="Skills[i].SkillId" data-job-skill-picker><option value="">Choose a skill</option>
+@foreach (var skill in Model.AvailableSkills) { <option value="@skill.Id">@skill.Name</option> }
+</select></div>
+<div class="jw-field"><label asp-for="Skills[i].MinProficiency">Proficiency</label><select class="c-select" asp-for="Skills[i].MinProficiency" asp-items="Html.GetEnumSelectList<SkillProficiency>()"></select></div>
+<label class="jw-check"><input asp-for="Skills[i].IsRequired" /> Required</label>
+</div>
+}</div></details>
+</section>
+<section class="jw-panel"><div class="jw-panel-head"><h2><span class="jw-step">05</span>Describe the opportunity</h2><p>What will they build? Who will they work with? What does success look like?</p></div>
+<div class="jw-field"><label asp-for="Content.Description">Job description</label><textarea class="c-input" asp-for="Content.Description" rows="14" maxlength="8000" placeholder="About the role&#10;&#10;What you’ll do&#10;&#10;What you’ll bring&#10;&#10;Team &amp; benefits"></textarea><span asp-validation-for="Content.Description"></span><small>100–8,000 characters to publish. Plain text only. Do not include contact details or application links.</small></div>
+</section>
+</div><aside class="jw-stack" aria-label="Saving and publishing guidance">
+<section class="jw-panel"><span class="jw-eyebrow">Good to know</span><h2>Your draft, your pace.</h2><p class="jw-help">Save incomplete details now. Nothing goes live until you explicitly publish a saved job.</p><hr /><h2>Before publishing</h2><ul class="jw-help"><li>Verified, non-suspended Studio</li><li>Complete role, location &amp; salary</li><li>3–12 skills; at least one required</li><li>Clear description without contact details</li></ul><p class="jw-help">Warnings are suggestions, not approval gates. Publication limits and duplicate checks still apply.</p></section>
+<div class="jw-note"><strong>No automatic saving yet.</strong><p>Use Save draft to keep your changes. Concurrent edits are rejected instead of overwritten.</p></div>
+</aside></div>
+<footer class="jw-panel jw-footer"><div class="jw-row"><p class="jw-help">Only saved content can be published.</p><div class="jw-actions"><button class="c-btn c-btn--secondary" type="submit">@(Model.JobId.HasValue ? "Save changes" : "Save draft")</button><button class="c-btn c-btn--primary" type="submit" name="destination" value="manage">Save &amp; manage status →</button></div></div></footer>
+</form>
+</div>
+@section Scripts { <script src="~/js/studio-job-editor.js" asp-append-version="true" defer></script> }

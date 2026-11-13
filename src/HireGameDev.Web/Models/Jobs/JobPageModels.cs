@@ -23,4 +23,5 @@ public sealed class JobSkillRow
 }
 public sealed record JobListPage(StudioMembershipSummary Studio, IReadOnlyList<StudioMembershipSummary> Memberships,
     StudioJobList Jobs, JobStatus? Filter);
-public sealed record JobManagePage(JobSnapshot Job, bool CanWrite);
+public sealed record JobManagePage(JobSnapshot Job, bool CanWrite,
+    IReadOnlyList<JobPublishFinding>? Findings = null, string? Error = null);
