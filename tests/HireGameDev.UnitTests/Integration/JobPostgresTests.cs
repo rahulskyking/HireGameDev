@@ -31,6 +31,37 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class JobPostgresTests
 {
     [PostgresFact]
+    public async Task PublicQueries_TranslateFiltersAndHideRevokedStudioWithoutScheduler()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        await using var session = h.Session();
+        var published = await session.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+        Assert.True(published.IsSuccess); Assert.True(published.Value.Applied);
+        // No logo in this fixture; resolver must not be called for absent assets.
+        var service = new PublicJobQueryService(session.Db, new TestClock(), null!);
+        var search = new PublicJobSearch { Keyword = "GAMEPLAY systems", Category = DisciplineCategory.Programming,
+            JobType = JobType.FullTime, WorkMode = JobWorkMode.Remote, ExperienceYears = 1,
+            SkillIds = draft.Content.Skills.Select(x => x.SkillId).ToArray(), PageSize = 1 };
+        var list = await service.SearchAsync(search);
+        Assert.True(list.IsSuccess);
+        Assert.Equal(draft.Id, Assert.Single(list.Value.Items).Id);
+        Assert.Empty((await service.SearchAsync(search with { Keyword = "%" })).Value.Items);
+        Assert.Empty((await service.SearchAsync(search with { Keyword = "_" })).Value.Items);
+        var detail = await service.GetBySlugAsync(draft.Slug.ToUpperInvariant());
+        Assert.True(detail.IsSuccess);
+        Assert.Equal(3, detail.Value.Skills.Count);
+        var studio = await session.Db.StudioProfiles.SingleAsync();
+        studio.VerificationStatus = StudioVerificationStatus.Rejected;
+        await session.Db.SaveChangesAsync();
+        Assert.Empty((await service.SearchAsync(new())).Value.Items);
+        Assert.Equal("PublicJobs.Unavailable", (await service.GetBySlugAsync(draft.Slug)).Error.Code);
+        Assert.Equal(JobStatus.Active, (await session.Db.Jobs.SingleAsync()).Status);
+        Assert.Equal(2, await session.Db.JobStatusHistory.CountAsync());
+        Assert.Single(await session.Db.JobPublicationEvents.ToArrayAsync());
+    }
+
+    [PostgresFact]
     public async Task SkillOnlyEdit_AdvancesParentXmin_AndRejectsOldSelection()
     {
         await using var h = await DatabaseHarness.Create();
