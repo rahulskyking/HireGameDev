@@ -2,6 +2,8 @@ using System.Reflection;
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
 using HireGameDev.Application.Abstractions.Studios;
+using HireGameDev.Application.Abstractions.ReferenceData;
+using HireGameDev.Application.Features.ReferenceData;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Application.Features.Studios;
@@ -17,6 +19,97 @@ namespace HireGameDev.UnitTests.Web;
 
 public sealed class StudioJobsControllerTests
 {
+    [Fact]
+    public async Task Preview_IsPrivateReadOnly_UsesSavedContentAndShowsWarningsWithoutBlocking()
+    {
+        var h = new Harness();
+        h.Jobs.Snapshot = h.Jobs.Snapshot with { Content = new JobContent { Title = "Saved title" } };
+        h.Checker.Findings = new[] { new JobPublishFinding("Jobs.DescriptionDetail", JobFindingSeverity.Warning, "Description", "Add detail.") };
+        var result = await h.Controller.Preview(h.Jobs.Snapshot.Id, h.Studio, default);
+        var page = Assert.IsType<JobPreviewPage>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("private, no-store", h.Controller.Response.Headers["Cache-Control"].ToString());
+        Assert.Equal("noindex, nofollow", h.Controller.Response.Headers["X-Robots-Tag"].ToString());
+        Assert.True(page.CanWrite);
+        Assert.True(page.Assessment!.CanPublish);
+        Assert.Equal(JobLifecycleAction.Publish, page.ConfirmationAction);
+        Assert.Equal("Saved title", h.Checker.LastContext!.Content.Title);
+        Assert.Equal(h.Studio, h.Checker.LastContext.StudioId);
+        Assert.Null(h.Jobs.LastSave);
+        Assert.Null(h.Jobs.LastTransition);
+    }
+
+    [Fact]
+    public async Task Preview_RejectsOtherStudioAndWrongJobBeforeCheckingContent()
+    {
+        var h = new Harness();
+        Assert.IsType<ForbidResult>(await h.Controller.Preview(h.Jobs.Snapshot.Id, Guid.NewGuid(), default));
+        Assert.Null(h.Checker.LastContext);
+        Assert.IsType<NotFoundResult>(await h.Controller.Preview(Guid.NewGuid(), h.Studio, default));
+        Assert.Null(h.Checker.LastContext);
+    }
+
+    [Fact]
+    public async Task ViewerPreview_ContainsNoAssessmentOrMutationControls()
+    {
+        var h = new Harness(StudioMemberRole.Viewer);
+        var result = await h.Controller.Preview(h.Jobs.Snapshot.Id, h.Studio, default);
+        var page = Assert.IsType<JobPreviewPage>(Assert.IsType<ViewResult>(result).Model);
+        Assert.False(page.CanWrite);
+        Assert.Null(page.Assessment);
+        Assert.Null(page.ConfirmationAction);
+        Assert.Null(h.Checker.LastContext);
+    }
+
+    [Theory]
+    [InlineData(JobStatus.Paused, JobLifecycleAction.Resume)]
+    [InlineData(JobStatus.Full, JobLifecycleAction.ReopenFull)]
+    [InlineData(JobStatus.Expired, JobLifecycleAction.Renew)]
+    [InlineData(JobStatus.Closed, null)]
+    [InlineData(JobStatus.Removed, null)]
+    [InlineData(JobStatus.Active, null)]
+    public async Task Preview_OffersOnlyExplicitStatusAppropriateAction(JobStatus status, JobLifecycleAction? action)
+    {
+        var h = new Harness();
+        h.Jobs.Snapshot = h.Jobs.Snapshot with { Status = status };
+        var page = Assert.IsType<JobPreviewPage>(Assert.IsType<ViewResult>(await h.Controller.Preview(h.Jobs.Snapshot.Id, h.Studio, default)).Model);
+        Assert.Equal(action, page.ConfirmationAction);
+    }
+
+    [Fact]
+    public async Task Preview_OverduePausedJob_RequiresRenewalWithoutMutatingStatus()
+    {
+        var h = new Harness();
+        h.Jobs.Snapshot = h.Jobs.Snapshot with { Status = JobStatus.Paused, ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1) };
+        var page = Assert.IsType<JobPreviewPage>(Assert.IsType<ViewResult>(await h.Controller.Preview(h.Jobs.Snapshot.Id, h.Studio, default)).Model);
+        Assert.Equal(JobLifecycleAction.Renew, page.ConfirmationAction);
+        Assert.Equal(JobStatus.Paused, h.Jobs.Snapshot.Status);
+        Assert.Null(h.Jobs.LastTransition);
+    }
+
+    [Fact]
+    public async Task PreviewPassed_DoesNotBypassSubsequentPublishRejection()
+    {
+        var h = new Harness();
+        var preview = Assert.IsType<JobPreviewPage>(Assert.IsType<ViewResult>(await h.Controller.Preview(h.Jobs.Snapshot.Id, h.Studio, default)).Model);
+        Assert.True(preview.Assessment!.CanPublish);
+        h.Jobs.Outcome = Result.Success(new JobLifecycleOutcome(false, h.Jobs.Snapshot,
+            new[] { new JobPublishFinding("Jobs.StudioRestricted", JobFindingSeverity.PostingRestriction, null, "Verification revoked.") }));
+        var result = await h.Controller.Transition(h.Jobs.Snapshot.Id, h.Studio, JobLifecycleAction.Publish, h.Jobs.Snapshot.Version, true, default);
+        var blocked = Assert.IsType<JobManagePage>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("Jobs.StudioRestricted", Assert.Single(blocked.Findings!).Code);
+        Assert.NotNull(h.Jobs.LastTransition);
+        Assert.False(h.Controller.TempData.ContainsKey("StatusMessage"));
+    }
+
+    [Fact]
+    public async Task SaveAndPreview_SavesCurrentFormBeforePreviewing()
+    {
+        var h = new Harness();
+        var result = await h.Controller.Save(new JobEditorModel { StudioId = h.Studio, Content = new JobContent { Title = "Current edit" } }, "preview", default);
+        Assert.Equal("Preview", Assert.IsType<RedirectToActionResult>(result).ActionName);
+        Assert.Equal("Current edit", h.Jobs.LastSave!.Content.Title);
+    }
+
     [Fact]
     public async Task Autosave_RequiresExistingJobAndVersion_AndViewerCannotWrite()
     {
@@ -140,13 +233,14 @@ public sealed class StudioJobsControllerTests
         public Guid Studio { get; } = Guid.NewGuid();
         public FakeJobs Jobs { get; }
         public StudioJobsController Controller { get; }
+        public PreviewChecker Checker { get; } = new();
         public Harness(StudioMemberRole role = StudioMemberRole.Owner)
         {
             Jobs = new FakeJobs(Studio);
             var studios = DispatchProxy.Create<IStudioProfileService, MembershipProxy>();
             ((MembershipProxy)(object)studios).Memberships = new[] { new StudioMembershipSummary(Studio, "Studio", "studio", null, role, StudioVerificationStatus.Verified, null) };
             var context = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, Actor.ToString()) }, "test")) };
-            Controller = new(Jobs, studios, null!)
+            Controller = new(Jobs, studios, DispatchProxy.Create<IReferenceDataService, LookupProxy>(), Checker)
             {
                 ControllerContext = new ControllerContext { HttpContext = context },
                 TempData = new TempDataDictionary(context, new EmptyTempDataProvider())
@@ -160,6 +254,22 @@ public sealed class StudioJobsControllerTests
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
             targetMethod?.Name == nameof(IStudioProfileService.GetUserMembershipsAsync)
                 ? Task.FromResult(Memberships) : throw new NotSupportedException();
+    }
+    public class LookupProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.Name switch
+        {
+            nameof(IReferenceDataService.GetActiveSkillsAsync) => Task.FromResult<IReadOnlyList<SkillLookupItem>>(Array.Empty<SkillLookupItem>()),
+            nameof(IReferenceDataService.GetActiveCitiesAsync) => Task.FromResult<IReadOnlyList<CityLookupItem>>(Array.Empty<CityLookupItem>()),
+            _ => throw new NotSupportedException()
+        };
+    }
+    private sealed class PreviewChecker : IJobPublishChecker
+    {
+        public JobPublishContext? LastContext { get; private set; }
+        public IReadOnlyList<JobPublishFinding> Findings { get; set; } = Array.Empty<JobPublishFinding>();
+        public Task<JobPublishCheckResult> CheckAsync(JobPublishContext context, CancellationToken cancellationToken = default)
+        { LastContext = context; return Task.FromResult(new JobPublishCheckResult(Findings)); }
     }
     private sealed class EmptyTempDataProvider : ITempDataProvider
     {
@@ -178,7 +288,8 @@ public sealed class StudioJobsControllerTests
             Snapshot = new(Guid.NewGuid(), studio, "job-test", JobStatus.Draft, new JobContent(), 50, 0, null, null, null, 7);
             Outcome = Result.Success(new JobLifecycleOutcome(false, Snapshot, Array.Empty<JobPublishFinding>()));
         }
-        public Task<Result<JobSnapshot>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default) => Task.FromResult(Result.Success(Snapshot));
+        public Task<Result<JobSnapshot>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(studioId == Snapshot.StudioId && jobId == Snapshot.Id ? Result.Success(Snapshot) : Result.Failure<JobSnapshot>(Error.NotFound("Jobs.NotFound", "Not found.")));
         public Task<Result<JobSnapshot>> SaveAsync(SaveJobCommand command, CancellationToken cancellationToken = default)
         { LastSave = command; return Task.FromResult(SaveError is null ? Result.Success(Snapshot with { Content = command.Content }) : Result.Failure<JobSnapshot>(SaveError)); }
         public Task<Result<JobLifecycleOutcome>> TransitionAsync(JobTransitionCommand command, CancellationToken cancellationToken = default)

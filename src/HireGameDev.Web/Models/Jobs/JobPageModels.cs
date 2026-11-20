@@ -29,3 +29,8 @@ public sealed record JobListPage(StudioMembershipSummary Studio, IReadOnlyList<S
     StudioJobList Jobs, JobStatus? Filter);
 public sealed record JobManagePage(JobSnapshot Job, bool CanWrite,
     IReadOnlyList<JobPublishFinding>? Findings = null, string? Error = null);
+
+public sealed record JobPreviewSkill(string Name, bool IsRequired, SkillProficiency MinProficiency);
+public sealed record JobPreviewPage(JobSnapshot Job, StudioMembershipSummary Studio, string? CityName,
+    IReadOnlyList<JobPreviewSkill> Skills, bool CanWrite, JobPublishCheckResult? Assessment,
+    JobLifecycleAction? ConfirmationAction);

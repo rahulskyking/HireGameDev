@@ -62,3 +62,10 @@
 #job-save-status[data-state=error] { color:var(--danger-ink); font-weight:600; }
 #job-save-status[data-state=saved] { color:var(--success-ink); }
 #job-save-status[data-state=dirty] { color:var(--warning-ink); }
+.jp-listing { gap:28px; }
+.jp-logo { object-fit:contain; border-radius:12px; border:1px solid var(--border); background:var(--surface); }
+.jw .jp-title { font-size:clamp(1.5rem,3vw,2.2rem); line-height:1.2; letter-spacing:-.04em; }
+.jp-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; padding:24px 0; border-block:1px solid var(--border); }
+.jp-facts strong { font-size:1rem; }
+.jp-skill { padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface); font-size:.85rem; }
+@media(max-width:520px) { .jp-facts { grid-template-columns:1fr; } }

@@ -1,0 +1,107 @@
+@using HireGameDev.Application.Features.Jobs
+@model HireGameDev.Web.Models.Jobs.JobPreviewPage
+@{
+    ViewData["Title"] = "Private job preview";
+    var job = Model.Job;
+    var content = job.Content;
+    var expired = job.ExpiresAt.HasValue && job.ExpiresAt <= DateTimeOffset.UtcNow && (job.Status is JobStatus.Active or JobStatus.Paused or JobStatus.Full);
+    var displayStatus = expired ? JobStatus.Expired : job.Status;
+    var editable = displayStatus is JobStatus.Draft or JobStatus.Paused;
+    var findings = Model.Assessment?.Findings ?? Array.Empty<JobPublishFinding>();
+    var blocking = findings.Where(x => x.Severity != JobFindingSeverity.Warning).ToArray();
+    string Number(decimal? value) => value?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "Not specified";
+    var salaryDisplay = !content.SalaryMin.HasValue && !content.SalaryMax.HasValue ? "Not specified" : $"₹{Number(content.SalaryMin)} – ₹{Number(content.SalaryMax)}";
+    var experienceDisplay = !content.MinYears.HasValue ? "Not specified" : Number(content.MinYears) + (content.MaxYears.HasValue ? "–" + Number(content.MaxYears) : "+") + " years";
+    var actionLabel = Model.ConfirmationAction switch
+    {
+        JobLifecycleAction.Publish => "Publish job", JobLifecycleAction.Resume => "Resume listing",
+        JobLifecycleAction.ReopenFull => "Reopen listing", JobLifecycleAction.Renew => "Renew listing", _ => ""
+    };
+}
+@section Styles {
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" />
+}
+<div class="jw">
+    <div class="jw-row"><a class="jw-help" asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">← Job management</a><span class="jw-badge">Private · Studio members only</span></div>
+    <header class="jw-heading"><span class="jw-eyebrow">Review before you publish</span><h1>See the role through their eyes.</h1><p class="jw-muted">This preview uses the saved version. It is not a public listing or a reservation to publish.</p></header>
+    <div class="jw-grid">
+        <article class="jw-panel jp-listing" aria-label="Candidate-view job content">
+            <div class="jw-row"><div class="jw-row">
+                @if (!string.IsNullOrWhiteSpace(Model.Studio.LogoUrl)) { <img src="@Model.Studio.LogoUrl" alt="" width="48" height="48" class="jp-logo" /> }
+                <div class="jw-heading"><strong>@Model.Studio.Name</strong><span class="jw-help">@Model.Studio.VerificationStatus Studio</span></div>
+            </div><span class="jw-badge">@displayStatus</span></div>
+            <h2 class="jp-title">@(string.IsNullOrWhiteSpace(content.Title) ? "Job title not added yet" : content.Title)</h2>
+            <div class="jw-actions">
+                <span class="jw-badge">@(content.JobType switch { JobType.FullTime => "Full-time", JobType.PartTime => "Part-time", JobType.Contract => "Contract", JobType.Internship => "Internship", _ => "Job type not specified" })</span>
+                <span class="jw-badge">@(content.WorkMode?.ToString() ?? "Work mode not specified")@(Model.CityName is null ? "" : " · " + Model.CityName)</span>
+                @if (content.FresherFriendly) { <span class="jw-badge">Fresher-friendly</span> }
+            </div>
+            <div class="jp-facts">
+                <div class="jw-stat"><small>Compensation</small><strong>@salaryDisplay</strong><small>@(content.PayUnit == JobPayUnit.Lpa ? "lakh per year (LPA)" : content.PayUnit == JobPayUnit.MonthlyInr ? "INR per month" : "Pay unit not specified")</small></div>
+                <div class="jw-stat"><small>Experience</small><strong>@experienceDisplay</strong><small>@(content.SeniorityMin?.ToString() ?? "Seniority not specified")@(content.SeniorityMax.HasValue ? " – " + content.SeniorityMax : "")</small></div>
+                <div class="jw-stat"><small>Openings</small><strong>@content.Openings</strong><small>@(content.MaxNoticeDays.HasValue ? $"Notice: up to {content.MaxNoticeDays} days" : "Notice period not specified")</small></div>
+            </div>
+            @if (content.RelocationAssistance) { <p class="jw-help">Relocation assistance available.</p> }
+            <section class="jw-stack"><h2>About the opportunity</h2><p class="jw-description">@(string.IsNullOrWhiteSpace(content.Description) ? "Add a description to show the work, responsibilities and requirements." : content.Description)</p></section>
+            <section class="jw-stack"><h2>Skills &amp; experience</h2>
+                @if (Model.Skills.Count == 0) { <p class="jw-help">No skills added yet.</p> }
+                @foreach (var required in new[] { true, false })
+                {
+                    var skills = Model.Skills.Where(x => x.IsRequired == required).ToArray();
+                    if (skills.Length > 0)
+                    {
+                        <div class="jw-heading"><h3>@(required ? "Required" : "Nice to have")</h3><div class="jw-actions">@foreach (var skill in skills) { <span class="jp-skill">@skill.Name <small>· @skill.MinProficiency</small></span> }</div></div>
+                    }
+                }
+            </section>
+            @if (!string.IsNullOrWhiteSpace(content.ScreeningQuestion)) { <section class="jw-stack"><h2>Application question</h2><p class="jw-description">@content.ScreeningQuestion</p></section> }
+            <div class="jw-note"><strong>Preview only</strong><p>Applications and the public job-detail page arrive in later modules. No application is submitted from this page.</p></div>
+        </article>
+        <aside class="jw-stack" aria-label="Internal publishing checks">
+        @if (Model.CanWrite)
+        {
+            <section class="jw-panel"><span class="jw-eyebrow">Internal · Owner / Recruiter</span><h2>Publishing checks</h2>
+                @if (blocking.Length > 0)
+                { <p class="jw-help">@blocking.Length blocking finding(s). Fix these before publishing.</p> }
+                else
+                { <div class="jw-notice jw-notice--success"><strong>Content &amp; eligibility checks passed</strong><p>Posting limits, capacity, current status and fresh validation still apply at confirmation.</p></div> }
+                @if (editable) { <a class="c-btn c-btn--secondary" asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit saved details</a> }
+                <a class="jw-help" asp-controller="Studio" asp-action="Verification" asp-route-studioId="@job.StudioId">Studio verification →</a>
+            </section>
+            foreach (var group in new[] { JobFindingSeverity.BlockingError, JobFindingSeverity.PostingRestriction, JobFindingSeverity.Warning })
+            {
+                var grouped = findings.Where(x => x.Severity == group).ToArray();
+                if (grouped.Length > 0)
+                {
+                    <section class="jw-notice @(group == JobFindingSeverity.Warning ? "" : "jw-notice--error")" aria-label="@group">
+                        <h2>@(group == JobFindingSeverity.Warning ? "Quality suggestions · advisory" : group == JobFindingSeverity.PostingRestriction ? "Posting restrictions" : "Fix these fields")</h2>
+                        <ul>@foreach (var finding in grouped) {
+                            <li><strong>@(finding.Field ?? "Studio / listing")</strong><p>@finding.Message</p><code>@finding.Code</code>
+                            @if (editable && finding.Field is not null) { <p><a asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId" asp-fragment="@(finding.Field == "Skills" ? "job-skills" : "Content_" + finding.Field)">Go to field →</a></p> }
+                            </li>
+                        }</ul>
+                    </section>
+                }
+            }
+            if (Model.ConfirmationAction.HasValue)
+            {
+                <section class="jw-panel"><h2>Confirm @Model.ConfirmationAction</h2>
+                <form asp-action="Transition" asp-route-id="@job.Id" method="post" class="jw-stack">
+                    <input type="hidden" name="studioId" value="@job.StudioId" /><input type="hidden" name="version" value="@job.Version" /><input type="hidden" name="lifecycleAction" value="@Model.ConfirmationAction.Value" />
+                    @if (Model.ConfirmationAction == JobLifecycleAction.Renew) { <p class="jw-help">Renewal starts a fresh validity period and consumes a publication quota event. This is not a resume of the expired validity.</p> }
+                    else if (Model.ConfirmationAction != JobLifecycleAction.Publish) { <p class="jw-help">Resuming / reopening does not extend the existing expiry date.</p> }
+                    <p class="jw-help">Every check runs again on the server. Warnings do not require changes or Admin approval.</p>
+                    <label class="jw-check"><input type="checkbox" name="confirmed" value="true" required /> I confirm this action on the saved version.</label>
+                    <button class="c-btn c-btn--primary" type="submit" disabled="@(blocking.Length > 0)">@actionLabel</button>
+                </form></section>
+            }
+            else { <div class="jw-note">Current status: @displayStatus. Manage this listing from its management page.</div> }
+        }
+        else
+        {
+            <div class="jw-note"><strong>Read-only preview</strong><p>Your Viewer membership lets you review the saved content. Owners and Recruiters manage publishing checks and actions.</p></div>
+        }
+        </aside>
+    </div>
+</div>

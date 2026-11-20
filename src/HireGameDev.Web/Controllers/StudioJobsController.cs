@@ -20,7 +20,7 @@ namespace HireGameDev.Web.Controllers;
 [Route("Studio/Jobs")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfileService studios,
-    IReferenceDataService references) : Controller
+    IReferenceDataService references, IJobPublishChecker checker) : Controller
 {
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private async Task<StudioMembershipSummary?> Membership(Guid studioId, bool write, CancellationToken ct)
@@ -78,7 +78,7 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             if (result.IsSuccess)
             {
                 TempData["StatusMessage"] = "Job saved.";
-                return RedirectToAction(destination == "manage" ? nameof(Manage) : nameof(Edit), new { id = result.Value.Id, studioId = model.StudioId });
+                return RedirectToAction(destination == "preview" ? nameof(Preview) : destination == "manage" ? nameof(Manage) : nameof(Edit), new { id = result.Value.Id, studioId = model.StudioId });
             }
             ModelState.AddModelError("", result.Error.Message);
             if (result.Error.Code == "Jobs.StaleVersion") Response.StatusCode = StatusCodes.Status409Conflict;
@@ -121,6 +121,38 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             return await Rejected(id, studioId, result.Error.Message, cancellationToken);
         TempData["StatusMessage"] = "Copy created as a new draft. Review the details before publishing; duplicate and cooldown checks still apply.";
         return RedirectToAction(nameof(Edit), new { id = result.Value.Id, studioId });
+    }
+
+    [HttpGet("Preview/{id:guid}")]
+    public async Task<IActionResult> Preview(Guid id, Guid studioId, CancellationToken cancellationToken)
+    {
+        // These headers apply even to rejected preview requests; never cache Studio drafts.
+        Response.Headers["Cache-Control"] = "private, no-store";
+        Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        if (!ModelState.IsValid) return BadRequest();
+        var member = await Membership(studioId, false, cancellationToken);
+        if (member is null) return Forbid();
+        var result = await jobs.GetAsync(Actor, studioId, id, cancellationToken);
+        if (result.IsFailure) return NotFound();
+        var job = result.Value;
+        var canWrite = member.MemberRole is StudioMemberRole.Owner or StudioMemberRole.Recruiter;
+        var skillNames = (await references.GetActiveSkillsAsync(cancellationToken: cancellationToken)).ToDictionary(x => x.Id, x => x.Name);
+        var skills = job.Content.Skills.Select(x => new JobPreviewSkill(
+            skillNames.GetValueOrDefault(x.SkillId) ?? $"Unavailable skill (ID {x.SkillId})", x.IsRequired, x.MinProficiency)).ToArray();
+        var city = job.Content.CityId.HasValue
+            ? (await references.GetActiveCitiesAsync(cancellationToken)).FirstOrDefault(x => x.Id == job.Content.CityId)?.Name ?? "Unavailable city"
+            : null;
+        // Never accept preview content or a Studio ownership assertion from the request.
+        // The checker is read-only and runs only after authoritative membership/job checks.
+        var assessment = canWrite ? await checker.CheckAsync(new(job.Id, job.StudioId, job.Content), cancellationToken) : null;
+        var effectiveStatus = job.ExpiresAt.HasValue && job.ExpiresAt <= DateTimeOffset.UtcNow && (job.Status is JobStatus.Active or JobStatus.Paused or JobStatus.Full)
+            ? JobStatus.Expired : job.Status;
+        JobLifecycleAction? action = effectiveStatus switch
+        {
+            JobStatus.Draft => JobLifecycleAction.Publish, JobStatus.Paused => JobLifecycleAction.Resume,
+            JobStatus.Full => JobLifecycleAction.ReopenFull, JobStatus.Expired => JobLifecycleAction.Renew, _ => null
+        };
+        return View(new JobPreviewPage(job, member, city, skills, canWrite, assessment, canWrite ? action : null));
     }
 
     [HttpGet("{id:guid}")]

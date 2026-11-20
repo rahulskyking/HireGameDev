@@ -25,7 +25,7 @@
 }
 @section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
 <div class="jw">
-    <a asp-action="Index" asp-route-studioId="@job.StudioId" class="jw-help">← All jobs</a>
+    <div class="jw-row"><a asp-action="Index" asp-route-studioId="@job.StudioId" class="jw-help">← All jobs</a><a class="c-btn c-btn--secondary" asp-action="Preview" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Candidate-view preview →</a></div>
     <header class="jw-header">
         <div class="jw-heading"><span class="jw-eyebrow">Job management / Saved version</span><h1>@(string.IsNullOrWhiteSpace(job.Content.Title) ? "Untitled draft" : job.Content.Title)</h1><p class="jw-muted">@job.Content.JobType · @job.Content.WorkMode · @job.Content.SeniorityMin – @job.Content.SeniorityMax</p></div>
         <span class="jw-badge" data-status="@effectiveStatus">@effectiveStatus</span>
