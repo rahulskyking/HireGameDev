@@ -1,0 +1,51 @@
+@using HireGameDev.Web.Models.Jobs
+@model PublicJobBrowsePage
+@{
+    ViewData["Title"] = "Game development jobs in India";
+    var results = Model.Results;
+    var filtered = !string.IsNullOrWhiteSpace(Model.Search.Keyword) || Model.Search.Category.HasValue || Model.Search.JobType.HasValue || Model.Search.WorkMode.HasValue || Model.Search.CityId.HasValue || Model.Search.ExperienceYears.HasValue || (Model.Search.SkillIds?.Count ?? 0) > 0 || Model.Search.FresherFriendlyOnly || (results?.Page ?? 1) > 1;
+}
+@section Styles {
+    <meta name="description" content="Explore game development jobs from verified Studios. Find roles in programming, art, design, audio, QA and production with transparent salary ranges." />
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+    @if (filtered || results is null) { <meta name="robots" content="noindex, follow" /> }
+    <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
+}
+<div class="jb">
+<header class="jb-hero"><div><span class="jb-eyebrow">Built for the people who build games</span><h1>Your next role.<br /><span>Your kind of industry.</span></h1><p>Discover game development opportunities from verified Studios. Real roles. Transparent pay. No signup to explore.</p></div><div class="jb-hero-mark" aria-hidden="true">PLAY.<br />BUILD.<br /><span>BELONG.</span></div></header>
+<div class="jb-layout">
+<details class="jb-filters" open><summary>Search &amp; filters <span>⌄</span></summary>
+<form asp-controller="PublicJobs" asp-action="Index" method="get" class="jb-filter-form">
+<div class="jb-field"><label for="Keyword">Search jobs</label><input class="c-input" id="Keyword" name="Keyword" value="@Model.Search.Keyword" maxlength="100" placeholder="Role, tool or keyword" /></div>
+<div class="jb-field"><label for="Category">Discipline</label><select class="c-select" id="Category" name="Category"><option value="">All disciplines</option>@foreach (var value in Enum.GetValues<DisciplineCategory>()) { <option value="@value" selected="@(Model.Search.Category == value)">@value</option> }</select></div>
+<div class="jb-field"><label for="JobType">Employment type</label><select class="c-select" id="JobType" name="JobType"><option value="">All types</option>@foreach (var value in Enum.GetValues<JobType>()) { <option value="@value" selected="@(Model.Search.JobType == value)">@PublicJobUi.Type(value)</option> }</select></div>
+<div class="jb-field"><label for="WorkMode">Work arrangement</label><select class="c-select" id="WorkMode" name="WorkMode"><option value="">Any arrangement</option>@foreach (var value in Enum.GetValues<JobWorkMode>()) { <option value="@value" selected="@(Model.Search.WorkMode == value)">@value</option> }</select></div>
+<div class="jb-field"><label for="CityId">Office city</label><select class="c-select" id="CityId" name="CityId"><option value="">All cities</option>@if (Model.Search.CityId.HasValue && Model.Search.CityId > 0 && !Model.Cities.Any(x => x.Id == Model.Search.CityId)) { <option value="@Model.Search.CityId" selected>Unavailable city (ID @Model.Search.CityId)</option> }@foreach (var city in Model.Cities) { <option value="@city.Id" selected="@(Model.Search.CityId == city.Id)">@city.Name, @city.StateCode</option> }</select><small>For Remote jobs, leave city blank.</small></div>
+<div class="jb-field"><label for="ExperienceYears">Your experience (years)</label><input class="c-input" id="ExperienceYears" name="ExperienceYears" type="number" min="0" max="99.9" step="0.1" value="@(Model.Search.ExperienceYears?.ToString(System.Globalization.CultureInfo.InvariantCulture))" placeholder="Any experience" /></div>
+<div class="jb-field"><label for="SkillIds">Skills</label><select class="c-select jb-multiselect" id="SkillIds" name="SkillIds" multiple size="6" aria-describedby="skills-help">@foreach (var unavailable in (Model.Search.SkillIds ?? Array.Empty<int>()).Distinct().Where(id => id > 0 && !Model.Skills.Any(x => x.Id == id)).Take(12)) { <option value="@unavailable" selected>Unavailable skill (ID @unavailable)</option> }@foreach (var skill in Model.Skills) { <option value="@skill.Id" selected="@(Model.Search.SkillIds?.Contains(skill.Id) == true)">@skill.Name</option> }</select><small id="skills-help">All chosen skills must appear in the job. Up to 12. Use Ctrl/Cmd to select more than one on desktop.</small></div>
+<label class="jb-check"><input type="checkbox" name="FresherFriendlyOnly" value="true" checked="@Model.Search.FresherFriendlyOnly" /> Fresher-friendly only</label>
+<button class="c-btn c-btn--primary" type="submit">Find my next role →</button><a class="jb-clear" asp-action="Index">Clear all filters</a>
+</form></details>
+<div class="jb-stack">
+<div class="jb-results-head"><h2>@(results is null ? "Check your filters" : $"{results.TotalCount} open {(results.TotalCount == 1 ? "role" : "roles")}")</h2><span class="jb-muted">Newest published first</span></div>
+@if (!ViewData.ModelState.IsValid) { <div class="jb-alert" role="alert"><strong>We couldn’t run that search.</strong><div asp-validation-summary="All"></div></div> }
+@if (results is not null && results.Items.Count == 0)
+{ <section class="jb-panel jb-empty"><span class="jb-eyebrow">Keep exploring</span><h2>No roles match just yet.</h2><p>Try fewer skills, a wider experience range or a different work arrangement.</p><a class="c-btn c-btn--secondary" asp-action="Index">See all open jobs</a></section> }
+@if (results is not null)
+{
+    foreach (var job in results.Items)
+    {
+        <article class="jb-job"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></div>
+        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div><footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
+    }
+    if (results.TotalPages > 1)
+    {
+        <nav class="jb-pagination" aria-label="Search results pages"><span>Page @results.Page of @results.TotalPages</span><div>
+        @if (results.Page > 1) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page - 1)" rel="prev">← Previous</a> }
+        @if (results.Page < results.TotalPages) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page + 1)" rel="next">Next →</a> }
+        </div></nav>
+    }
+}
+<partial name="_ProfileCta" model="Model.RegistrationUrl" />
+</div></div>
+</div>

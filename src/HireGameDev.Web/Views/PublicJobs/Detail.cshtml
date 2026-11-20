@@ -1,0 +1,35 @@
+@using HireGameDev.Web.Models.Jobs
+@model PublicJobDetailPage
+@{
+    var detail = Model.Job;
+    var job = detail.Summary;
+    ViewData["Title"] = $"{job.Title} at {job.Studio.Name}";
+}
+@section Styles {
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+    <meta name="description" content="@($"{job.Title} at {job.Studio.Name}. {PublicJobUi.Salary(job)}. {job.WorkMode}. Explore the role, requirements and team.")" />
+    <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
+}
+<div class="jb">
+<a class="jb-back" asp-action="Index">← Explore all roles</a>
+<div class="jb-detail-layout"><article class="jb-panel jb-detail">
+<div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="56" height="56" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div>
+<header class="jb-detail-heading"><span class="jb-eyebrow">@detail.Category / @PublicJobUi.Type(job.JobType)</span><h1>@job.Title</h1><div class="jb-tags"><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName + ", " + job.CityStateCode)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }@if (detail.RelocationAssistance) { <span>Relocation assistance</span> }</div></header>
+<div class="jb-facts"><div><small>Compensation</small><strong>@PublicJobUi.Salary(job)</strong></div><div><small>Experience</small><strong>@PublicJobUi.Experience(job)</strong></div><div><small>Seniority</small><strong>@detail.SeniorityMin – @detail.SeniorityMax</strong></div><div><small>Openings</small><strong>@detail.Openings</strong></div></div>
+<section class="jb-stack"><h2>About the opportunity</h2><p class="jb-description">@detail.Description</p></section>
+<section class="jb-stack"><h2>Skills that matter</h2>
+@foreach (var required in new[] { true, false })
+{
+    var skills = detail.Skills.Where(x => x.IsRequired == required).ToArray();
+    if (skills.Length > 0)
+    { <div class="jb-stack jb-stack--small"><h3>@(required ? "Required" : "Nice to have")</h3><div class="jb-tags">@foreach (var skill in skills) { <span>@skill.Name · @skill.MinProficiency</span> }</div></div> }
+}
+</section>
+@if (!string.IsNullOrWhiteSpace(detail.ScreeningQuestion)) { <section class="jb-stack"><h2>A question to think about</h2><p class="jb-description">@detail.ScreeningQuestion</p></section> }
+<footer class="jb-detail-footer"><span>Published <time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></span><span>Expires <time datetime="@job.ExpiresAt.ToString("O")">@job.ExpiresAt.ToString("dd MMM yyyy, HH:mm") UTC</time></span></footer>
+</article>
+<aside class="jb-stack">
+<section class="jb-panel jb-summary"><span class="jb-eyebrow">The essentials</span><h2>@PublicJobUi.Salary(job)</h2><p>@PublicJobUi.Type(job.JobType) · @job.WorkMode</p><dl><div><dt>Experience</dt><dd>@PublicJobUi.Experience(job)</dd></div><div><dt>Notice period</dt><dd>@(detail.MaxNoticeDays.HasValue ? $"Up to {detail.MaxNoticeDays} days" : "Not specified")</dd></div><div><dt>Openings</dt><dd>@detail.Openings</dd></div></dl><div class="jb-note"><strong>Applications are not available yet.</strong><p>You can explore this role and Studio now. Application submission and tracking will be available in a future release.</p></div><a class="c-btn c-btn--secondary" asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">Meet the Studio →</a></section>
+<partial name="_ProfileCta" model="Model.RegistrationUrl" />
+</aside></div>
+</div>

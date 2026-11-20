@@ -1,0 +1,5 @@
+@model string
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <section class="jb-cta"><span class="jb-eyebrow">More than your next job</span><h2>Let your work speak.</h2><p>Build a gaming-focused profile, showcase your skills and projects, and choose to be discoverable to verified Studios.</p><a class="c-btn c-btn--primary" href="@Model">Create your gaming profile →</a><small>Browsing jobs is always open. Registration is not required.</small></section>
+}

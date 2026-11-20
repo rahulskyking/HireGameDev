@@ -33,29 +33,15 @@ public sealed class HomeController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var summary = await LoadPortalSummaryAndUrlsAsync(cancellationToken);
         var portal = _portalNavigator.ResolvePortal(HttpContext);
+        if (portal == PortalSite.Jobs) return Redirect("/jobs" + Request.QueryString);
+        var summary = await LoadPortalSummaryAndUrlsAsync(cancellationToken);
 
         return portal switch
         {
-            PortalSite.Jobs => View("JobsPortal", summary),
             PortalSite.Studio => View("StudioPortal", summary),
             _ => View("Index", summary)
         };
-    }
-
-    [HttpGet("jobs")]
-    public async Task<IActionResult> Jobs(CancellationToken cancellationToken)
-    {
-        if (_portalNavigator.IsSubdomainRoutingActive(HttpContext) &&
-            _portalNavigator.ResolvePortal(HttpContext) != PortalSite.Jobs &&
-            _portalNavigator.DeploymentMode == PortalDeploymentMode.All)
-        {
-            return Redirect(_portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/"));
-        }
-
-        var summary = await LoadPortalSummaryAndUrlsAsync(cancellationToken);
-        return View("JobsPortal", summary);
     }
 
     [HttpGet("for-studios")]
