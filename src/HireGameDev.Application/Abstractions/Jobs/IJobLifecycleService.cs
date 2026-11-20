@@ -8,6 +8,7 @@ public interface IJobLifecycleService
     Task<Result<StudioJobList>> ListAsync(Guid actorUserId, Guid studioId, HireGameDev.Domain.Enums.JobStatus? status = null, int page = 1, CancellationToken cancellationToken = default);
     Task<Result<JobSnapshot>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default);
     Task<Result<JobSnapshot>> SaveAsync(SaveJobCommand command, CancellationToken cancellationToken = default);
+    Task<Result<JobSnapshot>> DuplicateAsync(Guid actorUserId, Guid studioId, Guid sourceJobId, CancellationToken cancellationToken = default);
     Task<Result> DeleteDraftAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default);
     Task<Result<JobLifecycleOutcome>> TransitionAsync(JobTransitionCommand command, CancellationToken cancellationToken = default);
     Task<Result> RemoveAsync(RemoveJobCommand command, CancellationToken cancellationToken = default);

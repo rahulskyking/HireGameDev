@@ -27,7 +27,7 @@ dotnet test --filter 'Category=PostgresIntegration' --logger 'console;verbosity=
 ```
 
 PowerShell accepts the same dotnet commands; use `$env:HGD_TEST_POSTGRES` to set the
-local variable. Without that variable, the five PostgreSQL tests are explicitly
+local variable. Without that variable, the PostgreSQL tests are explicitly
 **skipped**, not passed. With it set, connection/migration/setup failures fail the
 tests rather than falling back to a different provider.
 
@@ -44,6 +44,7 @@ Races use a common start gate and separate connections. These are regression
 checks, not exhaustive load/linearizability proofs. They do not cover Phase 3
 application-cap enforcement, which has not been implemented yet.
 
-Record the build, unit-test and five integration-test outcomes before proceeding.
+M2.2b adds concurrent draft duplication and skill-only xmin checks (seven total).
+Record the build, unit-test and integration-test outcomes before proceeding.
 The Arena sandbox has no .NET SDK or PostgreSQL installed, so these results have
 **not** been executed/verified there. No new migration is introduced by this suite.

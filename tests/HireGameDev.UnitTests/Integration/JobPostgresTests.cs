@@ -31,6 +31,53 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class JobPostgresTests
 {
     [PostgresFact]
+    public async Task SkillOnlyEdit_AdvancesParentXmin_AndRejectsOldSelection()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        await using var first = h.Session();
+        var skills = draft.Content.Skills.Select(x => x with { MinProficiency = SkillProficiency.Expert }).ToArray();
+        var updated = await first.Service.SaveAsync(new(h.Owner, h.Studio, draft.Content with { Skills = skills }, draft.Id, draft.Version));
+        Assert.True(updated.IsSuccess);
+        Assert.NotEqual(draft.Version, updated.Value.Version);
+        await using var second = h.Session();
+        var stale = await second.Service.SaveAsync(new(h.Owner, h.Studio, draft.Content, draft.Id, draft.Version));
+        Assert.False(stale.IsSuccess);
+        Assert.Equal("Jobs.StaleVersion", stale.Error.Code);
+        Assert.All(await second.Db.JobSkills.AsNoTracking().ToArrayAsync(), x => Assert.Equal(SkillProficiency.Expert, x.MinProficiency));
+    }
+
+    [PostgresFact]
+    public async Task ConcurrentDuplication_RespectsDraftQuota_WithoutChangingOriginalHistory()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var source = await h.Draft("Gameplay Developer Alpha");
+        await using (var publish = h.Session())
+        {
+            var published = await publish.Service.TransitionAsync(new(h.Owner, h.Studio, source.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess);
+            Assert.True(published.Value.Applied);
+        }
+        using var gate = new SemaphoreSlim(0, 2);
+        async Task<bool> Copy()
+        {
+            await using var session = h.Session(new JobLifecycleOptions { MaxDraftsPerStudio = 1 });
+            await session.Db.Database.OpenConnectionAsync();
+            await gate.WaitAsync();
+            var result = await session.Service.DuplicateAsync(h.Owner, h.Studio, source.Id);
+            if (result.IsFailure) Assert.Equal("Jobs.DraftLimit", result.Error.Code);
+            return result.IsSuccess;
+        }
+        var first = Copy(); var second = Copy(); gate.Release(2);
+        var outcomes = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.Single(outcomes.Where(x => x));
+        await using var verify = h.Session();
+        Assert.Equal(1, await verify.Db.Jobs.CountAsync(x => x.Status == JobStatus.Draft));
+        Assert.Equal(2, await verify.Db.JobStatusHistory.CountAsync(x => x.JobId == source.Id));
+        Assert.Single(await verify.Db.JobPublicationEvents.ToArrayAsync());
+    }
+
+    [PostgresFact]
     public async Task ConcurrentPublication_RespectsActiveSlotLimit()
     {
         await using var h = await DatabaseHarness.Create();

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Common;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Studios;
 using HireGameDev.Application.Features.Jobs;
@@ -82,8 +83,44 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             ModelState.AddModelError("", result.Error.Message);
             if (result.Error.Code == "Jobs.StaleVersion") Response.StatusCode = StatusCodes.Status409Conflict;
         }
+        model.HasUnsavedChanges = true;
+        model.AutosaveStopped = true; // Never retry a failed manual save in the background.
         await Populate(model, cancellationToken);
         return View("Edit", model);
+    }
+
+    [HttpPost("Autosave"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.StudioJobsWrite)]
+    public async Task<IActionResult> Autosave(JobEditorModel model, CancellationToken cancellationToken)
+    {
+        if (await Membership(model.StudioId, true, cancellationToken) is null)
+            return StatusCode(403, new { code = "Jobs.Forbidden", message = "Your write access changed. Autosave stopped." });
+        if (!ModelState.IsValid || !model.JobId.HasValue || !model.Version.HasValue)
+            return BadRequest(new { code = "Jobs.InvalidAutosave", message = "Autosave needs an existing draft and version. Save manually or reload." });
+        var content = model.Content with { Skills = model.Skills.Where(x => x.SkillId.HasValue)
+            .Select(x => new JobSkillInput(x.SkillId!.Value, x.IsRequired, x.MinProficiency)).ToArray() };
+        var result = await jobs.SaveAsync(new(Actor, model.StudioId, content, model.JobId, model.Version), cancellationToken);
+        if (result.IsFailure)
+        {
+            var status = result.Error.Type switch
+            {
+                ErrorType.Forbidden => 403, ErrorType.NotFound => 404, ErrorType.RateLimited => 429,
+                ErrorType.Conflict => 409, _ => result.Error.Code == "Jobs.NotEditable" ? 409 : 422
+            };
+            return StatusCode(status, new { code = result.Error.Code, message = result.Error.Message });
+        }
+        return Json(new { version = result.Value.Version, jobId = result.Value.Id });
+    }
+
+    [HttpPost("{id:guid}/Duplicate"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.StudioJobsWrite)]
+    public async Task<IActionResult> Duplicate(Guid id, Guid studioId, CancellationToken cancellationToken)
+    {
+        if (await Membership(studioId, true, cancellationToken) is null) return Forbid();
+        if (!ModelState.IsValid) return BadRequest();
+        var result = await jobs.DuplicateAsync(Actor, studioId, id, cancellationToken);
+        if (result.IsFailure)
+            return await Rejected(id, studioId, result.Error.Message, cancellationToken);
+        TempData["StatusMessage"] = "Copy created as a new draft. Review the details before publishing; duplicate and cooldown checks still apply.";
+        return RedirectToAction(nameof(Edit), new { id = result.Value.Id, studioId });
     }
 
     [HttpGet("{id:guid}")]

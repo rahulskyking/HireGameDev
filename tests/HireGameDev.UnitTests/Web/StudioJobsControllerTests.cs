@@ -18,6 +18,43 @@ namespace HireGameDev.UnitTests.Web;
 public sealed class StudioJobsControllerTests
 {
     [Fact]
+    public async Task Autosave_RequiresExistingJobAndVersion_AndViewerCannotWrite()
+    {
+        var h = new Harness();
+        var invalid = await h.Controller.Autosave(new JobEditorModel { StudioId = h.Studio }, default);
+        Assert.IsType<BadRequestObjectResult>(invalid);
+        Assert.Null(h.Jobs.LastSave);
+        var viewer = new Harness(StudioMemberRole.Viewer);
+        var denied = Assert.IsType<ObjectResult>(await viewer.Controller.Autosave(new JobEditorModel { StudioId = viewer.Studio }, default));
+        Assert.Equal(403, denied.StatusCode);
+        Assert.Null(viewer.Jobs.LastSave);
+        Assert.IsType<ForbidResult>(await viewer.Controller.Duplicate(viewer.Jobs.Snapshot.Id, viewer.Studio, default));
+    }
+
+    [Fact]
+    public async Task Autosave_UsesTrustedActorAndExpectedVersion_ReturnsJson()
+    {
+        var h = new Harness();
+        var model = new JobEditorModel { StudioId = h.Studio, JobId = h.Jobs.Snapshot.Id, Version = 7,
+            Content = new JobContent { Title = "Edited role" } };
+        Assert.IsType<JsonResult>(await h.Controller.Autosave(model, default));
+        Assert.Equal(h.Actor, h.Jobs.LastSave!.ActorUserId);
+        Assert.Equal((uint?)7, h.Jobs.LastSave.ExpectedVersion);
+        Assert.Equal(model.JobId, h.Jobs.LastSave.JobId);
+    }
+
+    [Fact]
+    public async Task Autosave_StaleOrNoLongerEditable_ReturnsConflict()
+    {
+        var h = new Harness();
+        var model = new JobEditorModel { StudioId = h.Studio, JobId = h.Jobs.Snapshot.Id, Version = 7 };
+        h.Jobs.SaveError = Error.Conflict("Jobs.StaleVersion", "Reload.");
+        Assert.Equal(409, Assert.IsType<ObjectResult>(await h.Controller.Autosave(model, default)).StatusCode);
+        h.Jobs.SaveError = Error.Validation("Jobs.NotEditable", "Only drafts and paused jobs can be edited.");
+        Assert.Equal(409, Assert.IsType<ObjectResult>(await h.Controller.Autosave(model, default)).StatusCode);
+    }
+
+    [Fact]
     public async Task PublishBlocked_ShowsStructuredReasonsAndDraftStatus_NotSuccess()
     {
         var h = new Harness();
@@ -135,6 +172,7 @@ public sealed class StudioJobsControllerTests
         public Result<JobLifecycleOutcome> Outcome { get; set; }
         public JobTransitionCommand? LastTransition { get; private set; }
         public SaveJobCommand? LastSave { get; private set; }
+        public Error? SaveError { get; set; }
         public FakeJobs(Guid studio)
         {
             Snapshot = new(Guid.NewGuid(), studio, "job-test", JobStatus.Draft, new JobContent(), 50, 0, null, null, null, 7);
@@ -142,10 +180,11 @@ public sealed class StudioJobsControllerTests
         }
         public Task<Result<JobSnapshot>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default) => Task.FromResult(Result.Success(Snapshot));
         public Task<Result<JobSnapshot>> SaveAsync(SaveJobCommand command, CancellationToken cancellationToken = default)
-        { LastSave = command; return Task.FromResult(Result.Success(Snapshot with { Content = command.Content })); }
+        { LastSave = command; return Task.FromResult(SaveError is null ? Result.Success(Snapshot with { Content = command.Content }) : Result.Failure<JobSnapshot>(SaveError)); }
         public Task<Result<JobLifecycleOutcome>> TransitionAsync(JobTransitionCommand command, CancellationToken cancellationToken = default)
         { LastTransition = command; return Task.FromResult(Outcome); }
         public Task<Result<StudioJobList>> ListAsync(Guid actorUserId, Guid studioId, JobStatus? status = null, int page = 1, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result<JobSnapshot>> DuplicateAsync(Guid actorUserId, Guid studioId, Guid sourceJobId, CancellationToken cancellationToken = default) => Task.FromResult(Result.Success(Snapshot));
         public Task<Result> DeleteDraftAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RemoveAsync(RemoveJobCommand command, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RestrictStudioAsync(StudioJobRestrictionCommand command, CancellationToken cancellationToken = default) => throw new NotSupportedException();

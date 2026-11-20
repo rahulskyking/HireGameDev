@@ -3,10 +3,10 @@
 @section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
 <div class="jw">
 <a asp-action="Index" asp-route-studioId="@Model.StudioId" class="jw-help">← All jobs</a>
-<header class="jw-header"><div class="jw-heading"><span class="jw-eyebrow">Hiring workspace / Job editor</span><h1>@ViewData["Title"]</h1><p class="jw-muted">Tell the right developers what they’ll build with you.</p></div><span class="jw-badge">Manual save</span></header>
+<header class="jw-header"><div class="jw-heading"><span class="jw-eyebrow">Hiring workspace / Job editor</span><h1>@ViewData["Title"]</h1><p class="jw-muted">Tell the right developers what they’ll build with you.</p></div><span class="jw-badge">@(Model.JobId.HasValue ? "Autosave enabled after changes" : "Save once to enable autosave")</span></header>
 @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status">@message</div> }
 <div class="jw-validation"><div asp-validation-summary="All" class="jw-notice jw-notice--error" role="alert"></div></div>
-<form asp-action="Save" method="post" class="jw-stack">
+<form asp-action="Save" method="post" class="jw-stack" id="job-editor" data-autosave-url="@Url.Action("Autosave", "StudioJobs")" data-unsaved="@(Model.HasUnsavedChanges ? "true" : "false")" data-autosave-stopped="@(Model.AutosaveStopped ? "true" : "false")">
 <input asp-for="StudioId" type="hidden" /><input asp-for="JobId" type="hidden" /><input asp-for="Version" type="hidden" />
 <div class="jw-grid"><div class="jw-stack">
 <section class="jw-panel"><div class="jw-panel-head"><h2><span class="jw-step">01</span>The role</h2><p>A clear title and realistic experience range help the right people find you.</p></div><div class="jw-fields">
@@ -66,9 +66,9 @@
 </section>
 </div><aside class="jw-stack" aria-label="Saving and publishing guidance">
 <section class="jw-panel"><span class="jw-eyebrow">Good to know</span><h2>Your draft, your pace.</h2><p class="jw-help">Save incomplete details now. Nothing goes live until you explicitly publish a saved job.</p><hr /><h2>Before publishing</h2><ul class="jw-help"><li>Verified, non-suspended Studio</li><li>Complete role, location &amp; salary</li><li>3–12 skills; at least one required</li><li>Clear description without contact details</li></ul><p class="jw-help">Warnings are suggestions, not approval gates. Publication limits and duplicate checks still apply.</p></section>
-<div class="jw-note"><strong>No automatic saving yet.</strong><p>Use Save draft to keep your changes. Concurrent edits are rejected instead of overwritten.</p></div>
+<div class="jw-note"><strong>Save safely.</strong><p>After the first manual save, changed content is saved every 30 seconds. Conflicts or errors stop autosave; your current text stays here. Manual Save always works without JavaScript.</p><noscript><p>JavaScript is off. Use the Save button to keep your changes.</p></noscript></div>
 </aside></div>
-<footer class="jw-panel jw-footer"><div class="jw-row"><p class="jw-help">Only saved content can be published.</p><div class="jw-actions"><button class="c-btn c-btn--secondary" type="submit">@(Model.JobId.HasValue ? "Save changes" : "Save draft")</button><button class="c-btn c-btn--primary" type="submit" name="destination" value="manage">Save &amp; manage status →</button></div></div></footer>
+<footer class="jw-panel jw-footer"><div class="jw-row"><div><p id="job-save-status" class="jw-help" role="status" aria-live="polite">@(Model.HasUnsavedChanges ? "Unsaved changes — review the error above." : Model.JobId.HasValue ? "Saved. Autosave runs after changes." : "New draft — save manually to begin.")</p><a id="job-reload" href="" hidden>Reload saved version (discards unsaved changes)</a></div><div class="jw-actions"><button class="c-btn c-btn--secondary" type="submit">@(Model.JobId.HasValue ? "Save changes" : "Save draft")</button><button class="c-btn c-btn--primary" type="submit" name="destination" value="manage">Save &amp; manage status →</button></div></div></footer>
 </form>
 </div>
 @section Scripts { <script src="~/js/studio-job-editor.js" asp-append-version="true" defer></script> }

@@ -87,6 +87,13 @@
                 @if (Model.CanWrite)
                 {
                     if (editable) { <a class="c-btn c-btn--secondary" asp-action="Edit" asp-route-id="@job.Id" asp-route-studioId="@job.StudioId">Edit job details</a> }
+                    if (job.Status != JobStatus.Removed)
+                    {
+                        <form asp-action="Duplicate" asp-route-id="@job.Id" method="post">
+                            <input type="hidden" name="studioId" value="@job.StudioId" />
+                            <button class="c-btn c-btn--secondary" type="submit">Duplicate as draft</button>
+                        </form>
+                    }
                     if (primaryAction.HasValue)
                     {
                         <form asp-action="Transition" asp-route-id="@job.Id" method="post" class="jw-stack">

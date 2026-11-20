@@ -7,6 +7,10 @@ namespace HireGameDev.Web.Models.Jobs;
 
 public sealed class JobEditorModel
 {
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    public bool HasUnsavedChanges { get; set; }
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    public bool AutosaveStopped { get; set; }
     public Guid StudioId { get; set; }
     public Guid? JobId { get; set; }
     public uint? Version { get; set; }

@@ -97,6 +97,10 @@ internal sealed class JobLifecycleService : IJobLifecycleService
             if (job.Status == JobStatus.Paused && !IsStructurallyComplete(command.Content))
                 return Result.Failure<JobSnapshot>(Invalid("IncompletePausedJob", "Paused published content must remain complete."));
             ApplyContent(job, command.Content);
+            // Skill-only edits must also advance the job's xmin. Otherwise another tab could
+            // save an old skill selection with a still-valid parent token and silently overwrite it.
+            if (_db.Entry(job).State != EntityState.Added)
+                _db.Entry(job).Property(x => x.UpdatedAt).IsModified = true;
             var previousSkills = await _db.JobSkills.Where(x => x.JobId == job.Id).ToListAsync(cancellationToken);
             var requested = command.Content.Skills.ToDictionary(x => x.SkillId);
             foreach (var old in previousSkills)
@@ -116,6 +120,32 @@ internal sealed class JobLifecycleService : IJobLifecycleService
             }
             await _db.SaveChangesAsync(cancellationToken);
             return Result.Success(await SnapshotAsync(job, cancellationToken));
+        }, cancellationToken);
+
+    public Task<Result<JobSnapshot>> DuplicateAsync(Guid actorUserId, Guid studioId, Guid sourceJobId, CancellationToken cancellationToken = default) =>
+        MutateAsync(studioId, async () =>
+        {
+            if (!await HasAccessAsync(actorUserId, studioId, true, cancellationToken))
+                return Result.Failure<JobSnapshot>(Denied());
+            var source = await LoadLockedJobAsync(sourceJobId, studioId, cancellationToken);
+            if (source is null) return Result.Failure<JobSnapshot>(Missing());
+            if (source.Status == JobStatus.Removed)
+                return Result.Failure<JobSnapshot>(Invalid("CannotDuplicateRemoved", "Removed jobs cannot be duplicated."));
+            if (await _db.Jobs.CountAsync(x => x.StudioId == studioId && x.Status == JobStatus.Draft, cancellationToken) >= _limits.MaxDraftsPerStudio)
+                return Result.Failure<JobSnapshot>(Error.RateLimited("Jobs.DraftLimit", "Draft limit reached. Delete unused drafts first."));
+            var content = (await SnapshotAsync(source, cancellationToken)).Content;
+            // Copy only content, never lifecycle state, capacity overrides, counters or history.
+            // Keep the exact title: adding '(copy)' would change fingerprint v1 and weaken duplicate checks.
+            var copy = new Job { Id = Guid.NewGuid(), StudioId = studioId, PostedByUserId = actorUserId };
+            copy.Slug = $"job-{copy.Id:N}";
+            ApplyContent(copy, content);
+            _db.Jobs.Add(copy);
+            foreach (var skill in content.Skills)
+                _db.JobSkills.Add(new JobSkill { JobId = copy.Id, SkillId = skill.SkillId,
+                    IsRequired = skill.IsRequired, MinProficiency = skill.MinProficiency });
+            AddHistory(copy, null, JobStatus.Draft, actorUserId, "draft_duplicated", $"Duplicated from job {source.Id:D}.");
+            await _db.SaveChangesAsync(cancellationToken);
+            return Result.Success(await SnapshotAsync(copy, cancellationToken));
         }, cancellationToken);
 
     public async Task<Result> DeleteDraftAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default) =>

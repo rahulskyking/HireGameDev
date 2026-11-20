@@ -18,6 +18,71 @@ namespace HireGameDev.UnitTests.Services;
 public sealed class JobLifecycleServiceTests
 {
     [Fact]
+    public async Task Duplicate_PreservesContentAndOriginalHistory_ResetsLifecycleAndCounters()
+    {
+        await using var h = await Harness.Create();
+        var source = await h.Draft();
+        await h.Act(source.Id, JobLifecycleAction.Publish);
+        var original = await h.Db.Jobs.SingleAsync();
+        original.ApplicationsCount = 12;
+        original.ApplicationCap = 99;
+        await h.Db.SaveChangesAsync();
+        var historyBefore = await h.Db.JobStatusHistory.CountAsync(x => x.JobId == source.Id);
+        var result = await h.Service.DuplicateAsync(h.Recruiter, h.Studio, source.Id);
+        Assert.True(result.IsSuccess, result.Error.Message);
+        var copy = await h.Db.Jobs.SingleAsync(x => x.Id == result.Value.Id);
+        Assert.NotEqual(source.Id, copy.Id);
+        Assert.NotEqual(source.Slug, copy.Slug);
+        Assert.Equal(h.Recruiter, copy.PostedByUserId);
+        Assert.Equal(JobStatus.Draft, copy.Status);
+        Assert.Equal(0, copy.ApplicationsCount);
+        Assert.Equal((short)50, copy.ApplicationCap);
+        Assert.Null(copy.FirstPublishedAt); Assert.Null(copy.PublishedAt); Assert.Null(copy.ExpiresAt);
+        Assert.Null(copy.ClosedAt); Assert.Null(copy.RemovedAt); Assert.Null(copy.RemovedByUserId); Assert.Null(copy.RemovalReason);
+        Assert.Equal(source.Content.Title, result.Value.Content.Title);
+        Assert.Equal(source.Content.Description, result.Value.Content.Description);
+        Assert.Equal(source.Content.Skills.ToArray(), result.Value.Content.Skills.ToArray());
+        Assert.Equal(historyBefore, await h.Db.JobStatusHistory.CountAsync(x => x.JobId == source.Id));
+        var history = Assert.Single(await h.Db.JobStatusHistory.Where(x => x.JobId == copy.Id).ToArrayAsync());
+        Assert.Equal("draft_duplicated", history.ReasonCode);
+        Assert.Equal(h.Recruiter, history.ActorUserId);
+        Assert.Contains(source.Id.ToString(), history.Reason!);
+        Assert.Empty(await h.Db.JobPublicationEvents.Where(x => x.JobId == copy.Id).ToArrayAsync());
+        Assert.Equal(12, (await h.Db.Jobs.SingleAsync(x => x.Id == source.Id)).ApplicationsCount);
+        var publish = await h.Act(copy.Id, JobLifecycleAction.Publish);
+        Assert.False(publish.Applied);
+        Assert.Contains(publish.Findings, x => x.Code == "Jobs.Duplicate");
+    }
+
+    [Fact]
+    public async Task Duplicate_DeniesRemovedViewerCandidateWrongStudio_AndEnforcesDraftQuota()
+    {
+        await using var h = await Harness.Create(new JobLifecycleOptions { MaxDraftsPerStudio = 1 });
+        var source = await h.Draft();
+        Assert.Equal("Jobs.Forbidden", (await h.Service.DuplicateAsync(h.Viewer, h.Studio, source.Id)).Error.Code);
+        Assert.Equal("Jobs.Forbidden", (await h.Service.DuplicateAsync(h.Candidate, h.Studio, source.Id)).Error.Code);
+        Assert.Equal("Jobs.Forbidden", (await h.Service.DuplicateAsync(h.Owner, Guid.NewGuid(), source.Id)).Error.Code);
+        Assert.Equal("Jobs.NotFound", (await h.Service.DuplicateAsync(h.Owner, h.Studio, Guid.NewGuid())).Error.Code);
+        Assert.Equal("Jobs.DraftLimit", (await h.Service.DuplicateAsync(h.Owner, h.Studio, source.Id)).Error.Code);
+        await h.Act(source.Id, JobLifecycleAction.Publish);
+        Assert.True((await h.Service.RemoveAsync(new(h.Admin, source.Id, "Policy violation"))).IsSuccess);
+        Assert.Equal("Jobs.CannotDuplicateRemoved", (await h.Service.DuplicateAsync(h.Owner, h.Studio, source.Id)).Error.Code);
+        Assert.Single(await h.Db.Jobs.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Duplicate_IncompleteDraft_IsAllowedWithoutFabricatingContent()
+    {
+        await using var h = await Harness.Create();
+        var source = await h.Service.SaveAsync(new(h.Owner, h.Studio, new JobContent()));
+        var copy = await h.Service.DuplicateAsync(h.Owner, h.Studio, source.Value.Id);
+        Assert.True(copy.IsSuccess);
+        Assert.Null(copy.Value.Content.Title);
+        Assert.Null(copy.Value.Content.SalaryMin);
+        Assert.Empty(copy.Value.Content.Skills);
+    }
+
+    [Fact]
     public async Task StudioList_AllowsViewerReads_ButDeniesCandidateAndOtherStudio()
     {
         await using var h = await Harness.Create();
