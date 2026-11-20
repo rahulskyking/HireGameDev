@@ -6,6 +6,7 @@ using HireGameDev.Domain.Entities;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Domain.Rules;
 using HireGameDev.Infrastructure.Persistence;
+using HireGameDev.Infrastructure.Identity;
 using HireGameDev.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -159,6 +160,35 @@ public sealed class PublicJobQueryServiceTests
             Assert.Equal("PublicJobs.Unavailable", (await h.Service.GetBySlugAsync(slug)).Error.Code);
         var empty = (await h.Service.SearchAsync(new() { Page = int.MaxValue })).Value;
         Assert.Empty(empty.Items); Assert.Equal(1, empty.Page); Assert.Equal(1, empty.TotalPages);
+    }
+
+    [Fact]
+    public async Task CandidateBlock_HidesListAndDetailOnlyForThatActivePrimaryCandidate_AndUnblockIsImmediate()
+    {
+        await using var h = await Harness.Create();
+        var job = await h.Add();
+        var candidateUser = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Candidate, IsActive = true };
+        var otherUser = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Candidate, IsActive = true };
+        var studioUser = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Studio, IsActive = true };
+        var candidate = new CandidateProfile { Id = Guid.NewGuid(), UserId = candidateUser.Id };
+        var legacyProfile = new CandidateProfile { Id = Guid.NewGuid(), UserId = studioUser.Id };
+        h.Db.Users.AddRange(candidateUser, otherUser, studioUser);
+        h.Db.CandidateProfiles.AddRange(candidate, legacyProfile);
+        var block = new CandidateStudioBlock { CandidateId = candidate.Id, StudioId = h.Studio.Id, CreatedAt = h.Clock.UtcNow };
+        h.Db.CandidateStudioBlocks.AddRange(block, new CandidateStudioBlock { CandidateId = legacyProfile.Id, StudioId = h.Studio.Id, CreatedAt = h.Clock.UtcNow });
+        await h.Db.SaveChangesAsync();
+        Assert.Empty((await h.Service.SearchAsync(new(), viewerUserId: candidateUser.Id)).Value.Items);
+        var missing = await h.Service.GetBySlugAsync("missing-job", viewerUserId: candidateUser.Id);
+        Assert.Equal(missing.Error, (await h.Service.GetBySlugAsync(job.Slug, viewerUserId: candidateUser.Id)).Error);
+        foreach (var viewer in new Guid?[] { null, otherUser.Id, studioUser.Id, Guid.NewGuid() })
+        {
+            Assert.Single((await h.Service.SearchAsync(new(), viewerUserId: viewer)).Value.Items);
+            Assert.True((await h.Service.GetBySlugAsync(job.Slug, viewerUserId: viewer)).IsSuccess);
+        }
+        h.Db.CandidateStudioBlocks.Remove(block);
+        await h.Db.SaveChangesAsync();
+        Assert.Single((await h.Service.SearchAsync(new(), viewerUserId: candidateUser.Id)).Value.Items);
+        Assert.True((await h.Service.GetBySlugAsync(job.Slug, viewerUserId: candidateUser.Id)).IsSuccess);
     }
 
     private sealed class Harness : IAsyncDisposable

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Reflection;
 using HireGameDev.Application.Abstractions.Jobs;
 using HireGameDev.Application.Abstractions.ReferenceData;
@@ -110,6 +111,24 @@ public sealed class PublicJobsControllerTests
             Assert.True(parsed.ContainsKey(key));
     }
 
+    [Fact]
+    public async Task ViewerIdentity_ComesOnlyFromAuthenticatedClaims_AndPersonalResponsesArePrivate()
+    {
+        var h = new Harness();
+        var userId = Guid.NewGuid();
+        h.Controller.Request.QueryString = new QueryString("?viewerUserId=" + Guid.NewGuid());
+        await h.Controller.Index(new(), default);
+        Assert.Null(h.Jobs.LastViewer);
+        h.Controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "test"));
+        await h.Controller.Index(new(), default);
+        Assert.Equal(userId, h.Jobs.LastViewer);
+        Assert.Equal("private, no-store", h.Controller.Response.Headers["Cache-Control"].ToString());
+        Assert.Equal("Cookie", h.Controller.Response.Headers["Vary"].ToString());
+        Assert.Equal("noindex, follow", h.Controller.Response.Headers["X-Robots-Tag"].ToString());
+        await h.Controller.Detail("job-test", default);
+        Assert.Equal(userId, h.Jobs.LastViewer);
+    }
+
     private sealed class Harness
     {
         public FakeCatalog Jobs { get; } = new();
@@ -125,6 +144,7 @@ public sealed class PublicJobsControllerTests
     private sealed class FakeCatalog : IPublicJobQueryService
     {
         public PublicJobSearch? LastSearch { get; private set; }
+        public Guid? LastViewer { get; private set; }
         public Error? SearchError { get; set; }
         public bool Missing { get; set; }
         public PublicJobDetail Detail { get; } = new(
@@ -132,13 +152,16 @@ public sealed class PublicJobsControllerTests
                 JobType.FullTime, JobWorkMode.Remote, null, null, 10, 15, JobPayUnit.Lpa, 1, 4, false,
                 DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(29)),
             DisciplineCategory.Programming, SeniorityLevel.Junior, SeniorityLevel.Mid, "Build games.", false, 1, null, null, Array.Empty<PublicJobSkill>());
-        public Task<Result<PublicJobSearchPage>> SearchAsync(PublicJobSearch search, CancellationToken cancellationToken = default)
+        public Task<Result<PublicJobSearchPage>> SearchAsync(PublicJobSearch search, CancellationToken cancellationToken = default, Guid? viewerUserId = null)
         {
-            LastSearch = search;
+            LastSearch = search; LastViewer = viewerUserId;
             return Task.FromResult(SearchError is null ? Result.Success(new PublicJobSearchPage(new[] { Detail.Summary }, 1, 1, 20, 1)) : Result.Failure<PublicJobSearchPage>(SearchError));
         }
-        public Task<Result<PublicJobDetail>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Missing ? Result.Failure<PublicJobDetail>(Error.NotFound("PublicJobs.Unavailable", "This listing is unavailable.")) : Result.Success(Detail));
+        public Task<Result<PublicJobDetail>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default, Guid? viewerUserId = null)
+        {
+            LastViewer = viewerUserId;
+            return Task.FromResult(Missing ? Result.Failure<PublicJobDetail>(Error.NotFound("PublicJobs.Unavailable", "This listing is unavailable.")) : Result.Success(Detail));
+        }
     }
     private sealed class FakePortals : IPortalNavigator
     {

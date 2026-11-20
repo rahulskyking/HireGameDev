@@ -6,6 +6,7 @@
     ViewData["Title"] = $"{job.Title} at {job.Studio.Name}";
 }
 @section Styles {
+    @if (User.Identity?.IsAuthenticated == true) { <meta name="robots" content="noindex, follow" /> }
     <link rel="canonical" href="@Model.CanonicalUrl" />
     <meta name="description" content="@($"{job.Title} at {job.Studio.Name}. {PublicJobUi.Salary(job)}. {job.WorkMode}. Explore the role, requirements and team.")" />
     <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />

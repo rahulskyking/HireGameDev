@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Features.Jobs;
@@ -9,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
-[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
     IPortalNavigator portals) : Controller
 {
@@ -21,7 +21,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         PublicJobSearchPage? results = null;
         if (ModelState.IsValid)
         {
-            var result = await jobs.SearchAsync(search, cancellationToken);
+            var result = await jobs.SearchAsync(search, cancellationToken, viewerUserId: ViewerUserId());
             if (result.IsSuccess) results = result.Value;
             else ModelState.AddModelError("", result.Error.Message);
         }
@@ -30,6 +30,8 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             Response.StatusCode = StatusCodes.Status400BadRequest;
             Response.Headers["X-Robots-Tag"] = "noindex, follow";
         }
+        if (PublicJobUi.HasFilters(search) || (results?.Page ?? 1) > 1)
+            Response.Headers["X-Robots-Tag"] = "noindex, follow";
         var canonicalPath = PublicJobUi.PageUrl(results is null ? new PublicJobSearch() : search, results?.Page ?? 1);
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
@@ -41,7 +43,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
     {
         var redirect = CanonicalPortal("/jobs/" + Uri.EscapeDataString(slug));
         if (redirect is not null) return redirect;
-        var result = await jobs.GetBySlugAsync(slug, cancellationToken);
+        var result = await jobs.GetBySlugAsync(slug, cancellationToken, viewerUserId: ViewerUserId());
         if (result.IsFailure)
         {
             Response.StatusCode = StatusCodes.Status404NotFound;
@@ -57,10 +59,16 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
 
     private IActionResult? CanonicalPortal(string path)
     {
-        Response.Headers["Cache-Control"] = "no-store"; // Re-evaluate expiry/restrictions on every request.
+        var authenticated = User.Identity?.IsAuthenticated == true;
+        Response.Headers["Cache-Control"] = authenticated ? "private, no-store" : "no-store";
+        Response.Headers["Vary"] = "Cookie";
+        if (authenticated) Response.Headers["X-Robots-Tag"] = "noindex, follow";
         return portals.IsSubdomainRoutingActive(HttpContext) && portals.ResolvePortal(HttpContext) != PortalSite.Jobs
             ? RedirectPermanent(portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path)) : null;
     }
+    private Guid? ViewerUserId() => User.Identity?.IsAuthenticated == true &&
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) && id != Guid.Empty ? id : null;
+
     private string RegistrationUrl(string returnPath) => portals.BuildPortalUrl(PortalSite.Jobs, HttpContext,
         "/Account/Register?type=candidate&returnUrl=" + Uri.EscapeDataString(returnPath));
 }

@@ -62,6 +62,35 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task CandidateJobBlock_TranslatesToPostgresAndUnblocksImmediately()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        await using var session = h.Session();
+        var published = await session.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+        Assert.True(published.IsSuccess && published.Value.Applied);
+        var userId = Guid.NewGuid();
+        var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+        session.Db.Cities.Add(city);
+        session.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = "candidate@example.com", Email = "candidate@example.com" });
+        await session.Db.SaveChangesAsync();
+        var candidate = new CandidateProfile { Id = Guid.NewGuid(), UserId = userId, CityId = city.Id, FullName = "Test Candidate", Headline = "Game developer" };
+        session.Db.CandidateProfiles.Add(candidate);
+        await session.Db.SaveChangesAsync();
+        var block = new CandidateStudioBlock { CandidateId = candidate.Id, StudioId = h.Studio };
+        session.Db.CandidateStudioBlocks.Add(block);
+        await session.Db.SaveChangesAsync();
+        var service = new PublicJobQueryService(session.Db, new TestClock(), null!);
+        Assert.Single((await service.SearchAsync(new())).Value.Items);
+        Assert.Empty((await service.SearchAsync(new(), viewerUserId: userId)).Value.Items);
+        Assert.Equal("PublicJobs.Unavailable", (await service.GetBySlugAsync(draft.Slug, viewerUserId: userId)).Error.Code);
+        session.Db.CandidateStudioBlocks.Remove(block);
+        await session.Db.SaveChangesAsync();
+        Assert.Single((await service.SearchAsync(new(), viewerUserId: userId)).Value.Items);
+        Assert.True((await service.GetBySlugAsync(draft.Slug, viewerUserId: userId)).IsSuccess);
+    }
+
+    [PostgresFact]
     public async Task SkillOnlyEdit_AdvancesParentXmin_AndRejectsOldSelection()
     {
         await using var h = await DatabaseHarness.Create();

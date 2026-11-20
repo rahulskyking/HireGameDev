@@ -12,7 +12,7 @@ namespace HireGameDev.Infrastructure.Services;
 
 internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFileStorageService storage) : IPublicJobQueryService
 {
-    public async Task<Result<PublicJobSearchPage>> SearchAsync(PublicJobSearch search, CancellationToken cancellationToken = default)
+    public async Task<Result<PublicJobSearchPage>> SearchAsync(PublicJobSearch search, CancellationToken cancellationToken = default, Guid? viewerUserId = null)
     {
         if (search.Keyword?.Length > 100 || search.Keyword?.Any(char.IsControl) == true ||
             search.SkillIds is null || search.SkillIds.Count > 12 || search.SkillIds.Any(x => x <= 0) ||
@@ -25,7 +25,7 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
             .Select(x => x.ToLowerInvariant()).Distinct().ToArray();
         if (terms.Length > 8)
             return Result.Failure<PublicJobSearchPage>(Error.Validation("PublicJobs.InvalidSearch", "Use at most eight keyword terms."));
-        var query = Visible(clock.UtcNow.ToUniversalTime());
+        var query = await VisibleForViewerAsync(viewerUserId, cancellationToken);
         // AND between terms, OR between title/description. Contains is parameterized literal
         // substring matching, not caller-provided SQL LIKE syntax (%, _ are literal characters).
         foreach (var term in terms)
@@ -52,14 +52,15 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
         return Result.Success(new PublicJobSearchPage(cards, total, page, search.PageSize, pages));
     }
 
-    public async Task<Result<PublicJobDetail>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+    public async Task<Result<PublicJobDetail>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default, Guid? viewerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(slug) || slug.Length > 160) return Result.Failure<PublicJobDetail>(Unavailable());
         slug = slug.Trim().ToLowerInvariant();
         if (slug.Length < 2 || slug.StartsWith('-') || slug.EndsWith('-') || slug.Contains("--") ||
             slug.Any(c => c is not (>= 'a' and <= 'z') && c is not (>= '0' and <= '9') && c != '-'))
             return Result.Failure<PublicJobDetail>(Unavailable());
-        var row = await Visible(clock.UtcNow.ToUniversalTime()).SingleOrDefaultAsync(x => x.Job.Slug == slug, cancellationToken);
+        var query = await VisibleForViewerAsync(viewerUserId, cancellationToken);
+        var row = await query.SingleOrDefaultAsync(x => x.Job.Slug == slug, cancellationToken);
         if (row is null) return Result.Failure<PublicJobDetail>(Unavailable());
         var city = row.Job.CityId.HasValue ? await db.Cities.AsNoTracking().SingleOrDefaultAsync(x => x.Id == row.Job.CityId, cancellationToken) : null;
         var skills = await (from js in db.JobSkills.AsNoTracking()
@@ -70,6 +71,22 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
         var j = row.Job;
         return Result.Success(new PublicJobDetail(Card(row, city), j.Category!.Value, j.SeniorityMin!.Value,
             j.SeniorityMax!.Value, j.Description!, j.RelocationAssistance, j.Openings, j.MaxNoticeDays, j.ScreeningQuestion, skills));
+    }
+
+    private async Task<IQueryable<Listing>> VisibleForViewerAsync(Guid? viewerUserId, CancellationToken ct)
+    {
+        var query = Visible(clock.UtcNow.ToUniversalTime());
+        if (!viewerUserId.HasValue || viewerUserId == Guid.Empty) return query;
+        // Database identity is authoritative: ignore legacy opposite profiles/roles, inactive
+        // accounts and deleted profiles. CandidateProfile.Id is NOT the Identity User.Id.
+        var candidateId = await (from candidate in db.CandidateProfiles.AsNoTracking()
+                                 join user in db.Users.AsNoTracking() on candidate.UserId equals user.Id
+                                 where user.Id == viewerUserId.Value && user.IsActive && user.DeletedAt == null &&
+                                     user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
+                                 select (Guid?)candidate.Id).SingleOrDefaultAsync(ct);
+        if (candidateId.HasValue)
+            query = query.Where(x => !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidateId.Value && b.StudioId == x.Studio.Id));
+        return query;
     }
 
     // SQL-translatable equivalent of JobLifecycleRules.CanAppearPublicly. One gate shared by
