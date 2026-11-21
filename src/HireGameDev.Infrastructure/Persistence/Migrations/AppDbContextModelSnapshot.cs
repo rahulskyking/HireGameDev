@@ -25,6 +25,58 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobApplication", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
+                    b.Property<Guid>("CandidateId").HasColumnType("uuid").HasColumnName("candidate_id");
+                    b.Property<Guid>("JobId").HasColumnType("uuid").HasColumnName("job_id");
+                    b.Property<string>("Status").IsRequired().HasColumnType("text").HasColumnName("status");
+                    b.Property<DateTimeOffset>("SubmittedAt").HasColumnType("timestamptz").HasColumnName("submitted_at");
+                    b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("timestamptz").HasColumnName("updated_at");
+                    b.Property<uint>("Version").IsConcurrencyToken().ValueGeneratedOnAddOrUpdate().HasColumnType("xid").HasColumnName("xmin");
+                    b.HasKey("Id").HasName("pk_applications");
+                    b.HasIndex("CandidateId", "JobId").IsUnique().HasDatabaseName("ux_applications_candidate_job");
+                    b.HasIndex("CandidateId", "SubmittedAt", "Id").IsDescending(false, true, false).HasDatabaseName("ix_applications_candidate_submitted");
+                    b.HasIndex("JobId", "SubmittedAt", "Id").IsDescending(false, true, false).HasDatabaseName("ix_applications_job_submitted");
+                    b.ToTable("applications", null, t => t.HasCheckConstraint("ck_applications_status", "status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')"));
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ApplicationSnapshot", b =>
+                {
+                    b.Property<Guid>("ApplicationId").HasColumnType("uuid").HasColumnName("application_id");
+                    b.Property<int>("SnapshotVersion").HasColumnType("integer").HasColumnName("snapshot_version");
+                    b.Property<string>("CandidateData").IsRequired().HasColumnType("jsonb").HasColumnName("candidate_data");
+                    b.Property<string>("JobData").IsRequired().HasColumnType("jsonb").HasColumnName("job_data");
+                    b.Property<string>("Phone").HasMaxLength(20).HasColumnType("character varying(20)").HasColumnName("phone");
+                    b.Property<string>("ConsentVersion").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)").HasColumnName("consent_version");
+                    b.Property<DateTimeOffset>("ConsentedAt").HasColumnType("timestamptz").HasColumnName("consented_at");
+                    b.HasKey("ApplicationId").HasName("pk_application_snapshots");
+                    b.ToTable("application_snapshots", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_application_snapshots_version", "snapshot_version > 0");
+                            t.HasCheckConstraint("ck_application_snapshots_consent", "char_length(btrim(consent_version)) > 0");
+                            t.HasCheckConstraint("ck_application_snapshots_json", "jsonb_typeof(candidate_data) = 'object' AND jsonb_typeof(job_data) = 'object'");
+                        });
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ApplicationStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
+                    b.Property<Guid>("ApplicationId").HasColumnType("uuid").HasColumnName("application_id");
+                    b.Property<Guid>("ActorUserId").HasColumnType("uuid").HasColumnName("actor_user_id");
+                    b.Property<string>("PreviousStatus").HasColumnType("text").HasColumnName("previous_status");
+                    b.Property<string>("NewStatus").IsRequired().HasColumnType("text").HasColumnName("new_status");
+                    b.Property<DateTimeOffset>("OccurredAt").HasColumnType("timestamptz").HasColumnName("occurred_at");
+                    b.HasKey("Id").HasName("pk_application_status_history");
+                    b.HasIndex("ActorUserId").HasDatabaseName("ix_application_status_history_actor_user_id");
+                    b.HasIndex("ApplicationId", "OccurredAt", "Id").HasDatabaseName("ix_application_history_timeline");
+                    b.ToTable("application_status_history", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_application_history_previous", "previous_status IS NULL OR previous_status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')");
+                            t.HasCheckConstraint("ck_application_history_new", "new_status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')");
+                        });
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.AppSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -2138,6 +2190,23 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         .HasName("pk_user_tokens");
 
                     b.ToTable("user_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.JobApplication", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", null).WithMany().HasForeignKey("CandidateId").OnDelete(DeleteBehavior.Restrict).IsRequired().HasConstraintName("fk_applications_candidate_profiles_candidate_id");
+                    b.HasOne("HireGameDev.Domain.Entities.Job", null).WithMany().HasForeignKey("JobId").OnDelete(DeleteBehavior.Restrict).IsRequired().HasConstraintName("fk_applications_jobs_job_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ApplicationSnapshot", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.JobApplication", null).WithOne().HasForeignKey("HireGameDev.Domain.Entities.ApplicationSnapshot", "ApplicationId").OnDelete(DeleteBehavior.Restrict).IsRequired().HasConstraintName("fk_application_snapshots_applications_application_id");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.ApplicationStatusHistory", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.JobApplication", null).WithMany().HasForeignKey("ApplicationId").OnDelete(DeleteBehavior.Restrict).IsRequired().HasConstraintName("fk_application_status_history_applications_application_id");
+                    b.HasOne("HireGameDev.Infrastructure.Identity.ApplicationUser", null).WithMany().HasForeignKey("ActorUserId").OnDelete(DeleteBehavior.Restrict).IsRequired().HasConstraintName("fk_application_status_history_users_actor_user_id");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.AppSetting", b =>

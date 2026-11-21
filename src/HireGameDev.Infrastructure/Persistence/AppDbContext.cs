@@ -18,6 +18,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
         _clock = clock;
     }
 
+    public DbSet<JobApplication> Applications => Set<JobApplication>();
+    public DbSet<ApplicationSnapshot> ApplicationSnapshots => Set<ApplicationSnapshot>();
+    public DbSet<ApplicationStatusHistory> ApplicationStatusHistory => Set<ApplicationStatusHistory>();
+
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<JobSkill> JobSkills => Set<JobSkill>();
     public DbSet<JobStatusHistory> JobStatusHistory => Set<JobStatusHistory>();
