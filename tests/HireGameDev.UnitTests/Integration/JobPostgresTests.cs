@@ -3,6 +3,8 @@ using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Jobs;
+using HireGameDev.Application.Features.Applications;
+using Microsoft.AspNetCore.DataProtection;
 using HireGameDev.Domain.Entities;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Infrastructure.Identity;
@@ -60,6 +62,99 @@ public sealed class JobPostgresTests
         Assert.Equal(JobStatus.Active, (await session.Db.Jobs.SingleAsync()).Status);
         Assert.Equal(2, await session.Db.JobStatusHistory.CountAsync());
         Assert.Single(await session.Db.JobPublicationEvents.ToArrayAsync());
+    }
+
+    [PostgresFact]
+    public async Task ApplicationSubmission_RejectsStaleAndBlockedReviews_AndEnforcesDuplicateAndCapacityRaces()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var users = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var candidates = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.Users.Add(new ApplicationUser { Id = users[i], AccountType = AccountType.Candidate, UserName = $"apply{i}@example.com", Email = $"apply{i}@example.com" });
+            await setup.Db.SaveChangesAsync();
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidates[i], UserId = users[i], CityId = city.Id, FullName = $"Candidate {i}", Headline = "Game developer" });
+            var job = await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+            job.ApplicationCap = 2;
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        ApplicationSubmissionService Submission(AppDbContext db)
+        {
+            var clock = new TestClock();
+            return new ApplicationSubmissionService(db, new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        }
+        async Task<ApplicationReviewOffer> Offer(Guid user)
+        {
+            await using var session = h.Session();
+            var result = await Submission(session.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            return result.Value;
+        }
+        async Task<Result<SubmittedApplication>> Submit(Guid user, string token, Task? gate = null)
+        {
+            await using var session = h.Session();
+            if (gate is not null) await gate;
+            return await Submission(session.Db).SubmitAsync(new(user, draft.Id, null, token, true));
+        }
+        var stale = await Offer(users[0]);
+        await using (var invalid = h.Session())
+        {
+            var service = Submission(invalid.Db);
+            Assert.Equal("Applications.ConsentRequired", (await service.SubmitAsync(new(users[0], draft.Id, null, stale.ReviewToken, false))).Error.Code);
+            Assert.Equal("Applications.ReviewStale", (await service.SubmitAsync(new(users[1], draft.Id, null, stale.ReviewToken, true))).Error.Code);
+            Assert.Equal("Applications.ReviewStale", (await service.SubmitAsync(new(users[0], draft.Id, null, "not-a-token", true))).Error.Code);
+        }
+        await using (var edit = h.Session())
+        {
+            var candidate = await edit.Db.CandidateProfiles.SingleAsync(x => x.Id == candidates[0]);
+            candidate.Headline = "Updated developer";
+            await edit.Db.SaveChangesAsync();
+        }
+        Assert.Equal("Applications.ReviewStale", (await Submit(users[0], stale.ReviewToken)).Error.Code);
+        var blocked = await Offer(users[0]);
+        await using (var edit = h.Session())
+        {
+            edit.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidates[0], StudioId = h.Studio });
+            await edit.Db.SaveChangesAsync();
+        }
+        Assert.Equal("Applications.Unavailable", (await Submit(users[0], blocked.ReviewToken)).Error.Code);
+        await using (var edit = h.Session())
+        {
+            edit.Db.CandidateStudioBlocks.Remove(await edit.Db.CandidateStudioBlocks.SingleAsync());
+            await edit.Db.SaveChangesAsync();
+        }
+        var one = await Offer(users[0]);
+        var two = await Offer(users[1]);
+        var three = await Offer(users[2]);
+        var duplicateGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var d1 = Submit(users[0], one.ReviewToken, duplicateGate.Task);
+        var d2 = Submit(users[0], one.ReviewToken, duplicateGate.Task);
+        duplicateGate.SetResult(true);
+        var duplicate = await Task.WhenAll(d1, d2).WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.Single(duplicate.Where(x => x.IsSuccess));
+        var capacityGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var c1 = Submit(users[1], two.ReviewToken, capacityGate.Task);
+        var c2 = Submit(users[2], three.ReviewToken, capacityGate.Task);
+        capacityGate.SetResult(true);
+        var capacity = await Task.WhenAll(c1, c2).WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.Single(capacity.Where(x => x.IsSuccess));
+        await using var check = h.Session();
+        var finalJob = await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+        Assert.Equal(2, finalJob.ApplicationsCount);
+        Assert.Equal(JobStatus.Full, finalJob.Status);
+        Assert.Equal(2, await check.Db.Applications.CountAsync());
+        Assert.Equal(2, await check.Db.ApplicationSnapshots.CountAsync());
+        Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync());
+        Assert.Equal(1, await check.Db.JobStatusHistory.CountAsync(x => x.NewStatus == JobStatus.Full));
     }
 
     [PostgresFact]

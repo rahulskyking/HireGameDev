@@ -21,7 +21,7 @@ internal sealed class ApplicationReviewService(AppDbContext db, IApplicationElig
         // Split queries must see the same version of the Candidate graph. A preview can still
         // become stale after this transaction; submission must independently coordinate writes,
         // verify the reviewed content and recheck authorization, blocklist, capacity and expiry.
-        await using IDbContextTransaction? tx = db.Database.IsRelational()
+        await using IDbContextTransaction? tx = db.Database.IsRelational() && db.Database.CurrentTransaction is null
             ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken) : null;
         var checkedEligibility = await eligibility.CheckAsync(actorUserId, jobId, cancellationToken);
         if (checkedEligibility.IsFailure) return Result.Failure<ApplicationSnapshotDraft>(checkedEligibility.Error);

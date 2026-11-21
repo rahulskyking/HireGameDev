@@ -41,8 +41,7 @@ tests rather than falling back to a different provider.
   back the job, status history and publication ledger together; retry succeeds.
 
 Races use a common start gate and separate connections. These are regression
-checks, not exhaustive load/linearizability proofs. They do not cover Phase 3
-application-cap enforcement, which has not been implemented yet.
+checks, not exhaustive load/linearizability proofs. Phase 3 now adds an opt-in submission prototype test for duplicate and capacity races, stale review and an already-blocked Studio. It does not prove all block/profile edit races or load behavior.
 
 M2.2b adds concurrent draft duplication and skill-only xmin checks; M2.3a adds
 public query translation/visibility; M2.3c adds candidate blocklist translation and immediate unblock. Saved Jobs Slice A adds concurrency, privacy, block and draft deletion regression coverage.
