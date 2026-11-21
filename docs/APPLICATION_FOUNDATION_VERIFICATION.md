@@ -22,3 +22,7 @@ Pure application lifecycle rules and exhaustive status-pair tests have been adde
 A pure snapshot builder and privacy-focused unit tests have also been added. It is not wired to submission and must not be treated as evidence of consent or authorization. Required references must be loaded and collections loaded consistently by a future transaction-aware service; profile/job edits and block changes must be coordinated before submission.
 
 The read-only eligibility service is advisory and has no route/UI. It checks Candidate-primary identity, public job/Studio visibility, blocklist, duplicates (including withdrawn), and capacity. It never reserves a slot; the future submission transaction must recheck all conditions. Run the full test suite and verify the migration locally; InMemory tests do not prove PostgreSQL translation or concurrency.
+
+## Private review service
+
+`IApplicationReviewService` builds a read-only draft from the Candidate's loaded profile, job and Studio after advisory eligibility checks. Relational reads use a repeatable-read transaction; no data is submitted or reserved and any later submission must revalidate reviewed data. No HTTP endpoint or upload is provided yet. Screening answers are bounded at 2,000 characters. The owner reported the prior findstr/clean/build checks passed; no specific test or migration results were reported. The new InMemory and opt-in PostgreSQL review tests were not run in the sandbox.

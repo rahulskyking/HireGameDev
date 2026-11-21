@@ -63,6 +63,38 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationReview_LoadsPrivateSnapshotAndRespectsBlocklist()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        await using var session = h.Session();
+        var published = await session.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+        Assert.True(published.IsSuccess && published.Value.Applied);
+        var userId = Guid.NewGuid();
+        var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+        session.Db.Cities.Add(city);
+        session.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = "review@example.com", Email = "review@example.com" });
+        await session.Db.SaveChangesAsync();
+        var candidate = new CandidateProfile { Id = Guid.NewGuid(), UserId = userId, CityId = city.Id, FullName = "Test Candidate", Headline = "Game developer", CurrentCtcLpa = 10, ShowCurrentCtc = false };
+        session.Db.CandidateProfiles.Add(candidate);
+        session.Db.ShippedTitles.Add(new ShippedTitle { Id = Guid.NewGuid(), CandidateId = candidate.Id, GameName = "Secret game", StudioName = "Secret studio", Role = "Developer", IsNda = true, HideStudioInPublic = true, Platforms = new[] { "pc" } });
+        await session.Db.SaveChangesAsync();
+        var clock = new TestClock();
+        var eligibility = new ApplicationEligibilityService(session.Db, clock);
+        var review = new ApplicationReviewService(session.Db, eligibility);
+        var result = await review.ReviewAsync(userId, draft.Id, null);
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value.Candidate.CurrentCtcLpa);
+        Assert.Equal("Confidential Project (Under NDA)", Assert.Single(result.Value.Candidate.ShippedGames).GameName);
+        Assert.Empty(await session.Db.Applications.ToArrayAsync());
+        session.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidate.Id, StudioId = h.Studio });
+        await session.Db.SaveChangesAsync();
+        var blocked = await review.ReviewAsync(userId, draft.Id, null);
+        Assert.True(blocked.IsFailure);
+        Assert.Equal("Applications.Unavailable", blocked.Error.Code);
+    }
+
+    [PostgresFact]
     public async Task CandidateJobBlock_TranslatesToPostgresAndUnblocksImmediately()
     {
         await using var h = await DatabaseHarness.Create();
