@@ -233,6 +233,7 @@ public static class DependencyInjection
         services.AddScoped<IJobPublishChecker, JobPublishChecker>();
         services.AddScoped<IJobLifecycleService, JobLifecycleService>();
         services.AddScoped<IPublicJobQueryService, PublicJobQueryService>();
+        services.AddScoped<ISavedJobService, SavedJobService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();

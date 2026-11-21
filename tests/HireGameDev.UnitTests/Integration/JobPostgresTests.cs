@@ -1,5 +1,6 @@
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
+using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Domain.Entities;
@@ -88,6 +89,68 @@ public sealed class JobPostgresTests
         await session.Db.SaveChangesAsync();
         Assert.Single((await service.SearchAsync(new(), viewerUserId: userId)).Value.Items);
         Assert.True((await service.GetBySlugAsync(draft.Slug, viewerUserId: userId)).IsSuccess);
+    }
+
+    [PostgresFact]
+    public async Task SavedJobs_ConcurrentIdempotency_Privacy_BlockAndDraftDeletion()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var publishedJob = await h.Draft("Gameplay Developer Alpha");
+        var otherDraft = await h.Draft("Audio Developer Beta");
+        var userId = Guid.NewGuid();
+        var candidateId = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, publishedJob.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = "save-candidate@example.com", Email = "save-candidate@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidateId, UserId = userId, CityId = city.Id, FullName = "Test Candidate", Headline = "Game developer" });
+            // A legacy opposite profile must not grant a Studio-primary user access.
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = h.Owner, CityId = city.Id, FullName = "Studio Owner", Headline = "Studio developer" });
+            await setup.Db.SaveChangesAsync();
+        }
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<Result> SaveInIndependentContext()
+        {
+            await using var session = h.Session();
+            var service = new SavedJobService(session.Db, new PublicJobQueryService(session.Db, new TestClock(), null!), new TestClock());
+            await gate.Task;
+            return await service.SaveAsync(userId, publishedJob.Id);
+        }
+        var firstSave = SaveInIndependentContext();
+        var secondSave = SaveInIndependentContext();
+        gate.SetResult(true);
+        var concurrent = await Task.WhenAll(firstSave, secondSave);
+        Assert.All(concurrent, result => Assert.True(result.IsSuccess));
+        await using var check = h.Session();
+        var saves = new SavedJobService(check.Db, new PublicJobQueryService(check.Db, new TestClock(), null!), new TestClock());
+        Assert.Equal(1, await check.Db.CandidateSavedJobs.CountAsync());
+        Assert.True((await saves.SaveAsync(userId, publishedJob.Id)).IsSuccess);
+        Assert.Equal("SavedJobs.Forbidden", (await saves.SaveAsync(h.Owner, publishedJob.Id)).Error.Code);
+        Assert.Equal("SavedJobs.Forbidden", (await saves.ListAsync(h.Owner)).Error.Code);
+        Assert.Equal("SavedJobs.Forbidden", (await saves.RemoveAsync(h.Owner, publishedJob.Id)).Error.Code);
+        Assert.Equal("SavedJobs.Unavailable", (await saves.SaveAsync(userId, otherDraft.Id)).Error.Code);
+        var deleted = await check.Service.DeleteDraftAsync(h.Owner, h.Studio, otherDraft.Id);
+        Assert.True(deleted.IsSuccess);
+        Assert.Equal(publishedJob.Id, Assert.Single((await saves.ListAsync(userId)).Value.Items).Job!.Id);
+        var block = new CandidateStudioBlock { CandidateId = candidateId, StudioId = h.Studio };
+        check.Db.CandidateStudioBlocks.Add(block); await check.Db.SaveChangesAsync();
+        Assert.Empty((await saves.ListAsync(userId)).Value.Items);
+        Assert.Equal("SavedJobs.Unavailable", (await saves.SaveAsync(userId, publishedJob.Id)).Error.Code);
+        check.Db.CandidateStudioBlocks.Remove(block); await check.Db.SaveChangesAsync();
+        Assert.NotNull(Assert.Single((await saves.ListAsync(userId)).Value.Items).Job);
+        var studio = await check.Db.StudioProfiles.SingleAsync();
+        studio.VerificationStatus = StudioVerificationStatus.Rejected; await check.Db.SaveChangesAsync();
+        var unavailable = Assert.Single((await saves.ListAsync(userId)).Value.Items);
+        Assert.Null(unavailable.Job);
+        var json = System.Text.Json.JsonSerializer.Serialize(unavailable);
+        Assert.DoesNotContain("Gameplay", json); Assert.DoesNotContain("Integration Studio", json);
+        Assert.True((await saves.RemoveAsync(userId, publishedJob.Id)).IsSuccess);
+        Assert.True((await saves.RemoveAsync(userId, publishedJob.Id)).IsSuccess);
+        Assert.Empty((await saves.ListAsync(userId)).Value.Items);
     }
 
     [PostgresFact]

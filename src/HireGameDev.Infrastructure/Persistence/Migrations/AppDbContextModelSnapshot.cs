@@ -498,6 +498,18 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateSavedJob", b =>
+                {
+                    b.Property<Guid>("CandidateId").HasColumnType("uuid").HasColumnName("candidate_id");
+                    b.Property<Guid>("JobId").HasColumnType("uuid").HasColumnName("job_id");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamptz").HasColumnName("created_at");
+                    b.HasKey("CandidateId", "JobId").HasName("pk_candidate_saved_jobs");
+                    b.HasIndex("JobId").HasDatabaseName("ix_candidate_saved_jobs_job_id");
+                    b.HasIndex("CandidateId", "CreatedAt", "JobId").IsDescending(false, true, false)
+                        .HasDatabaseName("ix_candidate_saved_jobs_candidate_created_job");
+                    b.ToTable("candidate_saved_jobs", (string)null);
+                });
+
             modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateStudioBlock", b =>
                 {
                     b.Property<Guid>("CandidateId")
@@ -2208,6 +2220,16 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.Navigation("Candidate");
 
                     b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateSavedJob", b =>
+                {
+                    b.HasOne("HireGameDev.Domain.Entities.CandidateProfile", null).WithMany()
+                        .HasForeignKey("CandidateId").OnDelete(DeleteBehavior.Cascade).IsRequired()
+                        .HasConstraintName("fk_candidate_saved_jobs_candidate_profiles_candidate_id");
+                    b.HasOne("HireGameDev.Domain.Entities.Job", null).WithMany()
+                        .HasForeignKey("JobId").OnDelete(DeleteBehavior.Restrict).IsRequired()
+                        .HasConstraintName("fk_candidate_saved_jobs_jobs_job_id");
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.CandidateStudioBlock", b =>

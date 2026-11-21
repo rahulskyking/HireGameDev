@@ -45,7 +45,7 @@ checks, not exhaustive load/linearizability proofs. They do not cover Phase 3
 application-cap enforcement, which has not been implemented yet.
 
 M2.2b adds concurrent draft duplication and skill-only xmin checks; M2.3a adds
-public query translation/visibility; M2.3c adds candidate blocklist translation and immediate unblock.
+public query translation/visibility; M2.3c adds candidate blocklist translation and immediate unblock. Saved Jobs Slice A adds concurrency, privacy, block and draft deletion regression coverage.
 Record the build, unit-test and integration-test outcomes before proceeding.
 The Arena sandbox has no .NET SDK or PostgreSQL installed, so these results have
 **not** been executed/verified there. No new migration is introduced by this suite.

@@ -191,6 +191,43 @@ public sealed class PublicJobQueryServiceTests
         Assert.True((await h.Service.GetBySlugAsync(job.Slug, viewerUserId: candidateUser.Id)).IsSuccess);
     }
 
+    [Fact]
+    public async Task SavedJobs_AuthorizePrimaryCandidateAndProtectUnavailableEntries()
+    {
+        await using var h = await Harness.Create();
+        var first = await h.Add("Private title", id: Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var second = await h.Add("Other title", id: Guid.Parse("00000000-0000-0000-0000-000000000002"));
+        var user = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Candidate, IsActive = true };
+        var other = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Candidate, IsActive = true };
+        var studioUser = new ApplicationUser { Id = Guid.NewGuid(), AccountType = AccountType.Studio, IsActive = true };
+        var candidate = new CandidateProfile { Id = Guid.NewGuid(), UserId = user.Id };
+        h.Db.Users.AddRange(user, other, studioUser);
+        h.Db.CandidateProfiles.AddRange(candidate, new CandidateProfile { Id = Guid.NewGuid(), UserId = other.Id },
+            new CandidateProfile { Id = Guid.NewGuid(), UserId = studioUser.Id });
+        await h.Db.SaveChangesAsync();
+        var service = new SavedJobService(h.Db, h.Service, h.Clock);
+        Assert.Equal("SavedJobs.Forbidden", (await service.SaveAsync(studioUser.Id, first.Id)).Error.Code);
+        Assert.True((await service.SaveAsync(user.Id, second.Id)).IsSuccess);
+        Assert.True((await service.SaveAsync(user.Id, first.Id)).IsSuccess);
+        Assert.True((await service.SaveAsync(user.Id, first.Id)).IsSuccess);
+        Assert.Equal(2, await h.Db.CandidateSavedJobs.CountAsync());
+        Assert.Equal(first.Id, Assert.Single((await service.ListAsync(user.Id, pageSize: 1)).Value.Items).JobId);
+        Assert.Equal(second.Id, Assert.Single((await service.ListAsync(user.Id, page: 2, pageSize: 1)).Value.Items).JobId);
+        Assert.True((await service.RemoveAsync(other.Id, first.Id)).IsSuccess);
+        Assert.Equal(2, await h.Db.CandidateSavedJobs.CountAsync());
+        h.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidate.Id, StudioId = h.Studio.Id });
+        await h.Db.SaveChangesAsync();
+        Assert.Empty((await service.ListAsync(user.Id)).Value.Items);
+        h.Db.CandidateStudioBlocks.RemoveRange(h.Db.CandidateStudioBlocks); await h.Db.SaveChangesAsync();
+        first.Status = JobStatus.Closed; await h.Db.SaveChangesAsync();
+        var entry = (await service.ListAsync(user.Id)).Value.Items.Single(x => x.JobId == first.Id);
+        Assert.Null(entry.Job);
+        var json = JsonSerializer.Serialize(entry);
+        Assert.DoesNotContain("Private title", json); Assert.DoesNotContain(h.Studio.Name, json);
+        Assert.True((await service.RemoveAsync(user.Id, first.Id)).IsSuccess);
+        Assert.True((await service.RemoveAsync(user.Id, first.Id)).IsSuccess);
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         public TestClock Clock { get; } = new();
