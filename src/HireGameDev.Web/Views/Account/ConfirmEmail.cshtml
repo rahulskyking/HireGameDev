@@ -28,11 +28,11 @@
 
         @if (Model.Succeeded)
         {
-            <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--primary c-btn--lg c-btn--block">Continue to sign in</a>
+            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl" class="c-btn c-btn--primary c-btn--lg c-btn--block">Continue to sign in</a>
         }
         else
         {
-            <a asp-controller="Account" asp-action="Login" class="c-btn c-btn--secondary c-btn--block">Go to sign in to request a new confirmation email</a>
+            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl" class="c-btn c-btn--secondary c-btn--block">Go to sign in to request a new confirmation email</a>
         }
     </div>
 </section>

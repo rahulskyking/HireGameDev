@@ -22,6 +22,16 @@ internal sealed class SavedJobService(AppDbContext db, IPublicJobQueryService pu
              user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
          select (Guid?)candidate.Id).SingleOrDefaultAsync(ct);
 
+    public async Task<Result<bool>> IsSavedAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
+    {
+        var candidate = await CandidateAsync(actorUserId, cancellationToken);
+        if (!candidate.HasValue) return Result.Failure<bool>(Denied());
+        var slug = await db.Jobs.AsNoTracking().Where(j => j.Id == jobId).Select(j => j.Slug).SingleOrDefaultAsync(cancellationToken);
+        if (slug is null || (await publicJobs.GetBySlugAsync(slug, cancellationToken, actorUserId)).IsFailure)
+            return Result.Failure<bool>(Unavailable());
+        return Result.Success(await db.CandidateSavedJobs.AnyAsync(s => s.CandidateId == candidate.Value && s.JobId == jobId, cancellationToken));
+    }
+
     public async Task<Result> SaveAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
     {
         var candidate = await CandidateAsync(actorUserId, cancellationToken);

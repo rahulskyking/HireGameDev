@@ -30,6 +30,14 @@
 <footer class="jb-detail-footer"><span>Published <time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></span><span>Expires <time datetime="@job.ExpiresAt.ToString("O")">@job.ExpiresAt.ToString("dd MMM yyyy, HH:mm") UTC</time></span></footer>
 </article>
 <aside class="jb-stack">
+@if (TempData["SavedJobMessage"] is string savedMessage) { <div class="jb-note" role="status">@savedMessage</div> }
+<section class="jb-panel jb-stack jb-stack--small" aria-label="Save this job">
+@if (User.Identity?.IsAuthenticated != true)
+{ <h2>Keep this role handy</h2><p>Sign in or create a Candidate account, then confirm Save when you return.</p><a class="c-btn c-btn--primary" asp-controller="Account" asp-action="Login" asp-route-returnUrl="@($"/jobs/{job.Slug}")">Sign in to save</a><a href="@Model.RegistrationUrl">Create a Candidate account</a> }
+else if (Model.IsSaved.HasValue)
+{ <h2>@(Model.IsSaved.Value ? "Saved to your list" : "Save for later")</h2><p>Only you can see your saved jobs.</p><form asp-controller="SavedJobsPage" asp-action="@(Model.IsSaved.Value ? "Remove" : "Save")" asp-route-jobId="@job.Id" method="post"><input type="hidden" name="slug" value="@job.Slug" /><button class="c-btn c-btn--primary" type="submit">@(Model.IsSaved.Value ? "Remove from saved jobs" : "Save job")</button></form><a asp-controller="SavedJobsPage" asp-action="Index">View saved jobs</a> }
+else { <h2>Save for later</h2><p>Saving jobs is available to active Candidate accounts.</p> }
+</section>
 <section class="jb-panel jb-summary"><span class="jb-eyebrow">The essentials</span><h2>@PublicJobUi.Salary(job)</h2><p>@PublicJobUi.Type(job.JobType) · @job.WorkMode</p><dl><div><dt>Experience</dt><dd>@PublicJobUi.Experience(job)</dd></div><div><dt>Notice period</dt><dd>@(detail.MaxNoticeDays.HasValue ? $"Up to {detail.MaxNoticeDays} days" : "Not specified")</dd></div><div><dt>Openings</dt><dd>@detail.Openings</dd></div></dl><div class="jb-note"><strong>Applications are not available yet.</strong><p>You can explore this role and Studio now. Application submission and tracking will be available in a future release.</p></div><a class="c-btn c-btn--secondary" asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">Meet the Studio →</a></section>
 <partial name="_ProfileCta" model="Model.RegistrationUrl" />
 </aside></div>

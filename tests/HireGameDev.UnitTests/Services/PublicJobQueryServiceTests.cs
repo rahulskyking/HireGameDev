@@ -210,6 +210,9 @@ public sealed class PublicJobQueryServiceTests
         Assert.True((await service.SaveAsync(user.Id, second.Id)).IsSuccess);
         Assert.True((await service.SaveAsync(user.Id, first.Id)).IsSuccess);
         Assert.True((await service.SaveAsync(user.Id, first.Id)).IsSuccess);
+        Assert.True((await service.IsSavedAsync(user.Id, first.Id)).Value);
+        Assert.False((await service.IsSavedAsync(other.Id, first.Id)).Value);
+        Assert.Equal("SavedJobs.Forbidden", (await service.IsSavedAsync(studioUser.Id, first.Id)).Error.Code);
         Assert.Equal(2, await h.Db.CandidateSavedJobs.CountAsync());
         Assert.Equal(first.Id, Assert.Single((await service.ListAsync(user.Id, pageSize: 1)).Value.Items).JobId);
         Assert.Equal(second.Id, Assert.Single((await service.ListAsync(user.Id, page: 2, pageSize: 1)).Value.Items).JobId);
@@ -218,6 +221,7 @@ public sealed class PublicJobQueryServiceTests
         h.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidate.Id, StudioId = h.Studio.Id });
         await h.Db.SaveChangesAsync();
         Assert.Empty((await service.ListAsync(user.Id)).Value.Items);
+        Assert.Equal("SavedJobs.Unavailable", (await service.IsSavedAsync(user.Id, first.Id)).Error.Code);
         h.Db.CandidateStudioBlocks.RemoveRange(h.Db.CandidateStudioBlocks); await h.Db.SaveChangesAsync();
         first.Status = JobStatus.Closed; await h.Db.SaveChangesAsync();
         var entry = (await service.ListAsync(user.Id)).Value.Items.Single(x => x.JobId == first.Id);

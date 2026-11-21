@@ -199,6 +199,7 @@ public sealed class ResetPasswordViewModel
 
 public sealed class ConfirmEmailViewModel
 {
+    public string? ReturnUrl { get; init; }
     public bool Succeeded { get; init; }
 
     public string Message { get; init; } = string.Empty;

@@ -113,6 +113,7 @@
                     <p>Need a fresh link for <strong>@Model.Email</strong>?</p>
                     <form asp-controller="Account" asp-action="ResendConfirmation" method="post" style="margin-top: 8px;">
                         <input type="hidden" name="email" value="@Model.Email" />
+                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                         <button type="submit" class="c-btn c-btn--secondary c-btn--sm">Resend confirmation email</button>
                     </form>
                 </div>

@@ -1520,7 +1520,7 @@ internal sealed class IdentityAuthService : IAuthService
         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(rawToken));
 
         var confirmationUrl =
-            $"{confirmationLinkBaseUrl}?userId={user.Id}&code={Uri.EscapeDataString(encodedToken)}";
+            $"{confirmationLinkBaseUrl}{(confirmationLinkBaseUrl.Contains('?') ? "&" : "?")}userId={user.Id}&code={Uri.EscapeDataString(encodedToken)}";
 
         var encodedName = WebUtility.HtmlEncode(user.DisplayName);
         var encodedUrl = WebUtility.HtmlEncode(confirmationUrl);

@@ -177,7 +177,7 @@
 
         <footer class="c-auth-card__footer">
             <span>Already have a HireGameDev account?</span>
-            <a asp-controller="Account" asp-action="Login">Sign in (supports both Candidate &amp; Studio)</a>
+            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl">Sign in (supports both Candidate &amp; Studio)</a>
         </footer>
     </div>
 </section>

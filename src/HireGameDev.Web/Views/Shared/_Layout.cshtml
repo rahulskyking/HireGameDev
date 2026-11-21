@@ -107,6 +107,11 @@
                        aria-current="@(Context.Request.Path.StartsWithSegments("/Candidate") ? "page" : null)">Profile</a>
                 }
 
+                @if (hasCandidateRole && currentPortal != PortalSite.Studio)
+                {
+                    <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/saved"))">Saved jobs</a>
+                }
+
                 @if (hasStudioRole && currentPortal != PortalSite.Jobs)
                 {
                     <a class="c-nav-link"

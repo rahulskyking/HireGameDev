@@ -114,6 +114,9 @@ public sealed class AccountController : Controller
             values: null,
             protocol: Request.Scheme) ?? string.Empty;
 
+        var safeReturnUrl = SafeLocalReturn(model.ReturnUrl);
+        if (safeReturnUrl is not null) confirmBaseUrl += "?returnUrl=" + Uri.EscapeDataString(safeReturnUrl);
+
         var result = await _authService.RegisterAsync(
             new RegisterCommand(
                 AccountType: model.AccountType,
@@ -132,18 +135,19 @@ public sealed class AccountController : Controller
             return View(model);
         }
 
-        return RedirectToAction(nameof(RegisterConfirmation), new { email = result.Value.Email });
+        return RedirectToAction(nameof(RegisterConfirmation), new { email = result.Value.Email, returnUrl = safeReturnUrl });
     }
 
     [HttpGet]
-    public IActionResult RegisterConfirmation(string? email = null)
+    public IActionResult RegisterConfirmation(string? email = null, string? returnUrl = null)
     {
         ViewData["Email"] = email ?? string.Empty;
+        ViewData["ReturnUrl"] = SafeLocalReturn(returnUrl);
         return View();
     }
 
     [HttpGet]
-    public async Task<IActionResult> ConfirmEmail(Guid? userId = null, string? code = null, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> ConfirmEmail(Guid? userId = null, string? code = null, CancellationToken cancellationToken = default, string? returnUrl = null)
     {
         if (userId is null || userId == Guid.Empty || string.IsNullOrWhiteSpace(code))
         {
@@ -161,6 +165,7 @@ public sealed class AccountController : Controller
         return View(new ConfirmEmailViewModel
         {
             Succeeded = result.IsSuccess,
+            ReturnUrl = SafeLocalReturn(returnUrl),
             Message = result.IsSuccess
                 ? "Your email address is verified. You can now sign in to your account."
                 : result.Error.Message
@@ -169,7 +174,7 @@ public sealed class AccountController : Controller
 
     [HttpPost]
     [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
-    public async Task<IActionResult> ResendConfirmation(string email, CancellationToken cancellationToken)
+    public async Task<IActionResult> ResendConfirmation(string email, CancellationToken cancellationToken, string? returnUrl = null)
     {
         var confirmBaseUrl = Url.Action(
             action: nameof(ConfirmEmail),
@@ -177,12 +182,15 @@ public sealed class AccountController : Controller
             values: null,
             protocol: Request.Scheme) ?? string.Empty;
 
+        var safeReturnUrl = SafeLocalReturn(returnUrl);
+        if (safeReturnUrl is not null) confirmBaseUrl += "?returnUrl=" + Uri.EscapeDataString(safeReturnUrl);
+
         await _authService.ResendConfirmationAsync(
             new ResendConfirmationCommand(email, confirmBaseUrl),
             cancellationToken);
 
         TempData["StatusMessage"] = "If an unconfirmed account matches that email, a fresh confirmation link has been sent.";
-        return RedirectToAction(nameof(RegisterConfirmation), new { email });
+        return RedirectToAction(nameof(RegisterConfirmation), new { email, returnUrl = safeReturnUrl });
     }
 
     [HttpGet]
@@ -836,7 +844,11 @@ public sealed class AccountController : Controller
         model.RegisterUrl = portal == PortalSite.Landing && subdomainActive
             ? _portalNavigator.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/Account/Register")
             : "/Account/Register";
+        var safeReturn = SafeLocalReturn(model.ReturnUrl);
+        if (safeReturn is not null) model.RegisterUrl += "?returnUrl=" + Uri.EscapeDataString(safeReturn);
     }
+
+    private string? SafeLocalReturn(string? value) => !string.IsNullOrWhiteSpace(value) && Url.IsLocalUrl(value) ? value : null;
 
     private IActionResult RedirectAfterAuth(string? returnUrl, IReadOnlyList<string> roles)
     {

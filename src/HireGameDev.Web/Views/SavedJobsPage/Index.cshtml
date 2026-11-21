@@ -1,0 +1,23 @@
+@using HireGameDev.Application.Features.Jobs
+@using HireGameDev.Web.Models.Jobs
+@model SavedJobPage
+@{ ViewData["Title"] = "Saved jobs"; }
+@section Styles {
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
+}
+<div class="jb"><header class="jb-hero"><div><span class="jb-eyebrow">Your private list</span><h1>Saved jobs</h1><p>Keep track of roles you want to revisit. Only you can see this list.</p></div></header>
+@if (TempData["SavedJobMessage"] is string message) { <div class="jb-note" role="status">@message</div> }
+<section class="jb-stack" aria-label="Saved jobs">
+@if (Model.Items.Count == 0) { <div class="jb-panel jb-empty"><h2>No saved jobs here yet.</h2><p>Explore open roles and save the ones you want to revisit.</p><a class="c-btn c-btn--secondary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></div> }
+@foreach (var entry in Model.Items)
+{
+    <article class="jb-job">
+    @if (entry.Job is { } job)
+    { <div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div><h2><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode</span><span>@PublicJobUi.Experience(job)</span></div><strong>@PublicJobUi.Salary(job)</strong> }
+    else { <h2>Listing unavailable</h2><p>This saved listing is no longer available.</p> }
+    <form asp-action="Remove" asp-route-jobId="@entry.JobId" method="post"><button type="submit" class="c-btn c-btn--secondary" aria-label="@(entry.Job is null ? "Remove unavailable listing" : $"Remove {entry.Job.Title} from saved jobs")">Remove from saved jobs</button></form>
+    </article>
+}
+@if (Model.TotalPages > 1) { <nav class="jb-pagination" aria-label="Saved jobs pages"><span>Page @Model.Page of @Model.TotalPages</span><div>@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">← Previous</a> } @if (Model.Page < Model.TotalPages) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next →</a> }</div></nav> }
+</section></div>

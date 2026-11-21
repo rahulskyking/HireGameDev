@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Features.Jobs;
+using HireGameDev.Domain.Constants;
 using HireGameDev.Web.Models.Jobs;
 using HireGameDev.Web.Portals;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -54,7 +55,14 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         if (!string.Equals(slug, job.Summary.Slug, StringComparison.Ordinal))
             return RedirectPermanent(portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/jobs/" + job.Summary.Slug));
         var path = "/jobs/" + job.Summary.Slug;
-        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path)));
+        bool? isSaved = null;
+        if (savedJobs is not null && ViewerUserId() is Guid userId && User.IsInRole(HireGameDevRoleNames.Candidate) &&
+            User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate)
+        {
+            var state = await savedJobs.IsSavedAsync(userId, job.Summary.Id, cancellationToken);
+            if (state.IsSuccess) isSaved = state.Value;
+        }
+        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved));
     }
 
     private IActionResult? CanonicalPortal(string path)

@@ -39,6 +39,7 @@ public sealed class SavedJobsControllerTests
     {
         public Guid Actor { get; private set; }
         public Guid JobId { get; private set; }
+        public Task<Result<bool>> IsSavedAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default) => Task.FromResult(Result.Success(false));
         public Task<Result> SaveAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
         { Actor = actorUserId; JobId = jobId; return Task.FromResult(Result.Success()); }
         public Task<Result> RemoveAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
