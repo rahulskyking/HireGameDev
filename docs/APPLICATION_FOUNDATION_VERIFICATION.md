@@ -18,3 +18,5 @@ Confirm `20261115090000_ApplicationFoundation` is applied, inspect tables/constr
 ## Backend rules progress
 
 Pure application lifecycle rules and exhaustive status-pair tests have been added. This is not yet an application service: no operation uses these rules to persist a transition, no Candidate can submit, and no privacy or capacity guarantee is in effect. Re-run `dotnet test` after updating the branch. The owner has authorized continued work but has not reported specific migration or test results.
+
+A pure snapshot builder and privacy-focused unit tests have also been added. It is not wired to submission and must not be treated as evidence of consent or authorization. Required references must be loaded and collections loaded consistently by a future transaction-aware service; profile/job edits and block changes must be coordinated before submission.
