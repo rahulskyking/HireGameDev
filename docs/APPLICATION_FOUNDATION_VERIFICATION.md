@@ -14,3 +14,7 @@ dotnet ef database update --project src/HireGameDev.Infrastructure --startup-pro
 ```
 
 Confirm `20261115090000_ApplicationFoundation` is applied, inspect tables/constraints/indexes and verify that duplicate candidate/job pairs are rejected even when withdrawn, invalid status and invalid snapshot JSON object are rejected, and FK restrictions work. Exercise only on a disposable database. Run PostgreSQL integration tests as documented in `docs/POSTGRES_TESTS.md` where configured. No migration, build or tests were run in the sandbox (SDK/PostgreSQL unavailable). Report results before the next slice.
+
+## Backend rules progress
+
+Pure application lifecycle rules and exhaustive status-pair tests have been added. This is not yet an application service: no operation uses these rules to persist a transition, no Candidate can submit, and no privacy or capacity guarantee is in effect. Re-run `dotnet test` after updating the branch. The owner has authorized continued work but has not reported specific migration or test results.
