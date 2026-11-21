@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
+using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.Consent;
@@ -234,6 +235,7 @@ public static class DependencyInjection
         services.AddScoped<IJobLifecycleService, JobLifecycleService>();
         services.AddScoped<IPublicJobQueryService, PublicJobQueryService>();
         services.AddScoped<ISavedJobService, SavedJobService>();
+        services.AddScoped<IApplicationEligibilityService, ApplicationEligibilityService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();
