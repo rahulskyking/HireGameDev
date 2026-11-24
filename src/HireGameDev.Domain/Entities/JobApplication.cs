@@ -10,5 +10,8 @@ public sealed class JobApplication
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Submitted;
     public DateTimeOffset SubmittedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    public string? ConsentVersion { get; set; }
+    public DateTimeOffset? ConsentedAt { get; set; }
+    public DateTimeOffset? SnapshotPurgedAt { get; set; }
     public uint Version { get; set; }
 }

@@ -29,6 +29,9 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
                     b.Property<Guid>("CandidateId").HasColumnType("uuid").HasColumnName("candidate_id");
+                    b.Property<string>("ConsentVersion").HasMaxLength(80).HasColumnType("character varying(80)").HasColumnName("consent_version");
+                    b.Property<DateTimeOffset?>("ConsentedAt").HasColumnType("timestamptz").HasColumnName("consented_at");
+                    b.Property<DateTimeOffset?>("SnapshotPurgedAt").HasColumnType("timestamptz").HasColumnName("snapshot_purged_at");
                     b.Property<Guid>("JobId").HasColumnType("uuid").HasColumnName("job_id");
                     b.Property<string>("Status").IsRequired().HasColumnType("text").HasColumnName("status");
                     b.Property<DateTimeOffset>("SubmittedAt").HasColumnType("timestamptz").HasColumnName("submitted_at");
@@ -38,7 +41,11 @@ namespace HireGameDev.Infrastructure.Persistence.Migrations
                     b.HasIndex("CandidateId", "JobId").IsUnique().HasDatabaseName("ux_applications_candidate_job");
                     b.HasIndex("CandidateId", "SubmittedAt", "Id").IsDescending(false, true, false).HasDatabaseName("ix_applications_candidate_submitted");
                     b.HasIndex("JobId", "SubmittedAt", "Id").IsDescending(false, true, false).HasDatabaseName("ix_applications_job_submitted");
-                    b.ToTable("applications", null, t => t.HasCheckConstraint("ck_applications_status", "status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')"));
+                    b.ToTable("applications", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_applications_status", "status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')");
+                            t.HasCheckConstraint("ck_applications_consent_receipt", "(consent_version IS NULL AND consented_at IS NULL) OR (consent_version IS NOT NULL AND consented_at IS NOT NULL AND char_length(btrim(consent_version)) > 0)");
+                        });
                 });
 
             modelBuilder.Entity("HireGameDev.Domain.Entities.ApplicationSnapshot", b =>

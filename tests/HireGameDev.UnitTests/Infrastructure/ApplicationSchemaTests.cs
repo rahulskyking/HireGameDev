@@ -28,6 +28,10 @@ public sealed class ApplicationSchemaTests
         Assert.Equal("xmin", application.FindProperty(nameof(JobApplication.Version))!.GetColumnName());
         Assert.Equal("withdrawn", application.FindProperty(nameof(JobApplication.Status))!.GetValueConverter()!.ConvertToProvider(ApplicationStatus.Withdrawn));
         Assert.Contains(application.GetCheckConstraints(), c => c.Name == "ck_applications_status");
+        Assert.Contains(application.GetCheckConstraints(), c => c.Name == "ck_applications_consent_receipt");
+        Assert.True(application.FindProperty(nameof(JobApplication.ConsentVersion))!.IsNullable);
+        Assert.True(application.FindProperty(nameof(JobApplication.ConsentedAt))!.IsNullable);
+        Assert.True(application.FindProperty(nameof(JobApplication.SnapshotPurgedAt))!.IsNullable);
         var snapshot = model.FindEntityType(typeof(ApplicationSnapshot))!;
         Assert.Equal("jsonb", snapshot.FindProperty(nameof(ApplicationSnapshot.CandidateData))!.GetColumnType());
         Assert.Equal(DeleteBehavior.Restrict, snapshot.GetForeignKeys().Single().DeleteBehavior);

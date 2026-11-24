@@ -104,7 +104,7 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
             if (job.Status != JobStatus.Active || !job.ExpiresAt.HasValue || job.ExpiresAt <= now || job.ApplicationsCount >= job.ApplicationCap)
                 return await AbortAsync(transaction, Error.Conflict("Applications.NotEligible", "You cannot submit a new application for this job."), cancellationToken);
             var applicationId = Guid.NewGuid();
-            _db.Applications.Add(new JobApplication { Id = applicationId, CandidateId = candidate.Id, JobId = job.Id, Status = ApplicationStatus.Submitted, SubmittedAt = now, UpdatedAt = now });
+            _db.Applications.Add(new JobApplication { Id = applicationId, CandidateId = candidate.Id, JobId = job.Id, Status = ApplicationStatus.Submitted, SubmittedAt = now, UpdatedAt = now, ConsentVersion = ConsentVersion, ConsentedAt = now });
             _db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = applicationId, SnapshotVersion = fresh.Value.Version,
                 CandidateData = JsonSerializer.Serialize(fresh.Value.Candidate), JobData = JsonSerializer.Serialize(fresh.Value.Job), Phone = fresh.Value.Phone,
                 ConsentVersion = ConsentVersion, ConsentedAt = now });

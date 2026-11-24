@@ -60,3 +60,7 @@ The opt-in PostgreSQL suite now creates a real lock cycle between a Candidate/sk
 ### Retention rules (planning only)
 
 The owner approved a 12-month retention policy; `ApplicationRetentionRules` calculates deadlines only. It does not schedule or delete anything, and the future deletion implementation must recheck and coordinate renewals, withdrawals, access and attachments inside a safe design. The account-linked duplicate-prevention record remains personal data and current foreign keys restrict account deletion. Backups, legal holds, audit, consent evidence and privacy-law review remain open. Run `dotnet test` locally; tests were not run in the sandbox. No migration in this slice.
+
+### Retention metadata migration
+
+Owner approved migration `20261117090000_ApplicationRetentionMetadata`. It adds a nullable deletion marker and consent receipt to each application, copying existing receipt values from snapshots; it does not delete snapshots or phone numbers. Existing applications with no snapshot have no receipt and need investigation. Down discards the new metadata and cannot restore deleted data. Apply only to a local test database using the command earlier in this document. Run `dotnet build`, `dotnet test`, and the opt-in PostgreSQL suite (`docs/POSTGRES_TESTS.md`): the suite downgrades and reapplies this migration only inside its own disposable generated database and checks that the snapshot survives. No automatic deletion is included. Tests and migration were not run in the sandbox.

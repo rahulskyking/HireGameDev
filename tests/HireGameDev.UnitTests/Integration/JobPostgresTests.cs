@@ -14,6 +14,8 @@ using HireGameDev.Infrastructure.Services;
 using HireGameDev.UnitTests.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -154,8 +156,52 @@ public sealed class JobPostgresTests
         Assert.Equal(JobStatus.Full, finalJob.Status);
         Assert.Equal(2, await check.Db.Applications.CountAsync());
         Assert.Equal(2, await check.Db.ApplicationSnapshots.CountAsync());
+        var receipts = await check.Db.Applications.ToArrayAsync();
+        Assert.All(receipts, receipt =>
+        {
+            Assert.Equal(ApplicationSubmissionService.ConsentVersion, receipt.ConsentVersion);
+            Assert.Equal(receipt.SubmittedAt, receipt.ConsentedAt);
+            Assert.Null(receipt.SnapshotPurgedAt);
+        });
         Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync());
         Assert.Equal(1, await check.Db.JobStatusHistory.CountAsync(x => x.NewStatus == JobStatus.Full));
+    }
+
+    [PostgresFact]
+    public async Task RetentionMetadataMigration_BackfillsExistingReceiptsWithoutDeletingSnapshots()
+    {
+        await using var h = await DatabaseHarness.Create();
+        await using (var migration = h.Session())
+            await migration.Db.GetService<IMigrator>().MigrateAsync("20261116090000_CandidateApplicationCoordination");
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var candidate = Guid.NewGuid();
+        var application = Guid.NewGuid();
+        var recorded = new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+        await using (var setup = h.Session())
+        {
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "migration@example.com", Email = "migration@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+            await setup.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO applications (id, candidate_id, job_id, status, submitted_at, updated_at) VALUES ({application}, {candidate}, {draft.Id}, 'submitted', {recorded}, {recorded})");
+            var candidateJson = "{\"name\":\"Candidate\"}";
+            var jobJson = "{}";
+            await setup.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO application_snapshots (application_id, snapshot_version, candidate_data, job_data, phone, consent_version, consented_at) VALUES ({application}, 1, CAST({candidateJson} AS jsonb), CAST({jobJson} AS jsonb), {"1234567890"}, {"legacy-v1"}, {recorded})");
+        }
+        await using (var migration = h.Session())
+            await migration.Db.GetService<IMigrator>().MigrateAsync();
+        await using var check = h.Session();
+        var receipt = await check.Db.Applications.SingleAsync(x => x.Id == application);
+        var snapshot = await check.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == application);
+        Assert.Equal("legacy-v1", receipt.ConsentVersion);
+        Assert.Equal(recorded, receipt.ConsentedAt);
+        Assert.Null(receipt.SnapshotPurgedAt);
+        Assert.Equal("legacy-v1", snapshot.ConsentVersion);
+        Assert.Equal("1234567890", snapshot.Phone);
+        Assert.Contains("Candidate", snapshot.CandidateData);
     }
 
     [PostgresFact]

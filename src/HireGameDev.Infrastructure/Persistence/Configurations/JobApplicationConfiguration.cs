@@ -11,9 +11,16 @@ internal sealed class JobApplicationConfiguration : IEntityTypeConfiguration<Job
 {
     public void Configure(EntityTypeBuilder<JobApplication> b)
     {
-        b.ToTable("applications", t => t.HasCheckConstraint("ck_applications_status", "status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')"));
+        b.ToTable("applications", t =>
+        {
+            t.HasCheckConstraint("ck_applications_status", "status IN ('submitted','reviewing','shortlisted','rejected','hired','withdrawn')");
+            t.HasCheckConstraint("ck_applications_consent_receipt", "(consent_version IS NULL AND consented_at IS NULL) OR (consent_version IS NOT NULL AND consented_at IS NOT NULL AND char_length(btrim(consent_version)) > 0)");
+        });
         b.HasKey(x => x.Id);
         b.Property(x => x.Status).HasConversion(new SnakeCaseEnumValueConverter<ApplicationStatus>()).HasColumnType("text").IsRequired();
+        b.Property(x => x.ConsentVersion).HasMaxLength(80);
+        b.Property(x => x.ConsentedAt).HasColumnType("timestamptz");
+        b.Property(x => x.SnapshotPurgedAt).HasColumnType("timestamptz");
         b.Property(x => x.SubmittedAt).HasColumnType("timestamptz");
         b.Property(x => x.UpdatedAt).HasColumnType("timestamptz");
         b.Property(x => x.Version).IsRowVersion();
