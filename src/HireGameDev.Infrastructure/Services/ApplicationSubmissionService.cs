@@ -17,8 +17,8 @@ namespace HireGameDev.Infrastructure.Services;
 
 /// <summary>
 /// PostgreSQL-only submission. Candidate data uses a per-Candidate lock coordinated by database triggers.
-/// Shared reference tables still use broad locks. Do not expose for production
-/// until remaining coordination, race/load testing and privacy/retention policy are reviewed.
+/// Referenced city and skill rows are locked individually. Do not expose for production
+/// until concurrency, deadlock/load testing and privacy/retention policy are reviewed.
 /// </summary>
 internal sealed class ApplicationSubmissionService : IApplicationSubmissionService
 {
@@ -66,9 +66,6 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         try
         {
-            // Reference names can be edited independently of the Candidate graph. Until those
-            // writers are coordinated, retain table locks on just cities and skills.
-            await _db.Database.ExecuteSqlRawAsync("LOCK TABLE cities, skills IN SHARE MODE", cancellationToken);
             var studioId = await _db.Jobs.AsNoTracking().Where(j => j.Id == command.JobId)
                 .Select(j => (Guid?)j.StudioId).SingleOrDefaultAsync(cancellationToken);
             if (!studioId.HasValue || !await LockRowAsync("SELECT id FROM studio_profiles WHERE id = @id FOR SHARE", studioId.Value, cancellationToken))
@@ -76,6 +73,17 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
             if (!await LockRowAsync("SELECT id FROM users WHERE id = @id FOR SHARE", command.ActorUserId, cancellationToken) ||
                 !await LockRowAsync("SELECT id FROM candidate_profiles WHERE user_id = @id FOR UPDATE", command.ActorUserId, cancellationToken))
                 return await AbortAsync(transaction, Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."), cancellationToken);
+            // The Candidate lock freezes profile references and trigger-protected child rows.
+            // Lock each referenced name, including portfolio skills and shipped game engines,
+            // before reloading the reviewed snapshot. Unrelated reference rows remain writable.
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM cities WHERE id = (SELECT city_id FROM candidate_profiles WHERE user_id = {command.ActorUserId}) FOR SHARE", cancellationToken);
+            await _db.Database.ExecuteSqlInterpolatedAsync($"""
+                SELECT id FROM skills WHERE id IN (
+                    SELECT cs.skill_id FROM candidate_skills cs JOIN candidate_profiles c ON c.id = cs.candidate_id WHERE c.user_id = {command.ActorUserId}
+                    UNION SELECT pls.skill_id FROM portfolio_link_skills pls JOIN portfolio_links pl ON pl.id = pls.portfolio_link_id JOIN candidate_profiles c ON c.id = pl.candidate_id WHERE c.user_id = {command.ActorUserId}
+                    UNION SELECT st.engine_skill_id FROM shipped_titles st JOIN candidate_profiles c ON c.id = st.candidate_id WHERE c.user_id = {command.ActorUserId} AND st.engine_skill_id IS NOT NULL
+                ) ORDER BY id FOR SHARE
+                """, cancellationToken);
             // Studio precedes Job, matching JobLifecycleService. The job's studio is read before
             // locking and checked again after the job lock, so a concurrent reassignment fails closed.
             await LockJobAsync(command.JobId, cancellationToken);

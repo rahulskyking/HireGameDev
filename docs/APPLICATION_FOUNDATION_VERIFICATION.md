@@ -44,3 +44,7 @@ This is only a partial improvement: users, cities, skills and Studio profiles st
 ### Account and Studio locking
 
 Submission now locks the relevant Candidate account and Studio rows rather than their whole tables. It still uses broad locks for cities and skills. The PostgreSQL tests include account/Studio changes during submission and verify that unrelated account/Studio updates can proceed while submission waits. Run the opt-in PostgreSQL tests after pulling this change. These tests are not a complete deadlock, load or privacy review; do not enable real application submission yet. No additional migration is included in this step.
+
+### City and skill locking
+
+Submission now locks only the Candidate's city and the skill names used by their skills, portfolio and shipped titles. No new migration was added; the earlier Candidate coordination migration remains required. Run the opt-in PostgreSQL suite to check relevant versus unrelated reference writes and a changed skill name. These new tests were not run in the sandbox. This does not prove there are no deadlocks or complete the privacy/retention review; do not accept real applications yet.

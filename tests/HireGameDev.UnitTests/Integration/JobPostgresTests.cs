@@ -159,6 +159,123 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationSubmission_RejectsReviewWhenReferencedSkillIsRenamed()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var candidate = Guid.NewGuid();
+        var skill = new Skill { Name = "Reference Skill", Slug = "reference-skill" };
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Skills.Add(skill);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "rename@example.com", Email = "rename@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateSkills.Add(new CandidateSkill { CandidateId = candidate, SkillId = skill.Id });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        await using var edit = h.Session();
+        await using var tx = await edit.Db.Database.BeginTransactionAsync();
+        await edit.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE skills SET name = {"Renamed Skill"} WHERE id = {skill.Id}");
+        await using var submit = h.Session();
+        var pending = Submission(submit.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+        await tx.CommitAsync();
+        var resultAfterEdit = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(resultAfterEdit.IsFailure);
+        Assert.Equal("Applications.ReviewStale", resultAfterEdit.Error.Code);
+        await using var check = h.Session();
+        Assert.Empty(await check.Db.Applications.ToArrayAsync());
+    }
+
+    [PostgresFact]
+    public async Task ApplicationSubmission_LocksOnlyReferencedCityAndAllReferencedSkills()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var candidate = Guid.NewGuid();
+        var portfolio = Guid.NewGuid();
+        var cities = new[] { new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" },
+            new City { Name = "Other City", Slug = "other-city", State = "Test State", StateCode = "TS" } };
+        var skills = Enumerable.Range(1, 4).Select(i => new Skill { Name = $"Reference Skill {i}", Slug = $"reference-skill-{i}" }).ToArray();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            setup.Db.Cities.AddRange(cities);
+            setup.Db.Skills.AddRange(skills);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "reference@example.com", Email = "reference@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = cities[0].Id, FullName = "Candidate", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateSkills.Add(new CandidateSkill { CandidateId = candidate, SkillId = skills[0].Id });
+            setup.Db.PortfolioLinks.Add(new PortfolioLink { Id = portfolio, CandidateId = candidate, Url = "https://example.com/project" });
+            setup.Db.ShippedTitles.Add(new ShippedTitle { Id = Guid.NewGuid(), CandidateId = candidate, GameName = "Test Game", StudioName = "Test Studio", Role = "Developer", EngineSkillId = skills[2].Id });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.PortfolioLinkSkills.Add(new PortfolioLinkSkill { PortfolioLinkId = portfolio, SkillId = skills[1].Id });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        var gate = new PauseEligibilityRead();
+        await using var submitting = h.Session(interceptor: gate);
+        var pending = Submission(submitting.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await using (var other = h.Session())
+            {
+                await other.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE cities SET name = {"Other City Updated"} WHERE id = {cities[1].Id}");
+                await other.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE skills SET name = {"Other Skill Updated"} WHERE id = {skills[3].Id}");
+            }
+            async Task AssertBlocked(bool city, int id)
+            {
+                await using var writer = h.Session();
+                await using var tx = await writer.Db.Database.BeginTransactionAsync();
+                await writer.Db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '500ms'");
+                var error = await Assert.ThrowsAsync<PostgresException>(async () =>
+                {
+                    if (city) await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE cities SET name = {"Changed City"} WHERE id = {id}");
+                    else await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE skills SET name = {"Changed Skill"} WHERE id = {id}");
+                });
+                Assert.Equal(PostgresErrorCodes.LockNotAvailable, error.SqlState);
+                await tx.RollbackAsync();
+            }
+            await AssertBlocked(true, cities[0].Id);
+            foreach (var skill in skills.Take(3)) await AssertBlocked(false, skill.Id);
+        }
+        finally { gate.Release.TrySetResult(true); }
+        var submitted = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(submitted.IsSuccess, submitted.Error.Message);
+    }
+
+    [PostgresFact]
     public async Task ApplicationSubmission_RechecksAccountAndStudioChangesCommittedDuringSubmission()
     {
         await using var h = await DatabaseHarness.Create();
