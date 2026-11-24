@@ -158,6 +158,89 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationSubmission_SeesCommittedChildEditBeforeAcceptingReview()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var candidate = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "edit@example.com", Email = "edit@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        await using var edit = h.Session();
+        await using var transaction = await edit.Db.Database.BeginTransactionAsync();
+        edit.Db.CandidateEducation.Add(new CandidateEducation { Id = Guid.NewGuid(), CandidateId = candidate, Institution = "Test University", Degree = "Game Design" });
+        await edit.Db.SaveChangesAsync(); // Trigger holds the Candidate lock until commit.
+        await using var submit = h.Session();
+        var pending = Submission(submit.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+        await transaction.CommitAsync();
+        var resultAfterEdit = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(resultAfterEdit.IsFailure);
+        Assert.Equal("Applications.ReviewStale", resultAfterEdit.Error.Code);
+        await using var check = h.Session();
+        Assert.Empty(await check.Db.Applications.ToArrayAsync());
+    }
+
+    [PostgresFact]
+    public async Task CandidateApplicationLock_BlocksOwnChildWritesButNotOtherCandidates()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var users = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        var candidates = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        await using (var setup = h.Session())
+        {
+            var city = new City { Name = "Locktown", Slug = "locktown", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.Users.Add(new ApplicationUser { Id = users[i], AccountType = AccountType.Candidate,
+                    UserName = $"lock{i}@example.com", Email = $"lock{i}@example.com" });
+            await setup.Db.SaveChangesAsync();
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidates[i], UserId = users[i], CityId = city.Id,
+                    FullName = $"Candidate {i}", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using var holder = h.Session();
+        await using var held = await holder.Db.Database.BeginTransactionAsync();
+        await holder.Db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM candidate_profiles WHERE id = {candidates[0]} FOR UPDATE");
+        await using (var other = h.Session())
+        {
+            await other.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_education (id, candidate_id, institution, degree) VALUES ({Guid.NewGuid()}, {candidates[1]}, {"Institution"}, {"Degree"})");
+        }
+        await using (var same = h.Session())
+        {
+            await using var tx = await same.Db.Database.BeginTransactionAsync();
+            await same.Db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '500ms'");
+            var error = await Assert.ThrowsAsync<PostgresException>(async () =>
+                await same.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_studio_blocks (candidate_id, studio_id, created_at) VALUES ({candidates[0]}, {h.Studio}, now())"));
+            Assert.Equal(PostgresErrorCodes.LockNotAvailable, error.SqlState);
+            await tx.RollbackAsync();
+        }
+        await held.CommitAsync();
+        await using (var retry = h.Session())
+            await retry.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_studio_blocks (candidate_id, studio_id, created_at) VALUES ({candidates[0]}, {h.Studio}, now())");
+    }
+
+    [PostgresFact]
     public async Task ApplicationSubmission_FailureAfterSave_RollsBackApplicationAndFullTransition()
     {
         await using var h = await DatabaseHarness.Create();

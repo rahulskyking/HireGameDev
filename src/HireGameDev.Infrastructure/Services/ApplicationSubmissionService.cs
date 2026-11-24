@@ -16,10 +16,9 @@ using Npgsql;
 namespace HireGameDev.Infrastructure.Services;
 
 /// <summary>
-/// PostgreSQL-only submission. Transaction-scoped SHARE table locks are deliberately conservative:
-/// they protect against all existing profile/reference/blocklist writers, including child-row inserts.
-/// They also block writes to these tables across all users until commit. Do not expose for production
-/// until row-scoped coordination, load testing and a production privacy/retention policy are reviewed.
+/// PostgreSQL-only submission. Candidate data uses a per-Candidate lock coordinated by database triggers.
+/// Account, reference data and Studio tables still use broad locks. Do not expose for production
+/// until remaining coordination, race/load testing and privacy/retention policy are reviewed.
 /// </summary>
 internal sealed class ApplicationSubmissionService : IApplicationSubmissionService
 {
@@ -67,9 +66,10 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         try
         {
-            // These locks must precede the job row lock. SHARE blocks DML, including phantom child rows.
-            // Fixed identifiers only; there is no user input in this SQL.
-            await _db.Database.ExecuteSqlRawAsync("LOCK TABLE users, cities, skills, candidate_profiles, candidate_skills, candidate_experiences, candidate_education, shipped_titles, portfolio_links, portfolio_link_skills, candidate_studio_blocks, studio_profiles IN SHARE MODE", cancellationToken);
+            // Keep broad locks for account, shared reference and Studio data until those writers
+            // have their own coordination. Candidate children use migration-installed triggers.
+            await _db.Database.ExecuteSqlRawAsync("LOCK TABLE users, cities, skills, studio_profiles IN SHARE MODE", cancellationToken);
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM candidate_profiles WHERE user_id = {command.ActorUserId} FOR UPDATE", cancellationToken);
             await LockJobAsync(command.JobId, cancellationToken);
             // A context may already track stale entities from an earlier request; start fresh after locking.
             _db.ChangeTracker.Clear();
