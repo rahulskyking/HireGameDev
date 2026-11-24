@@ -1067,6 +1067,103 @@ public sealed class JobPostgresTests
             CancellationToken cancellationToken = default) => throw new InjectedFailure();
     }
 
+    [PostgresFact]
+    public async Task Retention_PurgesAtomically_AndConcurrentRetriesAreSafe()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Retention test");
+        var user = Guid.NewGuid(); var candidate = Guid.NewGuid(); var application = Guid.NewGuid();
+        var now = new TestClock().UtcNow;
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "retention@example.com", Email = "retention@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            var job = await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+            job.Status = JobStatus.Expired; job.FirstPublishedAt = now.AddYears(-2); job.PublishedAt = now.AddYears(-2); job.ExpiresAt = now.AddMonths(-12); job.ApplicationsCount = 1;
+            await setup.Db.SaveChangesAsync();
+            setup.Db.Applications.Add(new JobApplication { Id = application, CandidateId = candidate, JobId = draft.Id,
+                SubmittedAt = now.AddYears(-2), UpdatedAt = now.AddYears(-2), ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+            setup.Db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = application, SnapshotVersion = 1,
+                CandidateData = "{\"private\":\"secret\"}", JobData = "{}", Phone = "1234567890", ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+            setup.Db.ApplicationStatusHistory.Add(new ApplicationStatusHistory { Id = Guid.NewGuid(), ApplicationId = application, NewStatus = ApplicationStatus.Submitted, ActorUserId = user, OccurredAt = now.AddYears(-2) });
+            await setup.Db.SaveChangesAsync();
+        }
+        // Failure after database writes still rolls back the deletion, marker and audit together.
+        await using (var failing = h.Session(interceptor: new FailAfterSave()))
+            await Assert.ThrowsAsync<InjectedFailure>(() => new ApplicationRetentionService(failing.Db, new TestClock()).PurgeAsync(application));
+        await using (var check = h.Session())
+        {
+            Assert.True(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == application));
+            Assert.Null((await check.Db.Applications.SingleAsync(x => x.Id == application)).SnapshotPurgedAt);
+            Assert.Empty(await check.Db.AuditLogs.Where(x => x.Action == "application.snapshot_purged").ToArrayAsync());
+        }
+        await using var first = h.Session(); await using var second = h.Session();
+        var results = await Task.WhenAll(new ApplicationRetentionService(first.Db, new TestClock()).PurgeAsync(application),
+            new ApplicationRetentionService(second.Db, new TestClock()).PurgeAsync(application));
+        Assert.Contains(ApplicationRetentionService.Outcome.Purged, results);
+        Assert.Contains(ApplicationRetentionService.Outcome.AlreadyPurged, results);
+        await using (var check = h.Session())
+        {
+            Assert.False(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == application));
+            Assert.Equal(now, (await check.Db.Applications.SingleAsync(x => x.Id == application)).SnapshotPurgedAt);
+            Assert.Equal(1, (await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationsCount);
+            var audit = Assert.Single(await check.Db.AuditLogs.Where(x => x.Action == "application.snapshot_purged").ToArrayAsync());
+            Assert.Equal(AuditActorType.System, audit.ActorType);
+            Assert.Null(audit.BeforeData); Assert.Null(audit.AfterData); Assert.Null(audit.Ip);
+        }
+    }
+
+    [PostgresFact]
+    public async Task Retention_RenewalAndMissingWithdrawalHistoryFailClosed()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Retention renewal");
+        var user = Guid.NewGuid(); var candidate = Guid.NewGuid(); var application = Guid.NewGuid();
+        var now = new TestClock().UtcNow;
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "renew@example.com", Email = "renew@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            var job = await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+            job.Status = JobStatus.Active; job.ExpiresAt = now.AddMonths(1);
+            await setup.Db.SaveChangesAsync();
+            setup.Db.Applications.Add(new JobApplication { Id = application, CandidateId = candidate, JobId = draft.Id,
+                SubmittedAt = now.AddYears(-2), UpdatedAt = now.AddYears(-2), ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+            setup.Db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = application, SnapshotVersion = 1,
+                CandidateData = "{}", JobData = "{}", ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+            setup.Db.ApplicationStatusHistory.Add(new ApplicationStatusHistory { Id = Guid.NewGuid(), ApplicationId = application, NewStatus = ApplicationStatus.Submitted, ActorUserId = user, OccurredAt = now.AddYears(-2) });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal(ApplicationRetentionService.Outcome.NotDue, await new ApplicationRetentionService(session.Db, new TestClock()).PurgeAsync(application));
+        await using (var setup = h.Session())
+        {
+            var app = await setup.Db.Applications.SingleAsync(x => x.Id == application);
+            app.Status = ApplicationStatus.Withdrawn; // Missing withdrawal history is never permission to delete.
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal(ApplicationRetentionService.Outcome.Inconsistent, await new ApplicationRetentionService(session.Db, new TestClock()).PurgeAsync(application));
+        await using (var setup = h.Session())
+        {
+            setup.Db.ApplicationStatusHistory.Add(new ApplicationStatusHistory { Id = Guid.NewGuid(), ApplicationId = application,
+                PreviousStatus = ApplicationStatus.Submitted, NewStatus = ApplicationStatus.Withdrawn, ActorUserId = user, OccurredAt = now.AddMonths(-12) });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal(ApplicationRetentionService.Outcome.Purged, await new ApplicationRetentionService(session.Db, new TestClock()).PurgeAsync(application));
+    }
+
     private sealed class DatabaseHarness : IAsyncDisposable
     {
         private readonly string _admin;

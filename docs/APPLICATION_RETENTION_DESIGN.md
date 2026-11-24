@@ -1,4 +1,4 @@
-# Application retention: deletion design (draft; not implemented)
+# Application retention: deletion design (prototype; not enabled)
 
 ## Approved policy
 
@@ -9,7 +9,7 @@
 
 ## Current state and risks
 
-`ApplicationRetentionRules` only calculates a deadline; nothing deletes or schedules deletion today. Application snapshots currently hold the candidate JSON, job JSON, phone, consent version and consent time in one row. Deleting the row removes the consent metadata too. Withdrawal and application-reading services are not implemented. Status history records `OccurredAt` for a withdrawal. Job expiry may be effective before the expiry scheduler marks a job expired; renewal changes its `ExpiresAt`. A worker must not rely on an old candidate list or cached deadline when making a deletion decision.
+`ApplicationRetentionRules` calculates a deadline. An internal deletion prototype exists, but is not registered, exposed or scheduled; it must only be invoked against disposable test databases. Application snapshots currently hold the candidate JSON, job JSON, phone, consent version and consent time in one row. Deleting the row removes the consent metadata too. Withdrawal and application-reading services are not implemented. Status history records `OccurredAt` for a withdrawal. Job expiry may be effective before the expiry scheduler marks a job expired; renewal changes its `ExpiresAt`. A worker must not rely on an old candidate list or cached deadline when making a deletion decision.
 
 ## Proposed implementation, in small steps
 
@@ -31,3 +31,9 @@ A renewal and deletion compete for the same Job lock. If renewal commits first, 
 ## Decision still needed
 
 The owner approved the metadata-only migration. The deletion service and scheduler remain separate slices after local verification and agreement. Consent-record retention remains subject to legal review, not a claim of legal compliance.
+
+## Deletion prototype verification status
+
+The internal `ApplicationRetentionService` accepts up to 100 explicitly supplied application IDs, one transaction per item. It does not discover candidates, run on a schedule, log operational errors, or expose a production entry point. It locks Job then application, rechecks receipt and status history, and deletes the snapshot with a marker and minimal system audit atomically. Missing or conflicting history and mismatched receipts return an inconsistency instead of deleting. Identical history timestamps fail closed because their order is ambiguous. Results include only IDs and outcome codes.
+
+Legal holds are not implemented, so this prototype must not be invoked on real data. Renewal and future withdrawal writers must honor the same locking protocol. Integration tests cover rollback after save, concurrent duplicate attempts, renewed expiry and withdrawal history, but have not been run in the sandbox. Explicit renewal/deletion and withdrawal/deletion lock-order races, reader behavior, bounded discovery, operational alerts, privacy/legal and backup gates remain outstanding. No scheduler, PDF cleanup or account erasure is provided.
