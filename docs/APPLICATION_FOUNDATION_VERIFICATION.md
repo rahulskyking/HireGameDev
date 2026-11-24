@@ -56,3 +56,7 @@ The opt-in PostgreSQL suite now injects wrapped deadlock and serialization error
 ### Real database deadlock test
 
 The opt-in PostgreSQL suite now creates a real lock cycle between a Candidate/skill edit and submission in a disposable test database. It checks the outcome whichever transaction PostgreSQL chooses to stop, and verifies a fresh-review retry if necessary. This covers one lock order, not every deadlock or load scenario. The test uses `pg_stat_activity` on the local test server to observe its own test connection. No migration was added. The sandbox could not run the test.
+
+### Retention rules (planning only)
+
+The owner approved a 12-month retention policy; `ApplicationRetentionRules` calculates deadlines only. It does not schedule or delete anything, and the future deletion implementation must recheck and coordinate renewals, withdrawals, access and attachments inside a safe design. The account-linked duplicate-prevention record remains personal data and current foreign keys restrict account deletion. Backups, legal holds, audit, consent evidence and privacy-law review remain open. Run `dotnet test` locally; tests were not run in the sandbox. No migration in this slice.
