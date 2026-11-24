@@ -52,3 +52,7 @@ Submission now locks only the Candidate's city and the skill names used by their
 ### Wrapped conflict handling
 
 The opt-in PostgreSQL suite now injects wrapped deadlock and serialization errors after saving, checks that application and job changes roll back, and retries. This is fault injection; it does not create a real database deadlock or prove all competing operations are safe. Run the suite locally. No migration is included. Production exposure remains blocked on real concurrency/deadlock and load testing and privacy/retention review.
+
+### Real database deadlock test
+
+The opt-in PostgreSQL suite now creates a real lock cycle between a Candidate/skill edit and submission in a disposable test database. It checks the outcome whichever transaction PostgreSQL chooses to stop, and verifies a fresh-review retry if necessary. This covers one lock order, not every deadlock or load scenario. The test uses `pg_stat_activity` on the local test server to observe its own test connection. No migration was added. The sandbox could not run the test.

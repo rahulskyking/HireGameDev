@@ -159,6 +159,121 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationSubmission_RealDeadlock_RollsBackVictimAndKeepsReviewedSnapshot()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var candidate = Guid.NewGuid();
+        var skill = new Skill { Name = "Deadlock Skill", Slug = "deadlock-skill" };
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Skills.Add(skill);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "deadlock@example.com", Email = "deadlock@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationCap = 1;
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateSkills.Add(new CandidateSkill { CandidateId = candidate, SkillId = skill.Id });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        async Task<ApplicationReviewOffer> Offer()
+        {
+            await using var session = h.Session();
+            var result = await Submission(session.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            return result.Value;
+        }
+        var original = await Offer();
+        await using var writer = h.Session();
+        await using var writerTx = await writer.Db.Database.BeginTransactionAsync();
+        await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE skills SET name = {"Changed Skill"} WHERE id = {skill.Id}");
+        var writerPid = ((NpgsqlConnection)writer.Db.Database.GetDbConnection()).ProcessID;
+        var gate = new PauseSkillLock();
+        await using var submitting = h.Session(interceptor: gate);
+        var pendingSubmit = Submission(submitting.Db).SubmitAsync(new(user, draft.Id, null, original.ReviewToken, true));
+        Task<bool>? pendingWriter = null;
+        try
+        {
+            // Submission holds the Candidate row and is paused just before requesting the skill.
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            async Task<bool> ChangeCandidate()
+            {
+                try
+                {
+                    await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE candidate_profiles SET headline = {"Changed Developer"} WHERE id = {candidate}");
+                    await writerTx.CommitAsync();
+                    return true;
+                }
+                catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.DeadlockDetected)
+                {
+                    await writerTx.RollbackAsync();
+                    return false;
+                }
+            }
+            pendingWriter = ChangeCandidate();
+            // Observe a real lock wait before completing the cycle. This test runs on the same
+            // disposable server/account and does not depend on a guessed sleep duration.
+            await using var monitor = h.Session();
+            await monitor.Db.Database.OpenConnectionAsync();
+            var waiting = false;
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (DateTime.UtcNow < deadline && !waiting && !pendingWriter.IsCompleted)
+            {
+                await using var cmd = monitor.Db.Database.GetDbConnection().CreateCommand();
+                cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = @pid AND wait_event_type = 'Lock')";
+                var parameter = cmd.CreateParameter(); parameter.ParameterName = "pid"; parameter.Value = writerPid; cmd.Parameters.Add(parameter);
+                waiting = (bool)(await cmd.ExecuteScalarAsync())!;
+                if (!waiting) await Task.Delay(50);
+            }
+            Assert.True(waiting, "The competing writer did not wait for the Candidate lock.");
+        }
+        finally { gate.Release.TrySetResult(true); }
+        var submitted = await pendingSubmit.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.NotNull(pendingWriter);
+        var writerCommitted = await pendingWriter!.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Equal(writerCommitted, submitted.IsFailure);
+        if (writerCommitted)
+        {
+            Assert.Equal("Applications.ConcurrentChange", submitted.Error.Code);
+            await using (var check = h.Session())
+            {
+                Assert.Empty(await check.Db.Applications.ToArrayAsync());
+                Assert.Empty(await check.Db.ApplicationSnapshots.ToArrayAsync());
+                Assert.Empty(await check.Db.ApplicationStatusHistory.ToArrayAsync());
+                var job = await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+                Assert.Equal(0, job.ApplicationsCount);
+                Assert.Equal(JobStatus.Active, job.Status);
+            }
+            var fresh = await Offer();
+            await using var retry = h.Session();
+            var retried = await Submission(retry.Db).SubmitAsync(new(user, draft.Id, null, fresh.ReviewToken, true));
+            Assert.True(retried.IsSuccess, retried.Error.Message);
+        }
+        await using (var check = h.Session())
+        {
+            Assert.Single(await check.Db.Applications.ToArrayAsync());
+            Assert.Single(await check.Db.ApplicationSnapshots.ToArrayAsync());
+            Assert.Single(await check.Db.ApplicationStatusHistory.ToArrayAsync());
+            var job = await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+            Assert.Equal(1, job.ApplicationsCount);
+            Assert.Equal(JobStatus.Full, job.Status);
+            Assert.Equal(1, await check.Db.JobStatusHistory.CountAsync(x => x.JobId == draft.Id && x.NewStatus == JobStatus.Full));
+            var snapshot = await check.Db.ApplicationSnapshots.SingleAsync();
+            Assert.Contains(writerCommitted ? "Changed Developer" : "Developer", snapshot.CandidateData);
+            Assert.Contains(writerCommitted ? "Changed Skill" : "Deadlock Skill", snapshot.CandidateData);
+        }
+    }
+
+    [PostgresFact]
     public async Task ApplicationSubmission_RejectsReviewWhenReferencedSkillIsRenamed()
     {
         await using var h = await DatabaseHarness.Create();
@@ -863,6 +978,20 @@ public sealed class JobPostgresTests
     }
 
     private sealed class InjectedFailure : Exception { }
+    private sealed class PauseSkillLock : DbCommandInterceptor
+    {
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("SELECT id FROM skills WHERE id IN", StringComparison.OrdinalIgnoreCase) && Entered.TrySetResult(true))
+                await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            return result;
+        }
+    }
+
     private sealed class PauseEligibilityRead : DbCommandInterceptor
     {
         public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
