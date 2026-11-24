@@ -48,3 +48,7 @@ Submission now locks the relevant Candidate account and Studio rows rather than 
 ### City and skill locking
 
 Submission now locks only the Candidate's city and the skill names used by their skills, portfolio and shipped titles. No new migration was added; the earlier Candidate coordination migration remains required. Run the opt-in PostgreSQL suite to check relevant versus unrelated reference writes and a changed skill name. These new tests were not run in the sandbox. This does not prove there are no deadlocks or complete the privacy/retention review; do not accept real applications yet.
+
+### Wrapped conflict handling
+
+The opt-in PostgreSQL suite now injects wrapped deadlock and serialization errors after saving, checks that application and job changes roll back, and retries. This is fault injection; it does not create a real database deadlock or prove all competing operations are safe. Run the suite locally. No migration is included. Production exposure remains blocked on real concurrency/deadlock and load testing and privacy/retention review.

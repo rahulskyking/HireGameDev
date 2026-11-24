@@ -483,6 +483,61 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationSubmission_WrappedDatabaseConflicts_RollBackAndAllowRetry()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "conflict@example.com", Email = "conflict@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationCap = 1;
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        foreach (var sqlState in new[] { PostgresErrorCodes.DeadlockDetected, PostgresErrorCodes.SerializationFailure })
+        {
+            await using (var failing = h.Session(interceptor: new InjectWrappedConflictAfterSave(sqlState)))
+            {
+                var result = await Submission(failing.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+                Assert.True(result.IsFailure);
+                Assert.Equal("Applications.ConcurrentChange", result.Error.Code);
+                Assert.False(failing.Db.ChangeTracker.HasChanges());
+            }
+            await using var check = h.Session();
+            Assert.Empty(await check.Db.Applications.ToArrayAsync());
+            Assert.Empty(await check.Db.ApplicationSnapshots.ToArrayAsync());
+            Assert.Empty(await check.Db.ApplicationStatusHistory.ToArrayAsync());
+            var job = await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+            Assert.Equal(0, job.ApplicationsCount);
+            Assert.Equal(JobStatus.Active, job.Status);
+            Assert.Equal(0, await check.Db.JobStatusHistory.CountAsync(x => x.JobId == draft.Id && x.NewStatus == JobStatus.Full));
+        }
+        await using (var retry = h.Session())
+        {
+            var result = await Submission(retry.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+            Assert.True(result.IsSuccess, result.Error.Message);
+            Assert.Equal(JobStatus.Full, (await retry.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).Status);
+        }
+    }
+
+    [PostgresFact]
     public async Task ApplicationSubmission_FailureAfterSave_RollsBackApplicationAndFullTransition()
     {
         await using var h = await DatabaseHarness.Create();
@@ -821,6 +876,14 @@ public sealed class JobPostgresTests
                 await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
             return result;
         }
+    }
+
+    // Simulates EF wrapping a PostgreSQL deadlock/serialization error after writes have been sent.
+    private sealed class InjectWrappedConflictAfterSave(string sqlState) : SaveChangesInterceptor
+    {
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default) => throw new DbUpdateException("Injected conflict",
+                new PostgresException("Injected PostgreSQL conflict", "ERROR", "ERROR", sqlState));
     }
 
     private sealed class FailAfterSave : SaveChangesInterceptor

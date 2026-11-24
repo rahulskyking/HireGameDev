@@ -125,6 +125,9 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_applications_candidate_job" })
         { return await AbortAsync(transaction, Error.Conflict("Applications.AlreadyApplied", "You have already applied for this job."), cancellationToken); }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg &&
+            pg.SqlState is PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.SerializationFailure)
+        { return await AbortAsync(transaction, Error.Conflict("Applications.ConcurrentChange", "The application changed. Please review and retry."), cancellationToken); }
         catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.SerializationFailure)
         { return await AbortAsync(transaction, Error.Conflict("Applications.ConcurrentChange", "The application changed. Please review and retry."), cancellationToken); }
         catch
