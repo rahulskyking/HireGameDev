@@ -1164,6 +1164,183 @@ public sealed class JobPostgresTests
             Assert.Equal(ApplicationRetentionService.Outcome.Purged, await new ApplicationRetentionService(session.Db, new TestClock()).PurgeAsync(application));
     }
 
+    // Pause after writes, while the actual transaction and row locks are still open.
+    private sealed class PauseAfterSave : SaveChangesInterceptor
+    {
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
+        {
+            if (Entered.TrySetResult(true)) await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            return result;
+        }
+    }
+
+    private static async Task AssertBlockedBy(Session monitor, int waitingPid, int blockingPid, Task pending)
+    {
+        await monitor.Db.Database.OpenConnectionAsync();
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline && !pending.IsCompleted)
+        {
+            await using var command = monitor.Db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT @blocker = ANY(pg_blocking_pids(@waiter))";
+            var waiter = command.CreateParameter(); waiter.ParameterName = "waiter"; waiter.Value = waitingPid; command.Parameters.Add(waiter);
+            var blocker = command.CreateParameter(); blocker.ParameterName = "blocker"; blocker.Value = blockingPid; command.Parameters.Add(blocker);
+            if ((bool)(await command.ExecuteScalarAsync())!) return;
+            await Task.Delay(50);
+        }
+        Assert.Fail("The expected PostgreSQL row-lock wait was not observed.");
+    }
+
+    private static async Task<(Guid Job, Guid Application, Guid CandidateUser)> RetentionRaceFixture(DatabaseHarness h, bool alreadyWithdrawn = false)
+    {
+        var draft = await h.Draft("Retention race developer");
+        var user = Guid.NewGuid(); var candidate = Guid.NewGuid(); var application = Guid.NewGuid();
+        var now = new TestClock().UtcNow;
+        await using var setup = h.Session();
+        var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+        Assert.True(published.IsSuccess && published.Value.Applied);
+        var city = new City { Name = "Raceville", Slug = "raceville", State = "Test State", StateCode = "TS" };
+        setup.Db.Cities.Add(city);
+        setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "race@example.com", Email = "race@example.com" });
+        await setup.Db.SaveChangesAsync();
+        setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidate, UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+        var job = await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id);
+        job.Status = JobStatus.Expired; job.FirstPublishedAt = now.AddYears(-2); job.PublishedAt = now.AddYears(-2);
+        job.ExpiresAt = now.AddMonths(-12); job.ApplicationsCount = alreadyWithdrawn ? 0 : 1;
+        await setup.Db.SaveChangesAsync();
+        setup.Db.Applications.Add(new JobApplication { Id = application, CandidateId = candidate, JobId = draft.Id,
+            Status = alreadyWithdrawn ? ApplicationStatus.Withdrawn : ApplicationStatus.Submitted,
+            SubmittedAt = now.AddYears(-2), UpdatedAt = now.AddYears(-2), ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+        setup.Db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = application, SnapshotVersion = 1,
+            CandidateData = "{\"private\":\"secret\"}", JobData = "{}", Phone = "1234567890", ConsentVersion = "v1", ConsentedAt = now.AddYears(-2) });
+        setup.Db.ApplicationStatusHistory.Add(new ApplicationStatusHistory { Id = Guid.NewGuid(), ApplicationId = application,
+            NewStatus = ApplicationStatus.Submitted, ActorUserId = user, OccurredAt = now.AddYears(-2) });
+        if (alreadyWithdrawn)
+            setup.Db.ApplicationStatusHistory.Add(new ApplicationStatusHistory { Id = Guid.NewGuid(), ApplicationId = application,
+                PreviousStatus = ApplicationStatus.Submitted, NewStatus = ApplicationStatus.Withdrawn, ActorUserId = user, OccurredAt = now.AddMonths(-12) });
+        await setup.Db.SaveChangesAsync();
+        return (draft.Id, application, user);
+    }
+
+    [PostgresFact]
+    public async Task Retention_RenewalAndDeletion_LockBothOrdersAndRespectWithdrawalDeadline()
+    {
+        // Real lifecycle renewal holds the same Job lock as retention. The third case checks
+        // that renewal does not cancel a separate, already-due withdrawal deadline.
+        foreach (var scenario in new[] { (RenewFirst: true, Withdrawn: false), (RenewFirst: false, Withdrawn: false), (RenewFirst: true, Withdrawn: true) })
+        {
+            await using var h = await DatabaseHarness.Create();
+            var fixture = await RetentionRaceFixture(h, scenario.Withdrawn);
+            var pause = new PauseAfterSave();
+            await using var renewal = h.Session(interceptor: scenario.RenewFirst ? pause : null);
+            await using var retention = h.Session(interceptor: scenario.RenewFirst ? null : pause);
+            await using var monitor = h.Session();
+            await renewal.Db.Database.OpenConnectionAsync(); await retention.Db.Database.OpenConnectionAsync();
+            var renewalPid = ((NpgsqlConnection)renewal.Db.Database.GetDbConnection()).ProcessID;
+            var retentionPid = ((NpgsqlConnection)retention.Db.Database.GetDbConnection()).ProcessID;
+            Task<Result<JobLifecycleOutcome>>? renewTask = null;
+            Task<ApplicationRetentionService.Outcome>? purgeTask = null;
+            try
+            {
+                if (scenario.RenewFirst)
+                {
+                    renewTask = renewal.Service.TransitionAsync(new(h.Owner, h.Studio, fixture.Job, JobLifecycleAction.Renew));
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await AssertBlockedBy(monitor, retentionPid, renewalPid, purgeTask);
+                }
+                else
+                {
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    renewTask = renewal.Service.TransitionAsync(new(h.Owner, h.Studio, fixture.Job, JobLifecycleAction.Renew));
+                    await AssertBlockedBy(monitor, renewalPid, retentionPid, renewTask);
+                }
+            }
+            finally { pause.Release.TrySetResult(true); }
+            Assert.NotNull(renewTask); Assert.NotNull(purgeTask);
+            var renewed = await renewTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            var outcome = await purgeTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(renewed.IsSuccess && renewed.Value.Applied, renewed.IsFailure ? renewed.Error.Message : "Renewal rejected.");
+            var expected = scenario.RenewFirst && !scenario.Withdrawn ? ApplicationRetentionService.Outcome.NotDue : ApplicationRetentionService.Outcome.Purged;
+            Assert.Equal(expected, outcome);
+            await using var check = h.Session();
+            var job = await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job);
+            Assert.Equal(JobStatus.Active, job.Status); Assert.True(job.ExpiresAt > new TestClock().UtcNow);
+            var app = await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            Assert.Equal(expected == ApplicationRetentionService.Outcome.Purged, app.SnapshotPurgedAt.HasValue);
+            Assert.Equal(expected != ApplicationRetentionService.Outcome.Purged, await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Equal(expected == ApplicationRetentionService.Outcome.Purged ? 1 : 0,
+                await check.Db.AuditLogs.CountAsync(x => x.Action == "application.snapshot_purged" && x.EntityId == fixture.Application.ToString()));
+        }
+    }
+
+    [PostgresFact]
+    public async Task Retention_WithdrawalAndDeletion_LockBothOrders()
+    {
+        // Withdrawal does not exist as a service yet. This transaction is a test-only model
+        // of its required Job-then-application lock order, not proof of a future implementation.
+        foreach (var withdrawalFirst in new[] { true, false })
+        {
+            await using var h = await DatabaseHarness.Create();
+            var fixture = await RetentionRaceFixture(h);
+            var pause = new PauseAfterSave();
+            await using var writer = h.Session();
+            await using var retention = h.Session(interceptor: withdrawalFirst ? null : pause);
+            await using var monitor = h.Session();
+            await writer.Db.Database.OpenConnectionAsync(); await retention.Db.Database.OpenConnectionAsync();
+            var writerPid = ((NpgsqlConnection)writer.Db.Database.GetDbConnection()).ProcessID;
+            var retentionPid = ((NpgsqlConnection)retention.Db.Database.GetDbConnection()).ProcessID;
+            var now = new TestClock().UtcNow;
+            var written = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseWriter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task Withdraw()
+            {
+                await using var tx = await writer.Db.Database.BeginTransactionAsync();
+                await writer.Db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM jobs WHERE id = {fixture.Job} FOR UPDATE");
+                await writer.Db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM applications WHERE id = {fixture.Application} FOR UPDATE");
+                await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE applications SET status = 'withdrawn', updated_at = {now} WHERE id = {fixture.Application}");
+                await writer.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE jobs SET applications_count = applications_count - 1 WHERE id = {fixture.Job}");
+                var historyId = Guid.NewGuid();
+                await writer.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO application_status_history (id, application_id, previous_status, new_status, actor_user_id, occurred_at) VALUES ({historyId}, {fixture.Application}, 'submitted', 'withdrawn', {fixture.CandidateUser}, {now})");
+                written.TrySetResult(true);
+                await releaseWriter.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                await tx.CommitAsync();
+            }
+            Task? withdrawTask = null;
+            Task<ApplicationRetentionService.Outcome>? purgeTask = null;
+            try
+            {
+                if (withdrawalFirst)
+                {
+                    withdrawTask = Withdraw();
+                    await written.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await AssertBlockedBy(monitor, retentionPid, writerPid, purgeTask);
+                }
+                else
+                {
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    withdrawTask = Withdraw();
+                    await AssertBlockedBy(monitor, writerPid, retentionPid, withdrawTask);
+                }
+            }
+            finally { pause.Release.TrySetResult(true); releaseWriter.TrySetResult(true); }
+            Assert.NotNull(withdrawTask); Assert.NotNull(purgeTask);
+            await withdrawTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.Equal(ApplicationRetentionService.Outcome.Purged, await purgeTask!.WaitAsync(TimeSpan.FromSeconds(30)));
+            await using var check = h.Session();
+            var app = await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            Assert.Equal(ApplicationStatus.Withdrawn, app.Status); Assert.NotNull(app.SnapshotPurgedAt);
+            Assert.False(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Equal(0, (await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+            Assert.Equal(1, await check.Db.AuditLogs.CountAsync(x => x.Action == "application.snapshot_purged" && x.EntityId == fixture.Application.ToString()));
+        }
+    }
+
     private sealed class DatabaseHarness : IAsyncDisposable
     {
         private readonly string _admin;

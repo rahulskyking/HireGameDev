@@ -52,3 +52,5 @@ The Arena sandbox has no .NET SDK or PostgreSQL installed, so these results have
 Phase 3 submission prototype also includes an injected post-save rollback/retry test; it is opt-in and unexecuted unless `HGD_TEST_POSTGRES` is configured. It does not yet establish safety or acceptable performance for all concurrent writers.
 
 Retention prototype tests cover atomic rollback, concurrent retries and basic expiry/withdrawal checks. They do not prove the renewal or withdrawal lock-order races, reader safety, or production readiness. Run only on disposable PostgreSQL.
+
+Retention race tests use PostgreSQL lock-wait observation to check both orders of renewal and deletion. Withdrawal is simulated with a test-only transaction because no withdrawal service exists; it must be re-tested against the real service when built. These tests do not replace broader concurrency or privacy review.
