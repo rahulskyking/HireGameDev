@@ -40,3 +40,7 @@ Submission uses a 15-minute protected review token, rechecks the reviewed snapsh
 Migration `20261116090000_CandidateApplicationCoordination` adds database triggers for Candidate child records and blocklist writes. Run the migration only on your disposable/local database, never a shared or production database. Its Down removes the safeguards, so submission must not run if it is rolled back. Apply it before testing submission. Then run the full test suite and the opt-in PostgreSQL suite described in `POSTGRES_TESTS.md`; the new tests check a child edit against submission and a separate Candidate's child write while the first Candidate is locked. These tests have not been run in the sandbox.
 
 This is only a partial improvement: users, cities, skills and Studio profiles still have broad locks. Other races, deadlocks, load and privacy/retention still need review before real applications are accepted.
+
+### Account and Studio locking
+
+Submission now locks the relevant Candidate account and Studio rows rather than their whole tables. It still uses broad locks for cities and skills. The PostgreSQL tests include account/Studio changes during submission and verify that unrelated account/Studio updates can proceed while submission waits. Run the opt-in PostgreSQL tests after pulling this change. These tests are not a complete deadlock, load or privacy review; do not enable real application submission yet. No additional migration is included in this step.

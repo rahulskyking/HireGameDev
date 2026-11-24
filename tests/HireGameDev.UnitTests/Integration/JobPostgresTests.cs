@@ -1,3 +1,4 @@
+using System.Data.Common;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Common;
@@ -155,6 +156,130 @@ public sealed class JobPostgresTests
         Assert.Equal(2, await check.Db.ApplicationSnapshots.CountAsync());
         Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync());
         Assert.Equal(1, await check.Db.JobStatusHistory.CountAsync(x => x.NewStatus == JobStatus.Full));
+    }
+
+    [PostgresFact]
+    public async Task ApplicationSubmission_RechecksAccountAndStudioChangesCommittedDuringSubmission()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var users = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.Users.Add(new ApplicationUser { Id = users[i], AccountType = AccountType.Candidate, UserName = $"recheck{i}@example.com", Email = $"recheck{i}@example.com" });
+            await setup.Db.SaveChangesAsync();
+            for (var i = 0; i < users.Length; i++)
+                setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = users[i], CityId = city.Id, FullName = $"Candidate {i}", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        async Task<ApplicationReviewOffer> Offer(Guid user)
+        {
+            await using var session = h.Session();
+            var result = await Submission(session.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            return result.Value;
+        }
+        var accountOffer = await Offer(users[0]);
+        var studioOffer = await Offer(users[1]);
+        await using (var edit = h.Session())
+        await using (var tx = await edit.Db.Database.BeginTransactionAsync())
+        await using (var submit = h.Session())
+        {
+            await edit.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE users SET is_active = false WHERE id = {users[0]}");
+            var pending = Submission(submit.Db).SubmitAsync(new(users[0], draft.Id, null, accountOffer.ReviewToken, true));
+            await tx.CommitAsync();
+            var result = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(result.IsFailure);
+            Assert.Equal("Applications.CandidateRequired", result.Error.Code);
+        }
+        await using (var edit = h.Session())
+        await using (var tx = await edit.Db.Database.BeginTransactionAsync())
+        await using (var submit = h.Session())
+        {
+            await edit.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE studio_profiles SET verification_status = {"rejected"} WHERE id = {h.Studio}");
+            var pending = Submission(submit.Db).SubmitAsync(new(users[1], draft.Id, null, studioOffer.ReviewToken, true));
+            await tx.CommitAsync();
+            var result = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(result.IsFailure);
+            Assert.Equal("Applications.Unavailable", result.Error.Code);
+        }
+        await using var check = h.Session();
+        Assert.Empty(await check.Db.Applications.ToArrayAsync());
+    }
+
+    [PostgresFact]
+    public async Task ApplicationSubmission_LocksOnlyRelevantAccountAndStudio()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var user = Guid.NewGuid();
+        var otherUser = Guid.NewGuid();
+        var otherStudio = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = user, AccountType = AccountType.Candidate, UserName = "account@example.com", Email = "account@example.com" });
+            setup.Db.Users.Add(new ApplicationUser { Id = otherUser, AccountType = AccountType.Studio, UserName = "other@example.com", Email = "other@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = user, CityId = city.Id, FullName = "Candidate", Headline = "Developer" });
+            setup.Db.StudioProfiles.Add(new StudioProfile { Id = otherStudio, OwnerUserId = otherUser, Name = "Other Studio", Slug = "other-studio" });
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(user, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        var gate = new PauseEligibilityRead();
+        await using var submitting = h.Session(interceptor: gate);
+        var pending = Submission(submitting.Db).SubmitAsync(new(user, draft.Id, null, offer.ReviewToken, true));
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await using (var other = h.Session())
+            {
+                await other.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE users SET is_active = false WHERE id = {otherUser}");
+                await other.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE studio_profiles SET name = {"Other Studio Updated"} WHERE id = {otherStudio}");
+            }
+            async Task AssertBlocked(string table)
+            {
+                await using var same = h.Session();
+                await using var tx = await same.Db.Database.BeginTransactionAsync();
+                await same.Db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '500ms'");
+                var error = await Assert.ThrowsAsync<PostgresException>(async () =>
+                {
+                    if (table == "user")
+                        await same.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE users SET is_active = false WHERE id = {user}");
+                    else
+                        await same.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE studio_profiles SET name = {"Changed"} WHERE id = {h.Studio}");
+                });
+                Assert.Equal(PostgresErrorCodes.LockNotAvailable, error.SqlState);
+                await tx.RollbackAsync();
+            }
+            await AssertBlocked("user");
+            await AssertBlocked("studio");
+        }
+        finally { gate.Release.TrySetResult(true); }
+        var submitted = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(submitted.IsSuccess, submitted.Error.Message);
     }
 
     [PostgresFact]
@@ -566,6 +691,21 @@ public sealed class JobPostgresTests
     }
 
     private sealed class InjectedFailure : Exception { }
+    private sealed class PauseEligibilityRead : DbCommandInterceptor
+    {
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("candidate_profiles", StringComparison.OrdinalIgnoreCase) &&
+                command.CommandText.Contains("users", StringComparison.OrdinalIgnoreCase) && Entered.TrySetResult(true))
+                await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            return result;
+        }
+    }
+
     private sealed class FailAfterSave : SaveChangesInterceptor
     {
         public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,

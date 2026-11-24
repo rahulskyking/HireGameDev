@@ -17,7 +17,7 @@ namespace HireGameDev.Infrastructure.Services;
 
 /// <summary>
 /// PostgreSQL-only submission. Candidate data uses a per-Candidate lock coordinated by database triggers.
-/// Account, reference data and Studio tables still use broad locks. Do not expose for production
+/// Shared reference tables still use broad locks. Do not expose for production
 /// until remaining coordination, race/load testing and privacy/retention policy are reviewed.
 /// </summary>
 internal sealed class ApplicationSubmissionService : IApplicationSubmissionService
@@ -66,11 +66,23 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         try
         {
-            // Keep broad locks for account, shared reference and Studio data until those writers
-            // have their own coordination. Candidate children use migration-installed triggers.
-            await _db.Database.ExecuteSqlRawAsync("LOCK TABLE users, cities, skills, studio_profiles IN SHARE MODE", cancellationToken);
-            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM candidate_profiles WHERE user_id = {command.ActorUserId} FOR UPDATE", cancellationToken);
+            // Reference names can be edited independently of the Candidate graph. Until those
+            // writers are coordinated, retain table locks on just cities and skills.
+            await _db.Database.ExecuteSqlRawAsync("LOCK TABLE cities, skills IN SHARE MODE", cancellationToken);
+            var studioId = await _db.Jobs.AsNoTracking().Where(j => j.Id == command.JobId)
+                .Select(j => (Guid?)j.StudioId).SingleOrDefaultAsync(cancellationToken);
+            if (!studioId.HasValue || !await LockRowAsync("SELECT id FROM studio_profiles WHERE id = @id FOR SHARE", studioId.Value, cancellationToken))
+                return await AbortAsync(transaction, Error.NotFound("Applications.Unavailable", "This listing is unavailable."), cancellationToken);
+            if (!await LockRowAsync("SELECT id FROM users WHERE id = @id FOR SHARE", command.ActorUserId, cancellationToken) ||
+                !await LockRowAsync("SELECT id FROM candidate_profiles WHERE user_id = @id FOR UPDATE", command.ActorUserId, cancellationToken))
+                return await AbortAsync(transaction, Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."), cancellationToken);
+            // Studio precedes Job, matching JobLifecycleService. The job's studio is read before
+            // locking and checked again after the job lock, so a concurrent reassignment fails closed.
             await LockJobAsync(command.JobId, cancellationToken);
+            var lockedStudioId = await _db.Jobs.AsNoTracking().Where(j => j.Id == command.JobId)
+                .Select(j => (Guid?)j.StudioId).SingleOrDefaultAsync(cancellationToken);
+            if (lockedStudioId != studioId)
+                return await AbortAsync(transaction, Error.Conflict("Applications.ConcurrentChange", "The application changed. Please review and retry."), cancellationToken);
             // A context may already track stale entities from an earlier request; start fresh after locking.
             _db.ChangeTracker.Clear();
             var fresh = await _review.ReviewAsync(command.ActorUserId, command.JobId, command.ScreeningAnswer, cancellationToken);
@@ -115,6 +127,15 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         }
     }
 
+    private async Task<bool> LockRowAsync(string sql, Guid id, CancellationToken ct)
+    {
+        // Callers supply fixed SQL literals; the ID is always a parameter.
+        await using var command = _db.Database.GetDbConnection().CreateCommand();
+        command.Transaction = _db.Database.CurrentTransaction!.GetDbTransaction();
+        command.CommandText = sql;
+        var parameter = command.CreateParameter(); parameter.ParameterName = "id"; parameter.Value = id; command.Parameters.Add(parameter);
+        return await command.ExecuteScalarAsync(ct) is not null;
+    }
     private async Task LockJobAsync(Guid jobId, CancellationToken ct)
     {
         await using var command = _db.Database.GetDbConnection().CreateCommand();
