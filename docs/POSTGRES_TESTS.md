@@ -48,3 +48,5 @@ public query translation/visibility; M2.3c adds candidate blocklist translation 
 Record the build, unit-test and integration-test outcomes before proceeding.
 The Arena sandbox has no .NET SDK or PostgreSQL installed, so these results have
 **not** been executed/verified there. No new migration is introduced by this suite.
+
+Phase 3 submission prototype also includes an injected post-save rollback/retry test; it is opt-in and unexecuted unless `HGD_TEST_POSTGRES` is configured. It does not yet establish safety or acceptable performance for all concurrent writers.

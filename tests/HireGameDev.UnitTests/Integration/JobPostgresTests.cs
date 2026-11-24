@@ -158,6 +158,57 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationSubmission_FailureAfterSave_RollsBackApplicationAndFullTransition()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Gameplay Developer Alpha");
+        var userId = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Testville", Slug = "testville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = "rollback@example.com", Email = "rollback@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = userId, CityId = city.Id, FullName = "Test Candidate", Headline = "Game developer" });
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationCap = 1;
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        var clock = new TestClock();
+        ApplicationSubmissionService Submission(AppDbContext db) => new(db,
+            new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        ApplicationReviewOffer offer;
+        await using (var prepare = h.Session())
+        {
+            var result = await Submission(prepare.Db).PrepareAsync(userId, draft.Id, null);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+        }
+        await using (var failing = h.Session(interceptor: new FailAfterSave()))
+        {
+            await Assert.ThrowsAsync<InjectedFailure>(async () =>
+                await Submission(failing.Db).SubmitAsync(new(userId, draft.Id, null, offer.ReviewToken, true)));
+        }
+        await using (var check = h.Session())
+        {
+            Assert.Empty(await check.Db.Applications.ToArrayAsync());
+            Assert.Empty(await check.Db.ApplicationSnapshots.ToArrayAsync());
+            Assert.Empty(await check.Db.ApplicationStatusHistory.ToArrayAsync());
+            Assert.Equal(0, (await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationsCount);
+            Assert.Equal(JobStatus.Active, (await check.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).Status);
+            Assert.Equal(0, await check.Db.JobStatusHistory.CountAsync(x => x.JobId == draft.Id && x.NewStatus == JobStatus.Full));
+        }
+        await using (var retry = h.Session())
+        {
+            var result = await Submission(retry.Db).SubmitAsync(new(userId, draft.Id, null, offer.ReviewToken, true));
+            Assert.True(result.IsSuccess, result.Error.Message);
+            Assert.Equal(JobStatus.Full, (await retry.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).Status);
+        }
+    }
+
+    [PostgresFact]
     public async Task ApplicationReview_LoadsPrivateSnapshotAndRespectsBlocklist()
     {
         await using var h = await DatabaseHarness.Create();
