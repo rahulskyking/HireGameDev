@@ -1,0 +1,9 @@
+.ap { max-width: 900px; margin: 2.5rem auto; padding: 0 1rem 4rem; color: #20243a; }
+.ap h1 { font-size: clamp(2rem, 4vw, 3rem); margin: .3rem 0 1rem; }
+.ap-label { color: #7555a8; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .8rem; }
+.ap-card { border: 1px solid #e3dff0; border-radius: 14px; background: #fff; padding: 1.4rem; margin: 1.2rem 0; box-shadow: 0 8px 24px #30264b0a; }
+.ap-card h2 { margin-top: 0; } .ap-card h3 { margin-bottom: .4rem; }
+.ap-facts { display: grid; grid-template-columns: minmax(8rem, 1fr) 2fr; gap: .55rem 1rem; }
+.ap-facts dt { font-weight: 700; } .ap-facts dd { margin: 0; overflow-wrap: anywhere; }
+.ap-text { white-space: pre-wrap; overflow-wrap: anywhere; } .ap-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+.ap-note { padding: 1rem; background: #f1eafe; border-radius: 8px; }

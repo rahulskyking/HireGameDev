@@ -12,6 +12,7 @@ public static class RateLimitPolicies
 {
     /// <summary>Per-user burst guard on Studio job mutations; database publication quotas remain authoritative.</summary>
     public const string StudioJobsWrite = "studio-jobs-write";
+    public const string ApplicationWrite = "application-write";
 
     /// <summary>
     /// Blueprint Section 13.A: 5 attempts per 15 minutes per client IP for Login, ForgotPassword, and ResendConfirmation.
@@ -188,6 +189,12 @@ public static class RateLimitPolicies
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+
+            options.AddPolicy(ApplicationWrite, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(BuildUserOrClientPartitionKey(httpContext), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30, Window = TimeSpan.FromMinutes(15), QueueLimit = 0, AutoReplenishment = true
+                }));
 
             options.AddPolicy(StudioJobsWrite, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(BuildUserOrClientPartitionKey(httpContext), _ => new FixedWindowRateLimiterOptions

@@ -1,0 +1,12 @@
+@using HireGameDev.Application.Abstractions.Applications
+@model IReadOnlyList<CandidateApplicationListItem>
+@{ ViewData["Title"] = "My applications"; }
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
+<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>My applications</h1>
+@if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
+<p>Your most recent 100 applications are shown. Withdrawing removes Studio access to your snapshot; it does not automatically reopen a full job.</p>
+@if (Model.Count == 0) { <p>No applications to show.</p> }
+@foreach (var app in Model) { <article class="ap-card"><h2>@app.JobTitle</h2><p>@app.StudioName · @app.Status · @app.SubmittedAt.ToString("dd MMM yyyy")</p>
+@if (ApplicationLifecycleRules.CanCandidateWithdraw(app.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@app.ApplicationId">Withdraw application</a> }
+</article> }
+<a asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></main>

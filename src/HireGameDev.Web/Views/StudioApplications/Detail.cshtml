@@ -1,0 +1,11 @@
+@using HireGameDev.Application.Abstractions.Applications
+@using HireGameDev.Application.Features.Applications
+@model StudioApplicantDetail
+@{ ViewData["Title"] = "Applicant snapshot"; var snapshot = new ApplicationSnapshotDraft(1, Model.Candidate, Model.Job, Model.Phone); var options = Enum.GetValues<ApplicationStatus>().Where(x => ApplicationLifecycleRules.CanStudioTransition(Model.Status, x)).ToArray(); }
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
+<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Applicant snapshot</h1>
+@if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
+<p>Status: <strong>@Model.Status</strong>. This is the submitted snapshot, not the Candidate’s live profile. Treat its contents as confidential.</p>
+@if (Model.CanChangeStatus && options.Length > 0) { <section class="ap-card"><h2>Change status</h2><form asp-action="ChangeStatus" asp-route-applicationId="@Model.ApplicationId" method="post"><label for="newStatus">New status</label> <select id="newStatus" name="newStatus">@foreach (var option in options) { <option value="@option">@option</option> }</select> <button class="c-btn c-btn--primary" type="submit">Update</button></form></section> }
+else if (!Model.CanChangeStatus) { <p>Viewer access is read-only.</p> }
+<partial name="_ApplicationSnapshot" model="snapshot" /></main>

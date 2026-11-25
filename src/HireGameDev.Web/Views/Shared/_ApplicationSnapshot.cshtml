@@ -1,0 +1,21 @@
+@model HireGameDev.Application.Features.Applications.ApplicationSnapshotDraft
+@{
+    var c = Model.Candidate;
+}
+<section class="ap-card"><h2>Candidate snapshot</h2>
+<dl class="ap-facts">
+<dt>Name</dt><dd>@c.FullName</dd><dt>Headline</dt><dd>@c.Headline</dd><dt>Discipline</dt><dd>@c.PrimaryCategory</dd><dt>City</dt><dd>@c.City</dd>
+<dt>Seniority</dt><dd>@c.Seniority</dd><dt>Experience</dt><dd>@c.YearsExperience years</dd><dt>Availability</dt><dd>@c.Availability</dd>
+<dt>Remote</dt><dd>@(c.OpenToRemote ? "Yes" : "No")</dd><dt>Relocation</dt><dd>@(c.WillingToRelocate ? "Yes" : "No")</dd>
+<dt>Notice period</dt><dd>@(c.NoticePeriodDays?.ToString() ?? "Not specified")</dd><dt>Expected CTC (LPA)</dt><dd>@(c.ExpectedCtcLpa?.ToString() ?? "Not shared")</dd>
+<dt>Current CTC (LPA)</dt><dd>@(c.CurrentCtcLpa?.ToString() ?? "Not shared")</dd><dt>Phone</dt><dd>@(Model.Phone ?? "Not shared at this stage")</dd>
+</dl><h3>Bio</h3><p class="ap-text">@(c.Bio ?? "Not provided")</p>
+<h3>Skills</h3><ul>@foreach (var x in c.Skills) { <li>@x.Name · @x.Proficiency · @(x.YearsUsed?.ToString() ?? "—") years · last used @(x.LastUsedYear?.ToString() ?? "—") · @(x.IsPrimary ? "Primary" : "Additional")</li> }</ul>
+<h3>Experience</h3><ul>@foreach (var x in c.Experience) { <li><strong>@x.Title at @x.Company</strong> · @x.StartDate – @(x.IsCurrent ? "Present" : x.EndDate?.ToString() ?? "—")<p class="ap-text">@x.Description</p></li> }</ul>
+<h3>Education</h3><ul>@foreach (var x in c.Education) { <li>@x.Degree · @x.Field · @x.Institution · @x.StartYear – @x.EndYear</li> }</ul>
+<h3>Portfolio</h3><ul>@foreach (var x in c.Portfolio) { <li>@x.LinkType · @x.Title · <span class="ap-text">@x.Url</span> · @string.Join(", ", x.Skills)</li> }</ul>
+<h3>Shipped games</h3><ul>@foreach (var x in c.ShippedGames) { <li>@x.GameName · @x.StudioName · @x.Role · @string.Join(", ", x.Platforms) · @x.Engine · @x.ReleaseYear · @x.StoreUrl</li> }</ul>
+</section>
+<section class="ap-card"><h2>Job and screening</h2><p>@Model.Job.JobTitle · @Model.Job.StudioName</p>
+@if (!string.IsNullOrWhiteSpace(Model.Job.ScreeningQuestion)) { <h3>@Model.Job.ScreeningQuestion</h3><p class="ap-text">@Model.Job.ScreeningAnswer</p> }
+</section>

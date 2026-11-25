@@ -1503,6 +1503,28 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task CandidateApplicationList_OnlyReturnsActiveOwnersApplications()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        await using (var session = h.Session())
+        {
+            var list = new CandidateApplicationListService(session.Db);
+            var own = await list.ListAsync(fixture.CandidateUser);
+            Assert.True(own.IsSuccess); Assert.Equal(fixture.Application, Assert.Single(own.Value).ApplicationId);
+            Assert.Empty((await list.ListAsync(h.Owner)).Value);
+            Assert.Empty((await list.ListAsync(Guid.NewGuid())).Value);
+        }
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Users.SingleAsync(x => x.Id == fixture.CandidateUser)).IsActive = false;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Empty((await new CandidateApplicationListService(session.Db).ListAsync(fixture.CandidateUser)).Value);
+    }
+
+    [PostgresFact]
     public async Task StudioApplicantDetail_RestrictsSnapshotAndPhoneForEveryRequest()
     {
         await using var h = await DatabaseHarness.Create();
@@ -1536,6 +1558,7 @@ public sealed class JobPostgresTests
                 var result = await new StudioApplicantDetailService(session.Db).GetAsync(actor, fixture.Application);
                 Assert.True(result.IsSuccess, result.Error.Message);
                 Assert.Equal("Snapshot name", result.Value.Candidate.FullName);
+                Assert.Equal(actor == h.Owner, result.Value.CanChangeStatus);
                 Assert.Equal("Snapshot job", result.Value.Job.JobTitle);
                 Assert.Equal(status is ApplicationStatus.Shortlisted or ApplicationStatus.Hired ? "1234567890" : null, result.Value.Phone);
             }

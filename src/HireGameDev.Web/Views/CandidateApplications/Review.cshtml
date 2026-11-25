@@ -1,0 +1,11 @@
+@model HireGameDev.Web.Models.Applications.ApplicationReviewPage
+@{ ViewData["Title"] = "Review your application"; }
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
+<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Review before applying</h1>
+<p>This is the snapshot the Studio can see. Phone is available only after shortlist or hire. Check your text and links for sensitive or confidential information.</p>
+<partial name="_ApplicationSnapshot" model="Model.Offer.Snapshot" />
+<section class="ap-card"><h2>Consent</h2><p>@Model.Offer.ConsentText</p><p>Review expires at @Model.Offer.ExpiresAt.ToString("u"). If your profile or the job changes, you will need to review again.</p>
+<form asp-action="Submit" asp-route-jobId="@Model.JobId" method="post">
+<input type="hidden" name="reviewToken" value="@Model.Offer.ReviewToken" /><input type="hidden" name="screeningAnswer" value="@Model.ScreeningAnswer" />
+<label><input type="checkbox" name="consent" value="true" required /> I agree to share the reviewed information.</label>
+<div class="ap-actions"><button class="c-btn c-btn--primary" type="submit">Submit application</button><a asp-action="Index">Cancel</a></div></form></section></main>

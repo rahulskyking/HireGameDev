@@ -35,6 +35,7 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 && app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null
                 && !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && b.StudioId == studio.Id)
             select new { app.Id, app.Status, app.SubmittedAt, snapshot.SnapshotVersion, snapshot.CandidateData, snapshot.JobData,
+                CanChangeStatus = member.MemberRole == StudioMemberRole.Owner || member.MemberRole == StudioMemberRole.Recruiter,
                 Phone = app.Status == ApplicationStatus.Shortlisted || app.Status == ApplicationStatus.Hired ? snapshot.Phone : null })
             .SingleOrDefaultAsync(cancellationToken);
         if (row is null || row.SnapshotVersion != 1) return Unavailable();
@@ -49,7 +50,7 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 candidate.Skills is null || candidate.Experience is null || candidate.Education is null ||
                 candidate.Portfolio is null || candidate.ShippedGames is null ||
                 string.IsNullOrWhiteSpace(job.JobTitle) || string.IsNullOrWhiteSpace(job.StudioName)) return Unavailable();
-            return Result.Success(new StudioApplicantDetail(row.Id, row.Status, row.SubmittedAt, candidate, job, row.Phone));
+            return Result.Success(new StudioApplicantDetail(row.Id, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus));
         }
         catch (JsonException) { return Unavailable(); }
         catch (NotSupportedException) { return Unavailable(); }
