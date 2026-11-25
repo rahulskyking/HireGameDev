@@ -7,6 +7,7 @@
 <p>Withdrawing removes Studio access to your snapshot; it does not automatically reopen a full job.</p>
 @if (Model.Items.Count == 0) { <p>No applications to show.</p> }
 @foreach (var app in Model.Items) { <article class="ap-card"><h2>@app.JobTitle</h2><p>@app.StudioName · @app.Status · @app.SubmittedAt.ToString("dd MMM yyyy")</p>
+<a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">View application timeline →</a>
 @if (ApplicationLifecycleRules.CanCandidateWithdraw(app.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@app.ApplicationId">Withdraw application</a> }
 </article> }
 <nav class="ap-actions" aria-label="Application pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">Previous</a> } @if (Model.HasMore) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next</a> }</nav>

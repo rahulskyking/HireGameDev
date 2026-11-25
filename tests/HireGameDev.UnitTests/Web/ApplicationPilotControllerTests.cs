@@ -71,7 +71,7 @@ public sealed class ApplicationPilotControllerTests
 
     private static CandidateApplicationsController Candidate(FakeServices fake, Guid actor, string environment, bool enabled)
     {
-        var controller = new CandidateApplicationsController(fake, fake, fake, Environment(environment), Config(enabled));
+        var controller = new CandidateApplicationsController(fake, fake, fake, fake, Environment(environment), Config(enabled));
         Attach(controller, actor); return controller;
     }
     private static void Attach(Controller controller, Guid actor)
@@ -98,7 +98,7 @@ public sealed class ApplicationPilotControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
     }
     private sealed class FakeServices : IApplicationSubmissionService, ICandidateApplicationListService, IApplicationWithdrawalService,
-        IStudioApplicantListService, IStudioApplicantDetailService, IStudioApplicationStatusService
+        IStudioApplicantListService, IStudioApplicantDetailService, IStudioApplicationStatusService, ICandidateApplicationDetailService
     {
         public int Calls; public Guid Actor; public Guid Application; public SubmitApplicationCommand? Command;
         public Task<Result<ApplicationReviewOffer>> PrepareAsync(Guid actorUserId, Guid jobId, string? screeningAnswer, CancellationToken cancellationToken = default)
@@ -111,6 +111,8 @@ public sealed class ApplicationPilotControllerTests
             Task.FromResult(Result.Success(new CandidateApplicationPage(Array.Empty<CandidateApplicationListItem>(), page, false)));
         public Task<Result<StudioApplicantPage>> ListAsync(Guid actorUserId, Guid jobId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default, ApplicationStatus? status = null) =>
             Task.FromResult(Result.Success(new StudioApplicantPage(Array.Empty<StudioApplicantListItem>(), false)));
+        Task<Result<CandidateApplicationDetail>> ICandidateApplicationDetailService.GetAsync(Guid actorUserId, Guid applicationId, CancellationToken cancellationToken) =>
+            Task.FromResult(Result.Failure<CandidateApplicationDetail>(Error.NotFound("test", "test")));
         public Task<Result<StudioApplicantDetail>> GetAsync(Guid actorUserId, Guid applicationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Failure<StudioApplicantDetail>(Error.NotFound("test", "test")));
         public Task<Result> ChangeStatusAsync(Guid actorUserId, Guid applicationId, ApplicationStatus newStatus, CancellationToken cancellationToken = default)

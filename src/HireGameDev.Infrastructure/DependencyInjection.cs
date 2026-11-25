@@ -242,6 +242,7 @@ public static class DependencyInjection
         services.AddScoped<IStudioApplicationStatusService, StudioApplicationStatusService>();
         services.AddScoped<IStudioApplicantListService, StudioApplicantListService>();
         services.AddScoped<ICandidateApplicationListService, CandidateApplicationListService>();
+        services.AddScoped<ICandidateApplicationDetailService, CandidateApplicationDetailService>();
         services.AddScoped<IStudioApplicantDetailService, StudioApplicantDetailService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();

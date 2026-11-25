@@ -161,6 +161,12 @@ public sealed class JobPostgresTests
             Assert.True(detail.IsFailure); Assert.Equal("Applications.Unavailable", detail.Error.Code);
             Assert.Empty((await new StudioApplicantListService(verify.Db).ListAsync(h.Owner, draft.Id)).Value.Items);
             Assert.Equal(ApplicationStatus.Withdrawn, Assert.Single((await new CandidateApplicationListService(verify.Db).ListAsync(userId)).Value.Items).Status);
+            var timeline = await new CandidateApplicationDetailService(verify.Db).GetAsync(userId, applicationId);
+            Assert.True(timeline.IsSuccess, timeline.Error.Message);
+            Assert.Equal(new[] { ApplicationStatus.Withdrawn, ApplicationStatus.Shortlisted, ApplicationStatus.Submitted }, timeline.Value.Events.Select(x => x.NewStatus));
+            Assert.False(timeline.Value.HasEarlierEvents);
+            var deniedTimeline = await new CandidateApplicationDetailService(verify.Db).GetAsync(h.Owner, applicationId);
+            Assert.True(deniedTimeline.IsFailure); Assert.Equal("Applications.Unavailable", deniedTimeline.Error.Code);
             Assert.Equal(0, (await verify.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationsCount);
             Assert.Equal(3, await verify.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == applicationId));
         }

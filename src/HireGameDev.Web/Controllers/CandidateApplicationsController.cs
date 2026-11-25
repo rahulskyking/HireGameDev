@@ -14,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 [Route("candidate/applications")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CandidateApplicationsController(IApplicationSubmissionService submission, ICandidateApplicationListService list,
-    IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment, IConfiguration configuration) : Controller
+    ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment, IConfiguration configuration) : Controller
 {
     private bool Enabled => ApplicationPilot.Enabled(environment, configuration);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
@@ -28,6 +28,14 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
         var result = await list.ListAsync(Actor, page, 25, cancellationToken);
         if (result.IsFailure) return result.Error.Code == "Applications.InvalidPage" ? BadRequest() : StatusCode(503);
         return View(result.Value);
+    }
+
+    [HttpGet("{applicationId:guid}")]
+    public async Task<IActionResult> Detail(Guid applicationId, CancellationToken cancellationToken)
+    {
+        Private(); if (!Enabled) return NotFound();
+        var result = await detail.GetAsync(Actor, applicationId, cancellationToken);
+        return result.IsSuccess ? View(result.Value) : NotFound();
     }
 
     [HttpPost("{jobId:guid}/review"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]

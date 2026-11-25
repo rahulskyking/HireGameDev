@@ -1,0 +1,13 @@
+@using HireGameDev.Application.Abstractions.Applications
+@model CandidateApplicationDetail
+@{ ViewData["Title"] = "Application timeline"; }
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
+<main class="ap"><a asp-action="Index">← My applications</a><p class="ap-label">Development pilot · test data only</p><h1>@Model.JobTitle</h1>
+<p>@Model.StudioName · Current status: <strong>@Model.Status</strong></p>
+<p>Job and Studio names reflect their current values. Statuses are shown most recent first, in UTC.</p>
+<section class="ap-card" aria-labelledby="timeline-heading"><h2 id="timeline-heading">Application timeline</h2>
+<ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><span>@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</span></li> }</ol>
+@if (Model.HasEarlierEvents) { <p>Only the 50 most recent status changes are shown.</p> }</section>
+@if (ApplicationLifecycleRules.CanCandidateWithdraw(Model.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@Model.ApplicationId">Withdraw application</a> }
+else if (Model.Status == ApplicationStatus.Withdrawn) { <p>Your application was withdrawn. The Studio can no longer access its snapshot.</p> }
+</main>

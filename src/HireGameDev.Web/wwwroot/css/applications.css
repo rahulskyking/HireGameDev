@@ -10,3 +10,7 @@
 
 .ap-filter { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
 .ap-filter select { padding: .55rem; border: 1px solid #cfc7dd; border-radius: 6px; background: #fff; }
+.ap-timeline { list-style: none; margin: 0; padding: 0; }
+.ap-timeline li { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid #eeeaf4; }
+.ap-timeline li:last-child { border-bottom: 0; } .ap-timeline span { color: #625b70; }
+@media (max-width: 480px) { .ap-timeline li { flex-direction: column; gap: .2rem; } }
