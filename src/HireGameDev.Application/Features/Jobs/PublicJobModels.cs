@@ -7,6 +7,8 @@ namespace HireGameDev.Application.Features.Jobs;
 public sealed record PublicJobSearch
 {
     public string? Keyword { get; init; }
+    // Public discovery filter; visibility and Candidate blocks still apply.
+    public Guid? StudioId { get; init; }
     public DisciplineCategory? Category { get; init; }
     public JobType? JobType { get; init; }
     public JobWorkMode? WorkMode { get; init; }

@@ -16,7 +16,7 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
     {
         if (search.Keyword?.Length > 100 || search.Keyword?.Any(char.IsControl) == true ||
             search.SkillIds is null || search.SkillIds.Count > 12 || search.SkillIds.Any(x => x <= 0) ||
-            search.CityId <= 0 || search.ExperienceYears is < 0 or > 99.9m || search.PageSize is < 1 or > 50 ||
+            search.StudioId == Guid.Empty || search.CityId <= 0 || search.ExperienceYears is < 0 or > 99.9m || search.PageSize is < 1 or > 50 ||
             (search.Category.HasValue && !Enum.IsDefined(search.Category.Value)) ||
             (search.JobType.HasValue && !Enum.IsDefined(search.JobType.Value)) ||
             (search.WorkMode.HasValue && !Enum.IsDefined(search.WorkMode.Value)))
@@ -31,6 +31,7 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
         foreach (var term in terms)
             query = query.Where(x => (x.Job.Title != null && x.Job.Title.ToLower().Contains(term)) ||
                 (x.Job.Description != null && x.Job.Description.ToLower().Contains(term)));
+        if (search.StudioId.HasValue) query = query.Where(x => x.Studio.Id == search.StudioId.Value);
         if (search.Category.HasValue) query = query.Where(x => x.Job.Category == search.Category);
         if (search.JobType.HasValue) query = query.Where(x => x.Job.JobType == search.JobType);
         if (search.WorkMode.HasValue) query = query.Where(x => x.Job.WorkMode == search.WorkMode);

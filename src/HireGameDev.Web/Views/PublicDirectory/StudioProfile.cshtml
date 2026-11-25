@@ -24,6 +24,7 @@
         Context,
         $"/Studio/Verification?studioId={s.StudioId}");
 
+    var studioJobsUrl = PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, $"/jobs?StudioId={s.StudioId}");
     var hasAnyStack = s.Engines.Count > 0 || s.Genres.Count > 0 || s.Platforms.Count > 0;
 }
 
@@ -134,6 +135,10 @@
             </div>
 
             <div class="c-btn-group">
+                @if (s.IsVerified && !s.IsPreviewMode && !Model.IsExplicitPreviewRequest)
+                {
+                    <a href="@studioJobsUrl" class="c-btn c-btn--primary c-btn--sm">View open jobs</a>
+                }
                 @if (hasSafeWebsite)
                 {
                     <a href="@safeWebsiteUrl"

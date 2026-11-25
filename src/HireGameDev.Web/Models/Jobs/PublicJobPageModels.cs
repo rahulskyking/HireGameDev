@@ -14,7 +14,7 @@ public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUr
 public static class PublicJobUi
 {
     public static bool HasFilters(PublicJobSearch search) => !string.IsNullOrWhiteSpace(search.Keyword) ||
-        search.Category.HasValue || search.JobType.HasValue || search.WorkMode.HasValue || search.CityId.HasValue ||
+        search.StudioId.HasValue || search.Category.HasValue || search.JobType.HasValue || search.WorkMode.HasValue || search.CityId.HasValue ||
         search.ExperienceYears.HasValue || (search.SkillIds?.Count ?? 0) > 0 || search.FresherFriendlyOnly || search.PageSize != 20;
     public static string Type(JobType type) => type switch
     { JobType.FullTime => "Full-time", JobType.PartTime => "Part-time", JobType.Contract => "Contract", _ => "Internship" };
@@ -28,7 +28,7 @@ public static class PublicJobUi
         var values = new List<KeyValuePair<string, string?>>();
         void Add(string name, object? value) { if (value is not null) values.Add(new(name, Convert.ToString(value, CultureInfo.InvariantCulture))); }
         if (!string.IsNullOrWhiteSpace(search.Keyword)) Add("Keyword", search.Keyword.Trim());
-        Add("Category", search.Category); Add("JobType", search.JobType); Add("WorkMode", search.WorkMode);
+        Add("StudioId", search.StudioId); Add("Category", search.Category); Add("JobType", search.JobType); Add("WorkMode", search.WorkMode);
         Add("CityId", search.CityId); Add("ExperienceYears", search.ExperienceYears);
         foreach (var skill in (search.SkillIds ?? Array.Empty<int>()).Distinct().OrderBy(x => x)) Add("SkillIds", skill);
         if (search.FresherFriendlyOnly) Add("FresherFriendlyOnly", "true");

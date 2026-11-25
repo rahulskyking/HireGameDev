@@ -18,6 +18,7 @@
 <div class="jb-layout">
 <details class="jb-filters" open id="job-filters"><summary>Search &amp; filters <span>⌄</span></summary>
 <form asp-controller="PublicJobs" asp-action="Index" method="get" class="jb-filter-form" role="search" aria-label="Find game development jobs">
+@if (Model.Search.StudioId.HasValue) { <input type="hidden" name="StudioId" value="@Model.Search.StudioId" /> <div class="jb-note"><strong>Showing jobs from one Studio</strong><p>Other filters apply to this Studio’s open roles.</p><a href="@(PublicJobUi.PageUrl(Model.Search with { StudioId = null }, 1))">Browse all Studios</a></div> }
 <div class="jb-field"><label for="Keyword">Search jobs</label><input class="c-input" id="Keyword" name="Keyword" value="@Model.Search.Keyword" maxlength="100" placeholder="Role, tool or keyword" /></div>
 <div class="jb-field"><label for="Category">Discipline</label><select class="c-select" id="Category" name="Category"><option value="">All disciplines</option>@foreach (var value in Enum.GetValues<DisciplineCategory>()) { <option value="@value" selected="@(Model.Search.Category == value)">@value</option> }</select></div>
 <div class="jb-field"><label for="JobType">Employment type</label><select class="c-select" id="JobType" name="JobType"><option value="">All types</option>@foreach (var value in Enum.GetValues<JobType>()) { <option value="@value" selected="@(Model.Search.JobType == value)">@PublicJobUi.Type(value)</option> }</select></div>
@@ -32,7 +33,7 @@
 <div class="jb-results-head"><h2 id="job-results-heading">@(results is null ? "Check your filters" : $"{results.TotalCount} open {(results.TotalCount == 1 ? "role" : "roles")}")</h2><span class="jb-muted">Newest published first</span></div>
 @if (!ViewData.ModelState.IsValid) { <div class="jb-alert" role="alert"><strong>We couldn’t run that search.</strong><div asp-validation-summary="All"></div></div> }
 @if (results is not null && results.Items.Count == 0)
-{ <section class="jb-panel jb-empty"><span class="jb-eyebrow">Keep exploring</span><h2>No roles match just yet.</h2><p>Try fewer skills, a wider experience range or a different work arrangement.</p><a class="c-btn c-btn--secondary" asp-action="Index">See all open jobs</a></section> }
+{ <section class="jb-panel jb-empty"><span class="jb-eyebrow">Keep exploring</span><h2>No roles match just yet.</h2><p>@(Model.Search.StudioId.HasValue ? "This Studio has no matching open roles right now. Try fewer filters or explore all Studios." : "Try fewer skills, a wider experience range or a different work arrangement.")</p><a class="c-btn c-btn--secondary" asp-action="Index">See all open jobs</a></section> }
 @if (results is not null)
 {
     foreach (var job in results.Items)
