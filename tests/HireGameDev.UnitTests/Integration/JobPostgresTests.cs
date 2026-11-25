@@ -1341,6 +1341,167 @@ public sealed class JobPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task Withdrawal_EnforcesOwnershipFinalStatusRollbackAndCapacity()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        await using (var setup = h.Session())
+        {
+            var job = await setup.Db.Jobs.SingleAsync(x => x.Id == fixture.Job);
+            job.Status = JobStatus.Full; job.ApplicationCap = 1;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var unauthorized = h.Session())
+        {
+            var denied = await new ApplicationWithdrawalService(unauthorized.Db, new TestClock()).WithdrawAsync(h.Owner, fixture.Application);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        var otherUser = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            var cityId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.CityId).SingleAsync();
+            setup.Db.Users.Add(new ApplicationUser { Id = otherUser, AccountType = AccountType.Candidate, UserName = "other@example.com", Email = "other@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = Guid.NewGuid(), UserId = otherUser, CityId = cityId, FullName = "Other Candidate", Headline = "Developer" });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var unauthorized = h.Session())
+        {
+            var denied = await new ApplicationWithdrawalService(unauthorized.Db, new TestClock()).WithdrawAsync(otherUser, fixture.Application);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            var user = await setup.Db.Users.SingleAsync(x => x.Id == fixture.CandidateUser);
+            user.IsActive = false; await setup.Db.SaveChangesAsync();
+        }
+        await using (var disabled = h.Session())
+        {
+            var denied = await new ApplicationWithdrawalService(disabled.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            var user = await setup.Db.Users.SingleAsync(x => x.Id == fixture.CandidateUser); user.IsActive = true;
+            var app = await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application); app.Status = ApplicationStatus.Hired;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var hired = h.Session())
+        {
+            var denied = await new ApplicationWithdrawalService(hired.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.CannotWithdraw", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Submitted;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var failing = h.Session(interceptor: new FailAfterSave()))
+            await Assert.ThrowsAsync<InjectedFailure>(() => new ApplicationWithdrawalService(failing.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application));
+        await using (var check = h.Session())
+        {
+            Assert.Equal(ApplicationStatus.Submitted, (await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+            Assert.Equal(1, (await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+            Assert.Equal(1, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+        }
+        await using var first = h.Session(); await using var second = h.Session();
+        var attempts = await Task.WhenAll(
+            new ApplicationWithdrawalService(first.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application),
+            new ApplicationWithdrawalService(second.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application));
+        Assert.All(attempts, x => Assert.True(x.IsSuccess));
+        Assert.Single(attempts.Where(x => x.Value.Applied)); Assert.Single(attempts.Where(x => !x.Value.Applied));
+        await using (var check = h.Session())
+        {
+            var job = await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job);
+            Assert.Equal(0, job.ApplicationsCount); Assert.Equal(JobStatus.Full, job.Status);
+            Assert.Equal(ApplicationStatus.Withdrawn, (await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+            var history = await check.Db.ApplicationStatusHistory.Where(x => x.ApplicationId == fixture.Application).OrderBy(x => x.OccurredAt).ToArrayAsync();
+            Assert.Equal(2, history.Length); Assert.Equal(ApplicationStatus.Submitted, history[1].PreviousStatus);
+            Assert.Equal(ApplicationStatus.Withdrawn, history[1].NewStatus); Assert.Equal(fixture.CandidateUser, history[1].ActorUserId);
+            Assert.True(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+        }
+    }
+
+    [PostgresFact]
+    public async Task Withdrawal_InconsistentCapacityOrHistoryFailsClosed()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount = 0;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var result = await new ApplicationWithdrawalService(session.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(result.IsFailure); Assert.Equal("Applications.Inconsistent", result.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount = 1;
+            var history = await setup.Db.ApplicationStatusHistory.SingleAsync(x => x.ApplicationId == fixture.Application);
+            history.NewStatus = ApplicationStatus.Rejected;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var result = await new ApplicationWithdrawalService(session.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(result.IsFailure); Assert.Equal("Applications.Inconsistent", result.Error.Code);
+            Assert.Equal(ApplicationStatus.Submitted, (await session.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+            Assert.Equal(1, (await session.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+        }
+    }
+
+    [PostgresFact]
+    public async Task Withdrawal_ActualServiceAndRetention_LockBothOrders()
+    {
+        foreach (var withdrawalFirst in new[] { true, false })
+        {
+            await using var h = await DatabaseHarness.Create();
+            var fixture = await RetentionRaceFixture(h);
+            var pause = new PauseAfterSave();
+            await using var withdrawal = h.Session(interceptor: withdrawalFirst ? pause : null);
+            await using var retention = h.Session(interceptor: withdrawalFirst ? null : pause);
+            await using var monitor = h.Session();
+            await withdrawal.Db.Database.OpenConnectionAsync(); await retention.Db.Database.OpenConnectionAsync();
+            var withdrawalPid = ((NpgsqlConnection)withdrawal.Db.Database.GetDbConnection()).ProcessID;
+            var retentionPid = ((NpgsqlConnection)retention.Db.Database.GetDbConnection()).ProcessID;
+            Task<Result<HireGameDev.Application.Features.Applications.ApplicationWithdrawalResult>>? withdrawTask = null;
+            Task<ApplicationRetentionService.Outcome>? purgeTask = null;
+            try
+            {
+                if (withdrawalFirst)
+                {
+                    withdrawTask = new ApplicationWithdrawalService(withdrawal.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await AssertBlockedBy(monitor, retentionPid, withdrawalPid, purgeTask);
+                }
+                else
+                {
+                    purgeTask = new ApplicationRetentionService(retention.Db, new TestClock()).PurgeAsync(fixture.Application);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    withdrawTask = new ApplicationWithdrawalService(withdrawal.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+                    await AssertBlockedBy(monitor, withdrawalPid, retentionPid, withdrawTask);
+                }
+            }
+            finally { pause.Release.TrySetResult(true); }
+            Assert.NotNull(withdrawTask); Assert.NotNull(purgeTask);
+            var withdrawn = await withdrawTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(withdrawn.IsSuccess && withdrawn.Value.Applied, withdrawn.IsFailure ? withdrawn.Error.Message : "Withdrawal was not applied.");
+            Assert.Equal(ApplicationRetentionService.Outcome.Purged, await purgeTask!.WaitAsync(TimeSpan.FromSeconds(30)));
+            await using var check = h.Session();
+            var app = await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            Assert.Equal(ApplicationStatus.Withdrawn, app.Status); Assert.NotNull(app.SnapshotPurgedAt);
+            Assert.False(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Equal(0, (await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+            Assert.Equal(1, await check.Db.AuditLogs.CountAsync(x => x.Action == "application.snapshot_purged" && x.EntityId == fixture.Application.ToString()));
+        }
+    }
+
     private sealed class DatabaseHarness : IAsyncDisposable
     {
         private readonly string _admin;
