@@ -21,11 +21,13 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
         Private(); if (!Enabled) return NotFound();
-        var result = await list.ListAsync(Actor, cancellationToken);
-        return result.IsSuccess ? View(result.Value) : StatusCode(503);
+        if (!ModelState.IsValid) return BadRequest();
+        var result = await list.ListAsync(Actor, page, 25, cancellationToken);
+        if (result.IsFailure) return result.Error.Code == "Applications.InvalidPage" ? BadRequest() : StatusCode(503);
+        return View(result.Value);
     }
 
     [HttpPost("{jobId:guid}/review"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]

@@ -49,6 +49,12 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 string.IsNullOrWhiteSpace(candidate.Headline) || string.IsNullOrWhiteSpace(candidate.City) ||
                 candidate.Skills is null || candidate.Experience is null || candidate.Education is null ||
                 candidate.Portfolio is null || candidate.ShippedGames is null ||
+                candidate.Skills.Any(x => x is null || string.IsNullOrWhiteSpace(x.Name)) ||
+                candidate.Experience.Any(x => x is null || string.IsNullOrWhiteSpace(x.Company) || string.IsNullOrWhiteSpace(x.Title)) ||
+                candidate.Education.Any(x => x is null || string.IsNullOrWhiteSpace(x.Institution) || string.IsNullOrWhiteSpace(x.Degree)) ||
+                candidate.Portfolio.Any(x => x is null || x.Skills is null || x.Skills.Any(string.IsNullOrWhiteSpace) || string.IsNullOrWhiteSpace(x.Url)) ||
+                candidate.ShippedGames.Any(x => x is null || x.Platforms is null || x.Platforms.Any(string.IsNullOrWhiteSpace) ||
+                    string.IsNullOrWhiteSpace(x.GameName) || string.IsNullOrWhiteSpace(x.StudioName) || string.IsNullOrWhiteSpace(x.Role)) ||
                 string.IsNullOrWhiteSpace(job.JobTitle) || string.IsNullOrWhiteSpace(job.StudioName)) return Unavailable();
             return Result.Success(new StudioApplicantDetail(row.Id, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus));
         }

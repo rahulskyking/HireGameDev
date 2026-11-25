@@ -10,7 +10,7 @@ Use a disposable local PostgreSQL database and fictitious accounts/data only. Ru
 2. Open **My applications**. Verify the submission appears, then test withdrawal and confirmation using a separate test application; verify Studio access is revoked.
 3. As an active verified Studio Owner or Recruiter, open that job's management page and choose **View applicants**. Open a snapshot and transition its status using allowed transitions. Verify phone appears only for Shortlisted or Hired.
 4. Repeat as a Studio Viewer: list and detail are read-only. Check a non-member and a Candidate-blocked Studio cannot retrieve the snapshot; also check an inactive account and a withdrawn/purged application. Never use real candidate data.
-5. Exercise pagination, role/access changes between requests, form anti-forgery, expired review tokens, invalid transitions and concurrent requests. Listing uses offset pagination; concurrent changes can shift rows. Candidate application history currently shows only the most recent 100 entries.
+5. Exercise pagination, role/access changes between requests, form anti-forgery, expired review tokens, invalid transitions and concurrent requests. Listing uses offset pagination; concurrent changes can shift rows. Candidate history also uses offset pagination; its job and Studio names are current values rather than the submitted snapshot.
 
 ## Before any exposure
 

@@ -66,3 +66,5 @@ Studio application status prototype adds role, block/unblock, rollback, invalid/
 ### Internal Studio applicant detail prototype
 
 `StudioApplicantDetailService` reads the version 1 submission snapshot only, for authorized Owner, Recruiter and Viewer members. It hides phone unless the status is Shortlisted or Hired, rejects missing/unsupported/incomplete snapshots and checks authorization, blocks, withdrawal, purge and account state in the same query. An already-started response cannot be recalled after access changes. No route, UI or PDF access is provided. Privacy review, additional concurrency tests and request-level protection remain required before exposure; free text may contain sensitive or NDA information.
+
+The application workflow hardening suite also covers status-versus-withdrawal ordering with the real services, and reads before and after committed withdrawal or block changes. These tests document PostgreSQL's statement-snapshot behavior: a read started before revocation can return the previously authorized data; a new read after commit must deny it. They do not establish that all races or production load are safe.

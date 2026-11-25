@@ -107,8 +107,8 @@ public sealed class ApplicationPilotControllerTests
         { Calls++; Command = command; return Task.FromResult(Result.Success(new SubmittedApplication(Guid.NewGuid(), DateTimeOffset.UtcNow))); }
         public Task<Result<ApplicationWithdrawalResult>> WithdrawAsync(Guid actorUserId, Guid applicationId, CancellationToken cancellationToken = default)
         { Calls++; Actor = actorUserId; Application = applicationId; return Task.FromResult(Result.Success(new ApplicationWithdrawalResult(true))); }
-        public Task<Result<IReadOnlyList<CandidateApplicationListItem>>> ListAsync(Guid actorUserId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result.Success<IReadOnlyList<CandidateApplicationListItem>>(Array.Empty<CandidateApplicationListItem>()));
+        public Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success(new CandidateApplicationPage(Array.Empty<CandidateApplicationListItem>(), page, false)));
         public Task<Result<StudioApplicantPage>> ListAsync(Guid actorUserId, Guid jobId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(new StudioApplicantPage(Array.Empty<StudioApplicantListItem>(), false)));
         public Task<Result<StudioApplicantDetail>> GetAsync(Guid actorUserId, Guid applicationId, CancellationToken cancellationToken = default) =>

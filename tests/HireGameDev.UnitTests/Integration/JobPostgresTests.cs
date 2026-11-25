@@ -1503,6 +1503,178 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task StatusAndWithdrawal_ActualServicesSerializeInBothOrders()
+    {
+        foreach (var statusFirst in new[] { true, false })
+        {
+            await using var h = await DatabaseHarness.Create();
+            var fixture = await RetentionRaceFixture(h);
+            var pause = new PauseAfterSave();
+            await using var statusSession = h.Session(interceptor: statusFirst ? pause : null);
+            await using var withdrawalSession = h.Session(interceptor: statusFirst ? null : pause);
+            await using var monitor = h.Session();
+            await statusSession.Db.Database.OpenConnectionAsync(); await withdrawalSession.Db.Database.OpenConnectionAsync();
+            var statusPid = ((NpgsqlConnection)statusSession.Db.Database.GetDbConnection()).ProcessID;
+            var withdrawalPid = ((NpgsqlConnection)withdrawalSession.Db.Database.GetDbConnection()).ProcessID;
+            Task<Result>? statusTask = null;
+            Task<Result<ApplicationWithdrawalResult>>? withdrawalTask = null;
+            try
+            {
+                if (statusFirst)
+                {
+                    statusTask = new StudioApplicationStatusService(statusSession.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    withdrawalTask = new ApplicationWithdrawalService(withdrawalSession.Db, new LaterClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+                    await AssertBlockedBy(monitor, withdrawalPid, statusPid, withdrawalTask);
+                }
+                else
+                {
+                    withdrawalTask = new ApplicationWithdrawalService(withdrawalSession.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+                    await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                    statusTask = new StudioApplicationStatusService(statusSession.Db, new LaterClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing);
+                    await AssertBlockedBy(monitor, statusPid, withdrawalPid, statusTask);
+                }
+            }
+            finally { pause.Release.TrySetResult(true); }
+            Assert.NotNull(statusTask); Assert.NotNull(withdrawalTask);
+            var status = await statusTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            var withdrawn = await withdrawalTask!.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(withdrawn.IsSuccess && withdrawn.Value.Applied);
+            if (statusFirst) Assert.True(status.IsSuccess, status.Error.Message);
+            else { Assert.True(status.IsFailure); Assert.Equal("Applications.Unavailable", status.Error.Code); }
+            await using var check = h.Session();
+            Assert.Equal(ApplicationStatus.Withdrawn, (await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+            Assert.Equal(0, (await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+            var history = await check.Db.ApplicationStatusHistory.Where(x => x.ApplicationId == fixture.Application).OrderBy(x => x.OccurredAt).ToArrayAsync();
+            Assert.Equal(statusFirst ? 3 : 2, history.Length);
+            Assert.Equal(ApplicationStatus.Withdrawn, history[^1].NewStatus);
+            Assert.Equal(statusFirst ? ApplicationStatus.Reviewing : ApplicationStatus.Submitted, history[^1].PreviousStatus);
+        }
+    }
+
+    [PostgresFact]
+    public async Task StudioDetail_SeesCommittedWithdrawalAndNeverReadsUncommittedChanges()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var candidate = new CandidateApplicationSnapshot("Snapshot name", "Snapshot headline", default, "Snapshot city", default, 3, null,
+            default, false, false, null, null, null, Array.Empty<ApplicationSkillSnapshot>(), Array.Empty<ApplicationExperienceSnapshot>(),
+            Array.Empty<ApplicationEducationSnapshot>(), Array.Empty<ApplicationPortfolioSnapshot>(), Array.Empty<ApplicationGameSnapshot>());
+        await using (var setup = h.Session())
+        {
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.CandidateData = System.Text.Json.JsonSerializer.Serialize(candidate);
+            snapshot.JobData = System.Text.Json.JsonSerializer.Serialize(new JobApplicationSnapshot("Job", "Studio", null, null));
+            await setup.Db.SaveChangesAsync();
+        }
+        var pause = new PauseAfterSave();
+        await using var writer = h.Session(interceptor: pause);
+        Task<Result<ApplicationWithdrawalResult>>? pending = null;
+        try
+        {
+            pending = new ApplicationWithdrawalService(writer.Db, new TestClock()).WithdrawAsync(fixture.CandidateUser, fixture.Application);
+            await pause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await using var reader = h.Session();
+            var beforeCommit = await new StudioApplicantDetailService(reader.Db).GetAsync(h.Owner, fixture.Application).WaitAsync(TimeSpan.FromSeconds(15));
+            Assert.True(beforeCommit.IsSuccess, beforeCommit.Error.Message);
+            Assert.Null(beforeCommit.Value.Phone);
+        }
+        finally { pause.Release.TrySetResult(true); }
+        Assert.NotNull(pending); Assert.True((await pending!.WaitAsync(TimeSpan.FromSeconds(30))).IsSuccess);
+        await using var after = h.Session();
+        var unavailable = await new StudioApplicantDetailService(after.Db).GetAsync(h.Owner, fixture.Application);
+        Assert.True(unavailable.IsFailure); Assert.Equal("Applications.Unavailable", unavailable.Error.Code);
+        Assert.Empty((await new StudioApplicantListService(after.Db).ListAsync(h.Owner, fixture.Job)).Value.Items);
+    }
+
+    [PostgresFact]
+    public async Task StudioDetail_RechecksCommittedBlockAndMembershipPerRequest()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var candidate = new CandidateApplicationSnapshot("Snapshot name", "Snapshot headline", default, "Snapshot city", default, 3, null,
+            default, false, false, null, null, null, Array.Empty<ApplicationSkillSnapshot>(), Array.Empty<ApplicationExperienceSnapshot>(),
+            Array.Empty<ApplicationEducationSnapshot>(), Array.Empty<ApplicationPortfolioSnapshot>(), Array.Empty<ApplicationGameSnapshot>());
+        Guid candidateId;
+        await using (var setup = h.Session())
+        {
+            candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.CandidateData = System.Text.Json.JsonSerializer.Serialize(candidate);
+            snapshot.JobData = System.Text.Json.JsonSerializer.Serialize(new JobApplicationSnapshot("Job", "Studio", null, null));
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var blocker = h.Session())
+        {
+            await using var tx = await blocker.Db.Database.BeginTransactionAsync();
+            await blocker.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_studio_blocks (candidate_id, studio_id) VALUES ({candidateId}, {h.Studio})");
+            await using (var reader = h.Session())
+            {
+                var beforeCommit = await new StudioApplicantDetailService(reader.Db).GetAsync(h.Owner, fixture.Application).WaitAsync(TimeSpan.FromSeconds(15));
+                Assert.True(beforeCommit.IsSuccess, beforeCommit.Error.Message);
+            }
+            await tx.CommitAsync();
+        }
+        await using (var reader = h.Session())
+        {
+            var blocked = await new StudioApplicantDetailService(reader.Db).GetAsync(h.Owner, fixture.Application);
+            Assert.True(blocked.IsFailure); Assert.Equal("Applications.Unavailable", blocked.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            setup.Db.CandidateStudioBlocks.Remove(await setup.Db.CandidateStudioBlocks.SingleAsync());
+            (await setup.Db.StudioMembers.SingleAsync(x => x.StudioId == h.Studio && x.UserId == h.Owner)).MemberRole = StudioMemberRole.Viewer;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var reader = h.Session())
+        {
+            var viewer = await new StudioApplicantDetailService(reader.Db).GetAsync(h.Owner, fixture.Application);
+            Assert.True(viewer.IsSuccess, viewer.Error.Message); Assert.False(viewer.Value.CanChangeStatus);
+        }
+        await using (var setup = h.Session())
+        {
+            setup.Db.StudioMembers.Remove(await setup.Db.StudioMembers.SingleAsync(x => x.StudioId == h.Studio && x.UserId == h.Owner));
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var reader = h.Session())
+        {
+            var revoked = await new StudioApplicantDetailService(reader.Db).GetAsync(h.Owner, fixture.Application);
+            Assert.True(revoked.IsFailure); Assert.Equal("Applications.Unavailable", revoked.Error.Code);
+        }
+    }
+
+    [PostgresFact]
+    public async Task CandidateApplicationList_PaginatesWithoutReturningOtherCandidates()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var second = await h.Draft("Candidate page second job");
+        var third = await h.Draft("Candidate page third job");
+        await using (var setup = h.Session())
+        {
+            var candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            var submitted = new TestClock().UtcNow.AddYears(-2);
+            foreach (var job in new[] { second.Id, third.Id })
+                setup.Db.Applications.Add(new JobApplication { Id = Guid.NewGuid(), CandidateId = candidateId, JobId = job,
+                    Status = ApplicationStatus.Submitted, SubmittedAt = submitted, UpdatedAt = submitted });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using var session = h.Session();
+        var service = new CandidateApplicationListService(session.Db);
+        var first = await service.ListAsync(fixture.CandidateUser, 1, 2);
+        var next = await service.ListAsync(fixture.CandidateUser, 2, 2);
+        Assert.True(first.IsSuccess && next.IsSuccess);
+        Assert.Equal(2, first.Value.Items.Count); Assert.True(first.Value.HasMore);
+        Assert.Single(next.Value.Items); Assert.False(next.Value.HasMore);
+        Assert.Equal(3, first.Value.Items.Concat(next.Value.Items).Select(x => x.ApplicationId).Distinct().Count());
+        Assert.Equal("Applications.InvalidPage", (await service.ListAsync(fixture.CandidateUser, 0, 2)).Error.Code);
+        Assert.Equal("Applications.InvalidPage", (await service.ListAsync(fixture.CandidateUser, 1, 101)).Error.Code);
+        Assert.Equal("Applications.InvalidPage", (await service.ListAsync(fixture.CandidateUser, int.MaxValue, 100)).Error.Code);
+        var other = await service.ListAsync(h.Owner, 1, 2);
+        Assert.True(other.IsSuccess); Assert.Empty(other.Value.Items); Assert.False(other.Value.HasMore);
+    }
+
+    [PostgresFact]
     public async Task CandidateApplicationList_OnlyReturnsActiveOwnersApplications()
     {
         await using var h = await DatabaseHarness.Create();
@@ -1511,9 +1683,9 @@ public sealed class JobPostgresTests
         {
             var list = new CandidateApplicationListService(session.Db);
             var own = await list.ListAsync(fixture.CandidateUser);
-            Assert.True(own.IsSuccess); Assert.Equal(fixture.Application, Assert.Single(own.Value).ApplicationId);
-            Assert.Empty((await list.ListAsync(h.Owner)).Value);
-            Assert.Empty((await list.ListAsync(Guid.NewGuid())).Value);
+            Assert.True(own.IsSuccess); Assert.Equal(fixture.Application, Assert.Single(own.Value.Items).ApplicationId);
+            Assert.Empty((await list.ListAsync(h.Owner)).Value.Items);
+            Assert.Empty((await list.ListAsync(Guid.NewGuid())).Value.Items);
         }
         await using (var setup = h.Session())
         {
@@ -1521,7 +1693,7 @@ public sealed class JobPostgresTests
             await setup.Db.SaveChangesAsync();
         }
         await using (var session = h.Session())
-            Assert.Empty((await new CandidateApplicationListService(session.Db).ListAsync(fixture.CandidateUser)).Value);
+            Assert.Empty((await new CandidateApplicationListService(session.Db).ListAsync(fixture.CandidateUser)).Value.Items);
     }
 
     [PostgresFact]
@@ -1597,6 +1769,14 @@ public sealed class JobPostgresTests
         {
             var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
             snapshot.SnapshotVersion = 1; snapshot.CandidateData = "{}";
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+        await using (var setup = h.Session())
+        {
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.CandidateData = System.Text.Json.JsonSerializer.Serialize(candidateSnapshot with { Portfolio = new ApplicationPortfolioSnapshot[] { null! } });
             await setup.Db.SaveChangesAsync();
         }
         await using (var session = h.Session())
@@ -1898,6 +2078,10 @@ public sealed class JobPostgresTests
     private sealed class TestClock : IClock
     {
         public DateTimeOffset UtcNow => new(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+    }
+    private sealed class LaterClock : IClock
+    {
+        public DateTimeOffset UtcNow => new TestClock().UtcNow.AddSeconds(1);
     }
     private sealed class NullAudit : IAuditLogger
     {
