@@ -15,7 +15,7 @@ public static class PublicJobUi
 {
     public static bool HasFilters(PublicJobSearch search) => !string.IsNullOrWhiteSpace(search.Keyword) ||
         search.StudioId.HasValue || search.Category.HasValue || search.JobType.HasValue || search.WorkMode.HasValue || search.CityId.HasValue ||
-        search.ExperienceYears.HasValue || (search.SkillIds?.Count ?? 0) > 0 || search.FresherFriendlyOnly || search.PageSize != 20;
+        search.ExperienceYears.HasValue || (search.SkillIds?.Count ?? 0) > 0 || search.FresherFriendlyOnly || search.Sort != PublicJobSort.Newest || search.PageSize != 20;
     public static string Type(JobType type) => type switch
     { JobType.FullTime => "Full-time", JobType.PartTime => "Part-time", JobType.Contract => "Contract", _ => "Internship" };
     public static string Salary(PublicJobCard job) => $"₹{Number(job.SalaryMin)}–{Number(job.SalaryMax)} " +
@@ -32,6 +32,7 @@ public static class PublicJobUi
         Add("CityId", search.CityId); Add("ExperienceYears", search.ExperienceYears);
         foreach (var skill in (search.SkillIds ?? Array.Empty<int>()).Distinct().OrderBy(x => x)) Add("SkillIds", skill);
         if (search.FresherFriendlyOnly) Add("FresherFriendlyOnly", "true");
+        if (search.Sort != PublicJobSort.Newest) Add("Sort", search.Sort);
         if (search.PageSize != 20) Add("PageSize", search.PageSize);
         if (page > 1) Add("Page", page);
         return "/jobs" + QueryString.Create(values);

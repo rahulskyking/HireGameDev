@@ -19,7 +19,7 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
             search.StudioId == Guid.Empty || search.CityId <= 0 || search.ExperienceYears is < 0 or > 99.9m || search.PageSize is < 1 or > 50 ||
             (search.Category.HasValue && !Enum.IsDefined(search.Category.Value)) ||
             (search.JobType.HasValue && !Enum.IsDefined(search.JobType.Value)) ||
-            (search.WorkMode.HasValue && !Enum.IsDefined(search.WorkMode.Value)))
+            (search.WorkMode.HasValue && !Enum.IsDefined(search.WorkMode.Value)) || !Enum.IsDefined(search.Sort))
             return Result.Failure<PublicJobSearchPage>(Error.Validation("PublicJobs.InvalidSearch", "Choose valid filters, up to 12 skills, a keyword within 100 characters and a page size from 1 to 50."));
         var terms = (search.Keyword ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
             .Select(x => x.ToLowerInvariant()).Distinct().ToArray();
@@ -45,8 +45,16 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
         var total = await query.CountAsync(cancellationToken);
         var pages = Math.Max(1, (int)Math.Ceiling(total / (double)search.PageSize));
         var page = Math.Clamp(search.Page, 1, pages);
-        var rows = await query.OrderByDescending(x => x.Job.PublishedAt).ThenBy(x => x.Job.Id)
-            .Skip((page - 1) * search.PageSize).Take(search.PageSize).ToArrayAsync(cancellationToken);
+        // Normalize the minimum advertised pay to INR lakhs per year for comparison.
+        // This is a sort of advertised lower bounds, not a guarantee of compensation.
+        var ordered = search.Sort switch
+        {
+            PublicJobSort.ClosingSoon => query.OrderBy(x => x.Job.ExpiresAt).ThenBy(x => x.Job.Id),
+            PublicJobSort.HighestStartingPay => query.OrderByDescending(x => x.Job.PayUnit == JobPayUnit.MonthlyInr
+                ? (x.Job.SalaryMin ?? 0m) * 12m / 100000m : (x.Job.SalaryMin ?? 0m)).ThenBy(x => x.Job.Id),
+            _ => query.OrderByDescending(x => x.Job.PublishedAt).ThenBy(x => x.Job.Id)
+        };
+        var rows = await ordered.Skip((page - 1) * search.PageSize).Take(search.PageSize).ToArrayAsync(cancellationToken);
         var cityIds = rows.Where(x => x.Job.CityId.HasValue).Select(x => x.Job.CityId!.Value).Distinct().ToArray();
         var cities = await db.Cities.AsNoTracking().Where(x => cityIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         var cards = rows.Select(x => Card(x, x.Job.CityId.HasValue ? cities.GetValueOrDefault(x.Job.CityId.Value) : null)).ToArray();

@@ -4,6 +4,8 @@ namespace HireGameDev.Application.Features.Jobs;
 
 // Public discovery has no authenticated mutations. Engagement features will use the stable IDs,
 // separate authorized services and their own persistence when that module is approved.
+public enum PublicJobSort { Newest, ClosingSoon, HighestStartingPay }
+
 public sealed record PublicJobSearch
 {
     public string? Keyword { get; init; }
@@ -16,6 +18,7 @@ public sealed record PublicJobSearch
     public decimal? ExperienceYears { get; init; }
     public IReadOnlyList<int> SkillIds { get; init; } = Array.Empty<int>();
     public bool FresherFriendlyOnly { get; init; }
+    public PublicJobSort Sort { get; init; } = PublicJobSort.Newest;
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;
 }
