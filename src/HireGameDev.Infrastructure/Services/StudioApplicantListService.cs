@@ -10,14 +10,17 @@ namespace HireGameDev.Infrastructure.Services;
 // snapshot. It does not revoke a response already in flight when access changes afterwards.
 internal sealed class StudioApplicantListService(AppDbContext db) : IStudioApplicantListService
 {
-    public async Task<Result<IReadOnlyList<StudioApplicantListItem>>> ListAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
+    public async Task<Result<StudioApplicantPage>> ListAsync(Guid actorUserId, Guid jobId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default)
     {
         if (!db.Database.IsNpgsql())
-            return Result.Failure<IReadOnlyList<StudioApplicantListItem>>(Error.Failure("Applications.PostgresRequired", "This operation requires PostgreSQL."));
+            return Result.Failure<StudioApplicantPage>(Error.Failure("Applications.PostgresRequired", "This operation requires PostgreSQL."));
         if (db.Database.CurrentTransaction is not null || db.ChangeTracker.HasChanges())
-            return Result.Failure<IReadOnlyList<StudioApplicantListItem>>(Error.Conflict("Applications.UnitOfWorkBusy", "This operation requires a clean unit of work."));
+            return Result.Failure<StudioApplicantPage>(Error.Conflict("Applications.UnitOfWorkBusy", "This operation requires a clean unit of work."));
+        // Bound offset and page size before arithmetic or querying.
+        if (page < 1 || pageSize < 1 || pageSize > 100 || (long)(page - 1) * pageSize > int.MaxValue - 100)
+            return Result.Failure<StudioApplicantPage>(Error.Validation("Applications.InvalidPage", "Choose a valid page and page size."));
         if (actorUserId == Guid.Empty || jobId == Guid.Empty)
-            return Result.Success<IReadOnlyList<StudioApplicantListItem>>(Array.Empty<StudioApplicantListItem>());
+            return Result.Success(new StudioApplicantPage(Array.Empty<StudioApplicantListItem>(), false));
 
         // No live Candidate data is returned. Snapshot existence and purged/withdrawn state
         // are checked in the same query as membership, account state and blocks.
@@ -36,7 +39,9 @@ internal sealed class StudioApplicantListService(AppDbContext db) : IStudioAppli
                 && db.ApplicationSnapshots.Any(s => s.ApplicationId == app.Id)
                 && !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && b.StudioId == studio.Id)
             orderby app.SubmittedAt descending, app.Id descending
-            select new StudioApplicantListItem(app.Id, app.Status, app.SubmittedAt)).Take(100).ToListAsync(cancellationToken);
-        return Result.Success<IReadOnlyList<StudioApplicantListItem>>(items);
+            select new StudioApplicantListItem(app.Id, app.Status, app.SubmittedAt)).Skip((page - 1) * pageSize).Take(pageSize + 1).ToListAsync(cancellationToken);
+        var hasMore = items.Count > pageSize;
+        if (hasMore) items.RemoveAt(items.Count - 1);
+        return Result.Success(new StudioApplicantPage(items, hasMore));
     }
 }

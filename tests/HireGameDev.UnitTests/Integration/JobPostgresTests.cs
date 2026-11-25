@@ -1589,6 +1589,56 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task StudioApplicantList_PaginatesAndRechecksAccess()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var now = new TestClock().UtcNow.AddYears(-2);
+        await using (var setup = h.Session())
+        {
+            var cityId = await setup.Db.Cities.Where(x => x.Slug == "raceville").Select(x => x.Id).SingleAsync();
+            for (var i = 0; i < 3; i++)
+            {
+                var userId = Guid.NewGuid(); var candidateId = Guid.NewGuid(); var applicationId = Guid.NewGuid();
+                setup.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = $"listpage{i}@example.com", Email = $"listpage{i}@example.com" });
+                setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidateId, UserId = userId, CityId = cityId, FullName = "Candidate", Headline = "Developer" });
+                setup.Db.Applications.Add(new JobApplication { Id = applicationId, CandidateId = candidateId, JobId = fixture.Job,
+                    Status = ApplicationStatus.Submitted, SubmittedAt = now, UpdatedAt = now, ConsentVersion = "v1", ConsentedAt = now });
+                setup.Db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = applicationId, SnapshotVersion = 1,
+                    CandidateData = "{}", JobData = "{}", ConsentVersion = "v1", ConsentedAt = now });
+            }
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var service = new StudioApplicantListService(session.Db);
+            var first = await service.ListAsync(h.Owner, fixture.Job, 1, 2);
+            var second = await service.ListAsync(h.Owner, fixture.Job, 2, 2);
+            var third = await service.ListAsync(h.Owner, fixture.Job, 3, 2);
+            Assert.True(first.IsSuccess && second.IsSuccess && third.IsSuccess);
+            Assert.Equal(2, first.Value.Items.Count); Assert.True(first.Value.HasMore);
+            Assert.Equal(2, second.Value.Items.Count); Assert.False(second.Value.HasMore);
+            Assert.Empty(third.Value.Items); Assert.False(third.Value.HasMore);
+            Assert.Equal(4, first.Value.Items.Concat(second.Value.Items).Select(x => x.ApplicationId).Distinct().Count());
+            Assert.Equal("Applications.InvalidPage", (await service.ListAsync(h.Owner, fixture.Job, 0, 2)).Error.Code);
+            Assert.Equal("Applications.InvalidPage", (await service.ListAsync(h.Owner, fixture.Job, 1, 101)).Error.Code);
+            Assert.Equal("Applications.InvalidPage", (await service.ListAsync(h.Owner, fixture.Job, int.MaxValue, 100)).Error.Code);
+            var outsider = await service.ListAsync(Guid.NewGuid(), fixture.Job, 2, 2);
+            Assert.True(outsider.IsSuccess); Assert.Empty(outsider.Value.Items); Assert.False(outsider.Value.HasMore);
+        }
+        await using (var setup = h.Session())
+        {
+            setup.Db.StudioMembers.Remove(await setup.Db.StudioMembers.SingleAsync(x => x.StudioId == h.Studio && x.UserId == h.Owner));
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var afterRevocation = await new StudioApplicantListService(session.Db).ListAsync(h.Owner, fixture.Job, 2, 2);
+            Assert.True(afterRevocation.IsSuccess); Assert.Empty(afterRevocation.Value.Items); Assert.False(afterRevocation.Value.HasMore);
+        }
+    }
+
+    [PostgresFact]
     public async Task StudioApplicantList_FiltersRolesBlocksWithdrawalAndPurgedSnapshots()
     {
         await using var h = await DatabaseHarness.Create();
@@ -1608,13 +1658,13 @@ public sealed class JobPostgresTests
             await using var session = h.Session();
             var result = await new StudioApplicantListService(session.Db).ListAsync(actor, fixture.Job);
             Assert.True(result.IsSuccess, result.Error.Message);
-            Assert.Equal(fixture.Application, Assert.Single(result.Value).ApplicationId);
+            Assert.Equal(fixture.Application, Assert.Single(result.Value.Items).ApplicationId);
         }
         foreach (var actor in new[] { outsider, fixture.CandidateUser })
         {
             await using var session = h.Session();
             var result = await new StudioApplicantListService(session.Db).ListAsync(actor, fixture.Job);
-            Assert.True(result.IsSuccess); Assert.Empty(result.Value);
+            Assert.True(result.IsSuccess); Assert.Empty(result.Value.Items);
         }
         await using (var setup = h.Session())
         {
@@ -1623,7 +1673,7 @@ public sealed class JobPostgresTests
             await setup.Db.SaveChangesAsync();
         }
         await using (var session = h.Session())
-            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value.Items);
         await using (var setup = h.Session())
         {
             setup.Db.CandidateStudioBlocks.Remove(await setup.Db.CandidateStudioBlocks.SingleAsync());
@@ -1631,7 +1681,7 @@ public sealed class JobPostgresTests
             await setup.Db.SaveChangesAsync();
         }
         await using (var session = h.Session())
-            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value.Items);
         await using (var setup = h.Session())
         {
             var app = await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
@@ -1639,7 +1689,7 @@ public sealed class JobPostgresTests
             await setup.Db.SaveChangesAsync();
         }
         await using (var session = h.Session())
-            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value.Items);
     }
 
     [PostgresFact]
