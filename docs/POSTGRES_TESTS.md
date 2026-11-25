@@ -56,3 +56,5 @@ Retention prototype tests cover atomic rollback, concurrent retries and basic ex
 Retention race tests use PostgreSQL lock-wait observation to check both orders of renewal and deletion. The original withdrawal test uses a simulated transaction; later tests also use the withdrawal service itself. These tests do not replace broader concurrency or privacy review.
 
 Candidate withdrawal backend tests exercise owner checks, inactive accounts, Hired finality, rollback, concurrent retries, unchanged Full status and both lock orders against the retention prototype. Tests are opt-in and have not been run in the sandbox. No UI or Studio application reader is included.
+
+Studio application status prototype adds role, block/unblock, rollback, invalid/final status and block-before-change lock-wait tests. It has no applicant reader or routes. Additional races and load/privacy review are required before production; tests have not been run in the sandbox.

@@ -1502,6 +1502,110 @@ public sealed class JobPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task StudioApplicationStatus_EnforcesRolesBlocksHistoryAndFinalStates()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var viewer = Guid.NewGuid(); var recruiter = Guid.NewGuid(); var outsider = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            foreach (var item in new[] { (viewer, "viewer"), (recruiter, "recruiter"), (outsider, "outsider") })
+                setup.Db.Users.Add(new ApplicationUser { Id = item.Item1, AccountType = AccountType.Studio, UserName = item.Item2 + "@example.com", Email = item.Item2 + "@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = viewer, MemberRole = StudioMemberRole.Viewer });
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = recruiter, MemberRole = StudioMemberRole.Recruiter });
+            await setup.Db.SaveChangesAsync();
+        }
+        foreach (var actor in new[] { viewer, outsider, fixture.CandidateUser })
+        {
+            await using var session = h.Session();
+            var denied = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(actor, fixture.Application, ApplicationStatus.Reviewing);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            var candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            setup.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidateId, StudioId = h.Studio });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var denied = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            setup.Db.CandidateStudioBlocks.Remove(await setup.Db.CandidateStudioBlocks.SingleAsync());
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var failing = h.Session(interceptor: new FailAfterSave()))
+            await Assert.ThrowsAsync<InjectedFailure>(() => new StudioApplicationStatusService(failing.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing));
+        await using (var check = h.Session())
+        {
+            Assert.Equal(ApplicationStatus.Submitted, (await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+            Assert.Equal(1, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+        }
+        await using (var session = h.Session())
+        {
+            var invalid = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Hired);
+            Assert.True(invalid.IsFailure); Assert.Equal("Applications.InvalidTransition", invalid.Error.Code);
+            var result = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(recruiter, fixture.Application, ApplicationStatus.Shortlisted);
+            Assert.True(result.IsSuccess, result.Error.Message);
+        }
+        await using (var check = h.Session())
+        {
+            var app = await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            Assert.Equal(ApplicationStatus.Shortlisted, app.Status);
+            var history = await check.Db.ApplicationStatusHistory.Where(x => x.ApplicationId == fixture.Application).OrderBy(x => x.OccurredAt).ToArrayAsync();
+            Assert.Equal(2, history.Length); Assert.Equal(recruiter, history[1].ActorUserId); Assert.Equal(ApplicationStatus.Shortlisted, history[1].NewStatus);
+            Assert.Equal(1, (await check.Db.Jobs.SingleAsync(x => x.Id == fixture.Job)).ApplicationsCount);
+        }
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Hired;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var denied = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Rejected);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.InvalidTransition", denied.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Withdrawn;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var denied = await new StudioApplicationStatusService(session.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+    }
+
+    [PostgresFact]
+    public async Task StudioApplicationStatus_BlockCommittedBeforeStatusChangeIsEnforced()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        await using var blocker = h.Session(); await using var transition = h.Session(); await using var monitor = h.Session();
+        var candidateId = await blocker.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+        await using var tx = await blocker.Db.Database.BeginTransactionAsync();
+        // The trigger locks the Candidate row until the block transaction commits.
+        await blocker.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_studio_blocks (candidate_id, studio_id) VALUES ({candidateId}, {h.Studio})");
+        var blockerPid = ((NpgsqlConnection)blocker.Db.Database.GetDbConnection()).ProcessID;
+        await transition.Db.Database.OpenConnectionAsync();
+        var waitingPid = ((NpgsqlConnection)transition.Db.Database.GetDbConnection()).ProcessID;
+        var pending = new StudioApplicationStatusService(transition.Db, new TestClock()).ChangeStatusAsync(h.Owner, fixture.Application, ApplicationStatus.Reviewing);
+        try { await AssertBlockedBy(monitor, waitingPid, blockerPid, pending); }
+        finally { await tx.CommitAsync(); }
+        var result = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(result.IsFailure); Assert.Equal("Applications.Unavailable", result.Error.Code);
+        await using var check = h.Session();
+        Assert.Equal(ApplicationStatus.Submitted, (await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status);
+        Assert.Equal(1, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+    }
+
     private sealed class DatabaseHarness : IAsyncDisposable
     {
         private readonly string _admin;
