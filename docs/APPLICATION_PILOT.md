@@ -2,7 +2,7 @@
 
 This is an unfinished test workflow, not a production release. It is disabled by default and cannot be enabled outside the ASP.NET Core `Development` environment. It is **not approved for real personal data, a public pilot, or production deployment**. The retention deletion prototype is still disabled and no application PDF feature exists.
 
-Use a disposable local PostgreSQL database and fictitious accounts/data only. Run the checked-in migrations against that database (see `POSTGRES_TESTS.md` and existing setup instructions). In a git-ignored `src/HireGameDev.Web/appsettings.Development.local.json`, merge `"ApplicationPilot": { "Enabled": true }` into the local settings object; alternatively set `ApplicationPilot__Enabled=true` in the local process environment. Never place database credentials in tracked configuration. Restart the Development app. Remove the setting to disable the workflow again.
+Use a disposable local PostgreSQL database and fictitious accounts/data only. Run the checked-in migrations against that database (see `POSTGRES_TESTS.md` and existing setup instructions). In a git-ignored `src/HireGameDev.Web/appsettings.Development.local.json`, merge `"ApplicationPilot": { "Enabled": true }` into the local settings object; alternatively set `ApplicationPilot__Enabled=true` in the local process environment. Never place database credentials in tracked configuration. Restart the Development app. While the switch is off, a signed-in Candidate in Development can open **My applications** to see setup instructions; no application data is queried. Remove the setting to disable the workflow again.
 
 ## Manual walkthrough
 

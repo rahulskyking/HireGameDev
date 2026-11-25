@@ -1,0 +1,11 @@
+@{ ViewData["Title"] = "Applications pilot setup"; }
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
+<main class="ap"><p class="ap-label">Development setup</p><h1>My applications</h1>
+<section class="ap-card"><h2>The local application pilot is off</h2>
+<p>The navigation is here, but applications are disabled until you explicitly enable the pilot. Use only a disposable local database and fictional accounts; this is not ready for real Candidate data.</p>
+<p>In PowerShell, from the repository root, run:</p>
+<pre><code>$env:ApplicationPilot__Enabled = "true"
+dotnet run --project src/HireGameDev.Web --launch-profile https</code></pre>
+<p>Restart the app with that setting, sign in as a Candidate, and return to <strong>My applications</strong>. You can also use the git-ignored local configuration described in <code>docs/APPLICATION_PILOT.md</code>.</p>
+<p>This switch works only in Development. No production application data or background retention worker is enabled.</p>
+<a asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></section></main>

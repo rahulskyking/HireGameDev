@@ -24,7 +24,10 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     [HttpGet("")]
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
-        Private(); if (!Enabled) return NotFound();
+        Private();
+        // Development users can discover why the pilot is hidden without enabling it.
+        // Other environments remain closed and no application data is queried.
+        if (!Enabled) return environment.IsDevelopment() ? View("Setup") : NotFound();
         if (!ModelState.IsValid) return BadRequest();
         var result = await list.ListAsync(Actor, page, 25, cancellationToken);
         if (result.IsFailure) return result.Error.Code == "Applications.InvalidPage" ? BadRequest() : StatusCode(503);
