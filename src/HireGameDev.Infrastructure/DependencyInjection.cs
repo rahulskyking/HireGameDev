@@ -240,6 +240,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationSubmissionService, ApplicationSubmissionService>();
         services.AddScoped<IApplicationWithdrawalService, ApplicationWithdrawalService>();
         services.AddScoped<IStudioApplicationStatusService, StudioApplicationStatusService>();
+        services.AddScoped<IStudioApplicantListService, StudioApplicantListService>();
 
         services.AddScoped<IStudioProfileService, StudioProfileService>();
         services.AddScoped<IStudioLogoService, StudioLogoService>();

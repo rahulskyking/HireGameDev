@@ -1503,6 +1503,60 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task StudioApplicantList_FiltersRolesBlocksWithdrawalAndPurgedSnapshots()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var viewer = Guid.NewGuid(); var recruiter = Guid.NewGuid(); var outsider = Guid.NewGuid();
+        await using (var setup = h.Session())
+        {
+            foreach (var item in new[] { (viewer, "listviewer"), (recruiter, "listrecruiter"), (outsider, "listoutsider") })
+                setup.Db.Users.Add(new ApplicationUser { Id = item.Item1, AccountType = AccountType.Studio, UserName = item.Item2 + "@example.com", Email = item.Item2 + "@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = viewer, MemberRole = StudioMemberRole.Viewer });
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = recruiter, MemberRole = StudioMemberRole.Recruiter });
+            await setup.Db.SaveChangesAsync();
+        }
+        foreach (var actor in new[] { h.Owner, viewer, recruiter })
+        {
+            await using var session = h.Session();
+            var result = await new StudioApplicantListService(session.Db).ListAsync(actor, fixture.Job);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            Assert.Equal(fixture.Application, Assert.Single(result.Value).ApplicationId);
+        }
+        foreach (var actor in new[] { outsider, fixture.CandidateUser })
+        {
+            await using var session = h.Session();
+            var result = await new StudioApplicantListService(session.Db).ListAsync(actor, fixture.Job);
+            Assert.True(result.IsSuccess); Assert.Empty(result.Value);
+        }
+        await using (var setup = h.Session())
+        {
+            var candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            setup.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidateId, StudioId = h.Studio });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+        await using (var setup = h.Session())
+        {
+            setup.Db.CandidateStudioBlocks.Remove(await setup.Db.CandidateStudioBlocks.SingleAsync());
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Withdrawn;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+        await using (var setup = h.Session())
+        {
+            var app = await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            app.Status = ApplicationStatus.Submitted; app.SnapshotPurgedAt = new TestClock().UtcNow;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(viewer, fixture.Job)).Value);
+    }
+
+    [PostgresFact]
     public async Task StudioApplicationStatus_EnforcesRolesBlocksHistoryAndFinalStates()
     {
         await using var h = await DatabaseHarness.Create();

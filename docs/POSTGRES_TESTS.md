@@ -58,3 +58,7 @@ Retention race tests use PostgreSQL lock-wait observation to check both orders o
 Candidate withdrawal backend tests exercise owner checks, inactive accounts, Hired finality, rollback, concurrent retries, unchanged Full status and both lock orders against the retention prototype. Tests are opt-in and have not been run in the sandbox. No UI or Studio application reader is included.
 
 Studio application status prototype adds role, block/unblock, rollback, invalid/final status and block-before-change lock-wait tests. It has no applicant reader or routes. Additional races and load/privacy review are required before production; tests have not been run in the sandbox.
+
+### Internal Studio applicant list prototype
+
+`StudioApplicantListService` returns at most 100 application IDs, statuses and submission times for an authorized Studio member, with the same empty result for an inaccessible job. It is not a complete paginated list and has no route or UI. Authorization, block, withdrawal, candidate account and snapshot checks are evaluated in a single PostgreSQL statement. A response already in flight cannot be recalled if access changes after that statement. Detail readers, bounded pagination, request-level authorization, privacy and concurrency review are still required before exposure. Run the PostgreSQL integration tests above to verify this prototype; skipped tests are not a pass.
