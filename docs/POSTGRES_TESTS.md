@@ -62,3 +62,7 @@ Studio application status prototype adds role, block/unblock, rollback, invalid/
 ### Internal Studio applicant list prototype
 
 `StudioApplicantListService` returns at most 100 application IDs, statuses and submission times for an authorized Studio member, with the same empty result for an inaccessible job. It is not a complete paginated list and has no route or UI. Authorization, block, withdrawal, candidate account and snapshot checks are evaluated in a single PostgreSQL statement. A response already in flight cannot be recalled if access changes after that statement. Detail readers, bounded pagination, request-level authorization, privacy and concurrency review are still required before exposure. Run the PostgreSQL integration tests above to verify this prototype; skipped tests are not a pass.
+
+### Internal Studio applicant detail prototype
+
+`StudioApplicantDetailService` reads the version 1 submission snapshot only, for authorized Owner, Recruiter and Viewer members. It hides phone unless the status is Shortlisted or Hired, rejects missing/unsupported/incomplete snapshots and checks authorization, blocks, withdrawal, purge and account state in the same query. An already-started response cannot be recalled after access changes. No route, UI or PDF access is provided. Privacy review, additional concurrency tests and request-level protection remain required before exposure; free text may contain sensitive or NDA information.

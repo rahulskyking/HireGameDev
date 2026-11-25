@@ -1503,6 +1503,92 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task StudioApplicantDetail_RestrictsSnapshotAndPhoneForEveryRequest()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var viewer = Guid.NewGuid(); var outsider = Guid.NewGuid();
+        var candidateSnapshot = new CandidateApplicationSnapshot("Snapshot name", "Snapshot headline", default, "Snapshot city",
+            default, 3, null, default, false, false, null, null, null,
+            Array.Empty<ApplicationSkillSnapshot>(), Array.Empty<ApplicationExperienceSnapshot>(), Array.Empty<ApplicationEducationSnapshot>(),
+            Array.Empty<ApplicationPortfolioSnapshot>(), Array.Empty<ApplicationGameSnapshot>());
+        await using (var setup = h.Session())
+        {
+            foreach (var item in new[] { (viewer, "detailviewer"), (outsider, "detailoutsider") })
+                setup.Db.Users.Add(new ApplicationUser { Id = item.Item1, AccountType = AccountType.Studio, UserName = item.Item2 + "@example.com", Email = item.Item2 + "@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = viewer, MemberRole = StudioMemberRole.Viewer });
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.CandidateData = System.Text.Json.JsonSerializer.Serialize(candidateSnapshot);
+            snapshot.JobData = System.Text.Json.JsonSerializer.Serialize(new JobApplicationSnapshot("Snapshot job", "Snapshot studio", null, null));
+            await setup.Db.SaveChangesAsync();
+        }
+        foreach (var status in new[] { ApplicationStatus.Submitted, ApplicationStatus.Reviewing, ApplicationStatus.Rejected, ApplicationStatus.Shortlisted, ApplicationStatus.Hired })
+        {
+            await using (var setup = h.Session())
+            {
+                (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = status;
+                await setup.Db.SaveChangesAsync();
+            }
+            foreach (var actor in new[] { h.Owner, viewer })
+            {
+                await using var session = h.Session();
+                var result = await new StudioApplicantDetailService(session.Db).GetAsync(actor, fixture.Application);
+                Assert.True(result.IsSuccess, result.Error.Message);
+                Assert.Equal("Snapshot name", result.Value.Candidate.FullName);
+                Assert.Equal("Snapshot job", result.Value.Job.JobTitle);
+                Assert.Equal(status is ApplicationStatus.Shortlisted or ApplicationStatus.Hired ? "1234567890" : null, result.Value.Phone);
+            }
+        }
+        foreach (var actor in new[] { outsider, fixture.CandidateUser })
+        {
+            await using var session = h.Session();
+            var result = await new StudioApplicantDetailService(session.Db).GetAsync(actor, fixture.Application);
+            Assert.True(result.IsFailure); Assert.Equal("Applications.Unavailable", result.Error.Code);
+        }
+        await using (var setup = h.Session())
+        {
+            var candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            setup.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidateId, StudioId = h.Studio });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+        await using (var setup = h.Session())
+        {
+            setup.Db.CandidateStudioBlocks.Remove(await setup.Db.CandidateStudioBlocks.SingleAsync());
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Withdrawn;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).Status = ApplicationStatus.Submitted;
+            (await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application)).SnapshotVersion = 99;
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+        await using (var setup = h.Session())
+        {
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.SnapshotVersion = 1; snapshot.CandidateData = "{}";
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+        await using (var setup = h.Session())
+        {
+            (await setup.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).SnapshotPurgedAt = new TestClock().UtcNow;
+            (await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application)).CandidateData = System.Text.Json.JsonSerializer.Serialize(candidateSnapshot);
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Equal("Applications.Unavailable", (await new StudioApplicantDetailService(session.Db).GetAsync(viewer, fixture.Application)).Error.Code);
+    }
+
+    [PostgresFact]
     public async Task StudioApplicantList_FiltersRolesBlocksWithdrawalAndPurgedSnapshots()
     {
         await using var h = await DatabaseHarness.Create();
