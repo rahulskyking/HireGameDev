@@ -11,5 +11,5 @@ public interface IStudioApplicantDetailService
 }
 
 // Only the consented submission snapshot is returned; never a live Candidate profile.
-public sealed record StudioApplicantDetail(Guid ApplicationId, ApplicationStatus Status, DateTimeOffset SubmittedAt,
+public sealed record StudioApplicantDetail(Guid ApplicationId, Guid JobId, ApplicationStatus Status, DateTimeOffset SubmittedAt,
     CandidateApplicationSnapshot Candidate, JobApplicationSnapshot Job, string? Phone, bool CanChangeStatus);

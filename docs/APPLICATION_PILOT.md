@@ -15,3 +15,20 @@ Use a disposable local PostgreSQL database and fictitious accounts/data only. Ru
 ## Before any exposure
 
 Run `dotnet build`, `dotnet test`, and the non-skipped PostgreSQL integration suite described in `POSTGRES_TESTS.md`, plus the manual walkthrough. These checks are not a substitute for privacy/legal review; access, retention, account deletion, PDF storage, backup and audit/operational handling remain unfinished. Complete the wider deadlock/race and load tests, deployment review and end-to-end/browser tests before deciding whether to change the Development-only guard. Do not enable this for production as a configuration shortcut.
+
+## Optional browser smoke test
+
+`scripts/test-application-pilot.cjs` is a destructive browser smoke test. It submits and withdraws an application, changes its status and consumes that Candidate/job pair (duplicates remain disallowed). Run it **only** against a disposable local database with fictitious data and a fresh Candidate; it never deletes or resets the database. It rejects non-loopback base URLs and blocks browser requests to other origins, but that is not a guarantee that the database configured behind the local server is disposable—verify that yourself. A failure can leave an application or status change behind. Do not use production or shared environments.
+
+Prerequisites: start the Development app with the pilot enabled; prepare an active job on a verified Studio, a fresh active Candidate with a complete profile and phone, an Owner for that Studio, and a separate Studio Viewer. Use local email/password login. Install Node.js and Playwright locally (`npm install --no-save --no-package-lock playwright`, then `npx playwright install chromium`). No browser binary or credentials belong in Git.
+
+Set these process environment variables privately, without posting credentials in chat or storing them in tracked files:
+
+- `HGD_E2E_BASE_URL`: loopback origin, such as `http://localhost:5000` (no path).
+- `HGD_E2E_DISPOSABLE`: `YES`, acknowledging the destructive local test.
+- `HGD_E2E_JOB_ID` and `HGD_E2E_JOB_SLUG`: the **same** active job.
+- `HGD_E2E_CANDIDATE_EMAIL`, `HGD_E2E_CANDIDATE_PASSWORD`, `HGD_E2E_CANDIDATE_PHONE`.
+- `HGD_E2E_OWNER_EMAIL`, `HGD_E2E_OWNER_PASSWORD`.
+- `HGD_E2E_VIEWER_EMAIL`, `HGD_E2E_VIEWER_PASSWORD`.
+
+Then run `node scripts/test-application-pilot.cjs`. It checks review/consent/submission, Owner shortlist, phone visibility, Viewer read-only UI, Candidate withdrawal and a subsequent 404 for Studio detail. It does not cover all roles, attacks, accessibility, race conditions or browser configurations, and it does not prove production readiness. The separate PostgreSQL workflow test exercises the services, not HTTP or a browser.

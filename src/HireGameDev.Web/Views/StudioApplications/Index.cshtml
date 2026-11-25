@@ -3,6 +3,6 @@
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Applicants</h1><p>Only applications you are currently allowed to access are shown.</p>
 @if (Model.Results.Items.Count == 0) { <p>No applications to show.</p> }
-@foreach (var item in Model.Results.Items) { <article class="ap-card"><h2>Application</h2><p>@item.Status · @item.SubmittedAt.ToString("dd MMM yyyy")</p><a asp-action="Detail" asp-route-applicationId="@item.ApplicationId">View snapshot →</a></article> }
+@foreach (var item in Model.Results.Items) { <article class="ap-card"><h2>Application <small>@(item.ApplicationId.ToString("N")[..8])</small></h2><p>@item.Status · @item.SubmittedAt.ToString("dd MMM yyyy")</p><a asp-action="Detail" asp-route-applicationId="@item.ApplicationId">View snapshot →</a></article> }
 <nav class="ap-actions" aria-label="Applicant pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-page="@(Model.Page - 1)">Previous</a> } @if (Model.Results.HasMore) { <a asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-page="@(Model.Page + 1)">Next</a> }</nav>
 <p>List order can change between pages as applications or access change.</p></main>

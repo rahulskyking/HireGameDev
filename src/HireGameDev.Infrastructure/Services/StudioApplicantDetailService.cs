@@ -34,7 +34,7 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 && candidate.DeletedAt == null && candidateUser.IsActive && candidateUser.DeletedAt == null && candidateUser.AccountType == AccountType.Candidate
                 && app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null
                 && !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && b.StudioId == studio.Id)
-            select new { app.Id, app.Status, app.SubmittedAt, snapshot.SnapshotVersion, snapshot.CandidateData, snapshot.JobData,
+            select new { app.Id, app.JobId, app.Status, app.SubmittedAt, snapshot.SnapshotVersion, snapshot.CandidateData, snapshot.JobData,
                 CanChangeStatus = member.MemberRole == StudioMemberRole.Owner || member.MemberRole == StudioMemberRole.Recruiter,
                 Phone = app.Status == ApplicationStatus.Shortlisted || app.Status == ApplicationStatus.Hired ? snapshot.Phone : null })
             .SingleOrDefaultAsync(cancellationToken);
@@ -56,7 +56,7 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 candidate.ShippedGames.Any(x => x is null || x.Platforms is null || x.Platforms.Any(string.IsNullOrWhiteSpace) ||
                     string.IsNullOrWhiteSpace(x.GameName) || string.IsNullOrWhiteSpace(x.StudioName) || string.IsNullOrWhiteSpace(x.Role)) ||
                 string.IsNullOrWhiteSpace(job.JobTitle) || string.IsNullOrWhiteSpace(job.StudioName)) return Unavailable();
-            return Result.Success(new StudioApplicantDetail(row.Id, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus));
+            return Result.Success(new StudioApplicantDetail(row.Id, row.JobId, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus));
         }
         catch (JsonException) { return Unavailable(); }
         catch (NotSupportedException) { return Unavailable(); }

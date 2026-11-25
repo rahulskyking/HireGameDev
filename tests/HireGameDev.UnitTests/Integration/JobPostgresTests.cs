@@ -68,6 +68,102 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task ApplicationWorkflow_ReviewSubmitStudioReviewAndWithdraw()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var draft = await h.Draft("Workflow gameplay developer");
+        var userId = Guid.NewGuid(); var candidateId = Guid.NewGuid(); var viewerId = Guid.NewGuid();
+        const string phone = "+919876543210";
+        const string question = "Tell us about a game you built";
+        const string answer = "I built a small puzzle game.";
+        await using (var setup = h.Session())
+        {
+            var published = await setup.Service.TransitionAsync(new(h.Owner, h.Studio, draft.Id, JobLifecycleAction.Publish));
+            Assert.True(published.IsSuccess && published.Value.Applied);
+            var city = new City { Name = "Workflowville", Slug = "workflowville", State = "Test State", StateCode = "TS" };
+            setup.Db.Cities.Add(city);
+            setup.Db.Users.Add(new ApplicationUser { Id = userId, AccountType = AccountType.Candidate, UserName = "workflow-candidate@example.com", Email = "workflow-candidate@example.com" });
+            setup.Db.Users.Add(new ApplicationUser { Id = viewerId, AccountType = AccountType.Studio, UserName = "workflow-viewer@example.com", Email = "workflow-viewer@example.com" });
+            await setup.Db.SaveChangesAsync();
+            setup.Db.CandidateProfiles.Add(new CandidateProfile { Id = candidateId, UserId = userId, CityId = city.Id,
+                FullName = "Submitted Candidate", Headline = "Gameplay developer", Phone = phone, CurrentCtcLpa = 9, ShowCurrentCtc = false });
+            setup.Db.StudioMembers.Add(new StudioMember { StudioId = h.Studio, UserId = viewerId, MemberRole = StudioMemberRole.Viewer });
+            (await setup.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ScreeningQuestion = question;
+            await setup.Db.SaveChangesAsync();
+        }
+        var protector = new EphemeralDataProtectionProvider();
+        ApplicationSubmissionService Submission(AppDbContext db)
+        {
+            var clock = new TestClock();
+            return new ApplicationSubmissionService(db, new ApplicationReviewService(db, new ApplicationEligibilityService(db, clock)), clock, protector);
+        }
+        ApplicationReviewOffer offer;
+        await using (var review = h.Session())
+        {
+            var result = await Submission(review.Db).PrepareAsync(userId, draft.Id, answer);
+            Assert.True(result.IsSuccess, result.Error.Message);
+            offer = result.Value;
+            Assert.Equal(question, offer.Snapshot.Job.ScreeningQuestion); Assert.Equal(answer, offer.Snapshot.Job.ScreeningAnswer);
+            Assert.Null(offer.Snapshot.Candidate.CurrentCtcLpa); Assert.Equal(phone, offer.Snapshot.Phone);
+        }
+        Guid applicationId;
+        await using (var submit = h.Session())
+        {
+            var result = await Submission(submit.Db).SubmitAsync(new(userId, draft.Id, answer, offer.ReviewToken, true));
+            Assert.True(result.IsSuccess, result.Error.Message); applicationId = result.Value.ApplicationId;
+        }
+        await using (var edit = h.Session())
+        {
+            (await edit.Db.CandidateProfiles.SingleAsync(x => x.Id == candidateId)).FullName = "Changed live name";
+            await edit.Db.SaveChangesAsync();
+        }
+        await using (var read = h.Session())
+        {
+            var mine = await new CandidateApplicationListService(read.Db).ListAsync(userId);
+            Assert.Equal(applicationId, Assert.Single(mine.Value.Items).ApplicationId);
+            var list = await new StudioApplicantListService(read.Db).ListAsync(h.Owner, draft.Id);
+            Assert.Equal(applicationId, Assert.Single(list.Value.Items).ApplicationId);
+            var detail = await new StudioApplicantDetailService(read.Db).GetAsync(viewerId, applicationId);
+            Assert.True(detail.IsSuccess, detail.Error.Message);
+            Assert.Equal(draft.Id, detail.Value.JobId); Assert.False(detail.Value.CanChangeStatus);
+            Assert.Equal("Submitted Candidate", detail.Value.Candidate.FullName);
+            Assert.Equal(answer, detail.Value.Job.ScreeningAnswer);
+            Assert.Null(detail.Value.Candidate.CurrentCtcLpa); Assert.Null(detail.Value.Phone);
+        }
+        await using (var viewerWrite = h.Session())
+        {
+            var denied = await new StudioApplicationStatusService(viewerWrite.Db, new LaterClock()).ChangeStatusAsync(viewerId, applicationId, ApplicationStatus.Shortlisted);
+            Assert.True(denied.IsFailure); Assert.Equal("Applications.Unavailable", denied.Error.Code);
+        }
+        await using (var studio = h.Session())
+        {
+            var changed = await new StudioApplicationStatusService(studio.Db, new LaterClock()).ChangeStatusAsync(h.Owner, applicationId, ApplicationStatus.Shortlisted);
+            Assert.True(changed.IsSuccess, changed.Error.Message);
+        }
+        await using (var read = h.Session())
+        {
+            var detail = await new StudioApplicantDetailService(read.Db).GetAsync(viewerId, applicationId);
+            Assert.True(detail.IsSuccess, detail.Error.Message); Assert.Equal(phone, detail.Value.Phone);
+            var mine = await new CandidateApplicationListService(read.Db).ListAsync(userId);
+            Assert.Equal(ApplicationStatus.Shortlisted, Assert.Single(mine.Value.Items).Status);
+        }
+        await using (var withdraw = h.Session())
+        {
+            var result = await new ApplicationWithdrawalService(withdraw.Db, new WorkflowWithdrawalClock()).WithdrawAsync(userId, applicationId);
+            Assert.True(result.IsSuccess && result.Value.Applied, result.Error.Message);
+        }
+        await using (var verify = h.Session())
+        {
+            var detail = await new StudioApplicantDetailService(verify.Db).GetAsync(h.Owner, applicationId);
+            Assert.True(detail.IsFailure); Assert.Equal("Applications.Unavailable", detail.Error.Code);
+            Assert.Empty((await new StudioApplicantListService(verify.Db).ListAsync(h.Owner, draft.Id)).Value.Items);
+            Assert.Equal(ApplicationStatus.Withdrawn, Assert.Single((await new CandidateApplicationListService(verify.Db).ListAsync(userId)).Value.Items).Status);
+            Assert.Equal(0, (await verify.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationsCount);
+            Assert.Equal(3, await verify.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == applicationId));
+        }
+    }
+
+    [PostgresFact]
     public async Task ApplicationSubmission_RejectsStaleAndBlockedReviews_AndEnforcesDuplicateAndCapacityRaces()
     {
         await using var h = await DatabaseHarness.Create();
@@ -2082,6 +2178,10 @@ public sealed class JobPostgresTests
     private sealed class LaterClock : IClock
     {
         public DateTimeOffset UtcNow => new TestClock().UtcNow.AddSeconds(1);
+    }
+    private sealed class WorkflowWithdrawalClock : IClock
+    {
+        public DateTimeOffset UtcNow => new TestClock().UtcNow.AddSeconds(2);
     }
     private sealed class NullAudit : IAuditLogger
     {
