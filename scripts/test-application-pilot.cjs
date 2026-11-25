@@ -82,6 +82,7 @@ async function main() {
         await ownerPage.getByRole('heading', { name: 'Applicant snapshot' }).waitFor();
         assert.equal(await ownerPage.getByText(phone, { exact: true }).count(), 0, 'Phone must be hidden before shortlist.');
         await ownerPage.locator('#newStatus').selectOption({ label: 'Shortlisted' });
+        await ownerPage.getByLabel('I confirm this status change').check();
         await ownerPage.getByRole('button', { name: 'Update', exact: true }).click();
         await ownerPage.getByText('Status updated.', { exact: true }).waitFor();
         await ownerPage.getByText(phone, { exact: true }).waitFor();

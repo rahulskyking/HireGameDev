@@ -6,6 +6,7 @@
 <partial name="_ApplicationSnapshot" model="Model.Offer.Snapshot" />
 <section class="ap-card"><h2>Consent</h2><p>@Model.Offer.ConsentText</p><p>Review expires at @Model.Offer.ExpiresAt.ToString("u"). If your profile or the job changes, you will need to review again.</p>
 <form asp-action="Submit" asp-route-jobId="@Model.JobId" method="post">
-<input type="hidden" name="reviewToken" value="@Model.Offer.ReviewToken" /><input type="hidden" name="screeningAnswer" value="@Model.ScreeningAnswer" />
+<input type="hidden" name="jobSlug" value="@Model.JobSlug" /><input type="hidden" name="reviewToken" value="@Model.Offer.ReviewToken" />
+@if (Model.ScreeningAnswer is not null) { <input type="hidden" name="encodedAnswer" value="@Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(Model.ScreeningAnswer))" /> }
 <label><input type="checkbox" name="consent" value="true" required /> I agree to share the reviewed information.</label>
 <div class="ap-actions"><button class="c-btn c-btn--primary" type="submit">Submit application</button><a asp-action="Index">Cancel</a></div></form></section></main>

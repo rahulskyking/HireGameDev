@@ -11,5 +11,7 @@ public static class ApplicationPilot
         environment.IsDevelopment() && configuration.GetValue<bool>("ApplicationPilot:Enabled");
 }
 
-public sealed record ApplicationReviewPage(Guid JobId, string? ScreeningAnswer, ApplicationReviewOffer Offer);
-public sealed record ApplicantListPage(Guid JobId, int Page, ApplicationStatus? Status, StudioApplicantPage Results);
+public sealed record ApplicationReviewPage(Guid JobId, string? JobSlug, string? ScreeningAnswer, ApplicationReviewOffer Offer);
+public sealed record ApplicantListPage(Guid JobId, Guid? StudioId, int Page, ApplicationStatus? Status, StudioApplicantPage Results);
+
+public sealed record ApplicationRetryPage(Guid JobId, string? JobSlug, string? ScreeningAnswer, string Message);

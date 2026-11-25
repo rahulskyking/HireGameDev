@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Application.Features.Applications;
 using HireGameDev.Web.Authorization;
@@ -39,24 +40,35 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     }
 
     [HttpPost("{jobId:guid}/review"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]
-    public async Task<IActionResult> Review(Guid jobId, string? screeningAnswer, CancellationToken cancellationToken)
+    public async Task<IActionResult> Review(Guid jobId, string? screeningAnswer, CancellationToken cancellationToken, string? jobSlug = null)
     {
         Private(); if (!Enabled) return NotFound();
         if (!ModelState.IsValid || screeningAnswer?.Length > 2000) return BadRequest();
         var result = await submission.PrepareAsync(Actor, jobId, screeningAnswer, cancellationToken);
-        if (result.IsFailure) { TempData["ApplicationMessage"] = result.Error.Message; return RedirectToAction(nameof(Index)); }
-        return View(new ApplicationReviewPage(jobId, screeningAnswer, result.Value));
+        if (result.IsFailure) return View("Retry", new ApplicationRetryPage(jobId, SafeSlug(jobSlug), screeningAnswer, result.Error.Message));
+        return View(new ApplicationReviewPage(jobId, SafeSlug(jobSlug), screeningAnswer, result.Value));
     }
 
     [HttpPost("{jobId:guid}/submit"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]
-    public async Task<IActionResult> Submit(Guid jobId, string? screeningAnswer, string? reviewToken, bool consent, CancellationToken cancellationToken)
+    public async Task<IActionResult> Submit(Guid jobId, string? screeningAnswer, string? reviewToken, bool consent, CancellationToken cancellationToken, string? jobSlug = null, string? encodedAnswer = null)
     {
         Private(); if (!Enabled) return NotFound();
-        if (!ModelState.IsValid || screeningAnswer?.Length > 2000 || reviewToken?.Length > 8192) return BadRequest();
+        if (!ModelState.IsValid || encodedAnswer?.Length > 12000 || reviewToken?.Length > 8192) return BadRequest();
+        if (encodedAnswer is not null)
+        {
+            try { screeningAnswer = new UTF8Encoding(false, true).GetString(Convert.FromBase64String(encodedAnswer)); }
+            catch (Exception ex) when (ex is FormatException or DecoderFallbackException) { return BadRequest(); }
+        }
+        if (screeningAnswer?.Length > 2000) return BadRequest();
         var result = await submission.SubmitAsync(new SubmitApplicationCommand(Actor, jobId, screeningAnswer, reviewToken ?? "", consent), cancellationToken);
-        TempData["ApplicationMessage"] = result.IsSuccess ? "Application submitted." : result.Error.Message + " Please return to the job and review again.";
-        return RedirectToAction(nameof(Index));
+        if (result.IsFailure) return View("Retry", new ApplicationRetryPage(jobId, SafeSlug(jobSlug), screeningAnswer, result.Error.Message));
+        TempData["ApplicationMessage"] = "Application submitted.";
+        return RedirectToAction(nameof(Detail), new { applicationId = result.Value.ApplicationId });
     }
+
+    // Slug is only a navigation hint; it never authorizes or selects the application target.
+    private static string? SafeSlug(string? slug) => !string.IsNullOrEmpty(slug) && slug.Length <= 160 &&
+        slug.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-') ? slug : null;
 
     [HttpGet("{applicationId:guid}/withdraw")]
     public IActionResult ConfirmWithdrawal(Guid applicationId)

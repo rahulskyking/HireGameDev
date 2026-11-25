@@ -21,13 +21,13 @@ public sealed class StudioApplicationsController(IStudioApplicantListService lis
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 
     [HttpGet("job/{jobId:guid}")]
-    public async Task<IActionResult> Index(Guid jobId, int page = 1, ApplicationStatus? applicationStatus = null, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(Guid jobId, int page = 1, ApplicationStatus? applicationStatus = null, CancellationToken cancellationToken = default, Guid? studioId = null)
     {
         Private(); if (!Enabled) return NotFound();
         if (!ModelState.IsValid) return BadRequest();
         var result = await list.ListAsync(Actor, jobId, page, 25, cancellationToken, applicationStatus);
         if (result.IsFailure) return BadRequest();
-        return View(new ApplicantListPage(jobId, page, applicationStatus, result.Value));
+        return View(new ApplicantListPage(jobId, studioId, page, applicationStatus, result.Value));
     }
 
     [HttpGet("{applicationId:guid}")]
@@ -39,10 +39,10 @@ public sealed class StudioApplicationsController(IStudioApplicantListService lis
     }
 
     [HttpPost("{applicationId:guid}/status"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]
-    public async Task<IActionResult> ChangeStatus(Guid applicationId, ApplicationStatus newStatus, CancellationToken cancellationToken)
+    public async Task<IActionResult> ChangeStatus(Guid applicationId, ApplicationStatus newStatus, CancellationToken cancellationToken, bool confirmed = false)
     {
         Private(); if (!Enabled) return NotFound();
-        if (!ModelState.IsValid || !Enum.IsDefined(newStatus)) return BadRequest();
+        if (!ModelState.IsValid || !Enum.IsDefined(newStatus) || !confirmed) return BadRequest();
         var result = await status.ChangeStatusAsync(Actor, applicationId, newStatus, cancellationToken);
         TempData["ApplicationMessage"] = result.IsSuccess ? "Status updated." : "Status could not be updated. Access or application status may have changed.";
         return RedirectToAction(nameof(Detail), new { applicationId });

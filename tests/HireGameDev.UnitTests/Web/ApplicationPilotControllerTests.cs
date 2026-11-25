@@ -48,6 +48,22 @@ public sealed class ApplicationPilotControllerTests
     }
 
     [Fact]
+    public async Task ReviewRetryUsesSafeNavigationAndPreservesMultilineAnswerOnSubmit()
+    {
+        var fake = new FakeServices(); var actor = Guid.NewGuid(); var job = Guid.NewGuid();
+        var controller = Candidate(fake, actor, "Development", true);
+        var failure = Assert.IsType<ViewResult>(await controller.Review(job, "first\nsecond", default, "//example.invalid"));
+        var retry = Assert.IsType<HireGameDev.Web.Models.Applications.ApplicationRetryPage>(failure.Model);
+        Assert.Null(retry.JobSlug); Assert.Equal("first\nsecond", retry.ScreeningAnswer);
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("first\r\nsecond"));
+        Assert.IsType<RedirectToActionResult>(await controller.Submit(job, null, "token", true, default, "safe-job", encoded));
+        Assert.Equal("first\r\nsecond", fake.Command!.ScreeningAnswer);
+        var calls = fake.Calls;
+        Assert.IsType<BadRequestResult>(await controller.Submit(job, null, "token", true, default, null, "not-base64"));
+        Assert.Equal(calls, fake.Calls);
+    }
+
+    [Fact]
     public async Task StudioStatusUsesAuthenticatedActorAndRejectsInvalidStatus()
     {
         var fake = new FakeServices(); var actor = Guid.NewGuid(); var app = Guid.NewGuid();
@@ -55,7 +71,7 @@ public sealed class ApplicationPilotControllerTests
         Attach(controller, actor);
         Assert.IsType<BadRequestResult>(await controller.ChangeStatus(app, (ApplicationStatus)999, default));
         Assert.Equal(0, fake.Calls);
-        Assert.IsType<RedirectToActionResult>(await controller.ChangeStatus(app, ApplicationStatus.Reviewing, default));
+        Assert.IsType<RedirectToActionResult>(await controller.ChangeStatus(app, ApplicationStatus.Reviewing, default, confirmed: true));
         Assert.Equal(actor, fake.Actor); Assert.Equal(app, fake.Application);
     }
 

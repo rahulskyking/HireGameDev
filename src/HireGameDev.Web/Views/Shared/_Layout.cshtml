@@ -1,4 +1,5 @@
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
+@inject Microsoft.Extensions.Configuration.IConfiguration AppConfiguration
 @inject HireGameDev.Web.Portals.IPortalNavigator PortalNavigator
 @{
     var currentPortal = PortalNavigator.ResolvePortal(Context);
@@ -110,6 +111,11 @@
                 @if (hasCandidateRole && currentPortal != PortalSite.Studio)
                 {
                     <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/saved"))">Saved jobs</a>
+                }
+
+                @if (hasCandidateRole && currentPortal != PortalSite.Studio && HireGameDev.Web.Models.Applications.ApplicationPilot.Enabled(HostEnvironment, AppConfiguration))
+                {
+                    <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))">My applications</a>
                 }
 
                 @if (hasStudioRole && currentPortal != PortalSite.Jobs)
@@ -297,6 +303,8 @@
                 <span>Jobs</span>
             </a>
 
+            @if (HireGameDev.Web.Models.Applications.ApplicationPilot.Enabled(HostEnvironment, AppConfiguration))
+            {
             <a class="c-bottom-nav__item" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Applications"))">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -304,6 +312,7 @@
                 </svg>
                 <span>Applications</span>
             </a>
+            }
 
             <a class="c-bottom-nav__item" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Alerts"))">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
