@@ -121,8 +121,11 @@ public sealed class JobPostgresTests
         {
             var mine = await new CandidateApplicationListService(read.Db).ListAsync(userId);
             Assert.Equal(applicationId, Assert.Single(mine.Value.Items).ApplicationId);
-            var list = await new StudioApplicantListService(read.Db).ListAsync(h.Owner, draft.Id);
-            Assert.Equal(applicationId, Assert.Single(list.Value.Items).ApplicationId);
+            var listService = new StudioApplicantListService(read.Db);
+            var list = await listService.ListAsync(h.Owner, draft.Id, status: ApplicationStatus.Submitted);
+            var listed = Assert.Single(list.Value.Items);
+            Assert.Equal(applicationId, listed.ApplicationId); Assert.Equal("Submitted Candidate", listed.CandidateName);
+            Assert.Empty((await listService.ListAsync(h.Owner, draft.Id, status: ApplicationStatus.Shortlisted)).Value.Items);
             var detail = await new StudioApplicantDetailService(read.Db).GetAsync(viewerId, applicationId);
             Assert.True(detail.IsSuccess, detail.Error.Message);
             Assert.Equal(draft.Id, detail.Value.JobId); Assert.False(detail.Value.CanChangeStatus);

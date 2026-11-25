@@ -1,5 +1,6 @@
 using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Application.Features.Applications;
+using HireGameDev.Domain.Enums;
 
 namespace HireGameDev.Web.Models.Applications;
 
@@ -11,4 +12,4 @@ public static class ApplicationPilot
 }
 
 public sealed record ApplicationReviewPage(Guid JobId, string? ScreeningAnswer, ApplicationReviewOffer Offer);
-public sealed record ApplicantListPage(Guid JobId, int Page, StudioApplicantPage Results);
+public sealed record ApplicantListPage(Guid JobId, int Page, ApplicationStatus? Status, StudioApplicantPage Results);

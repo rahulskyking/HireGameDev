@@ -7,3 +7,6 @@
 .ap-facts dt { font-weight: 700; } .ap-facts dd { margin: 0; overflow-wrap: anywhere; }
 .ap-text { white-space: pre-wrap; overflow-wrap: anywhere; } .ap-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
 .ap-note { padding: 1rem; background: #f1eafe; border-radius: 8px; }
+
+.ap-filter { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
+.ap-filter select { padding: .55rem; border: 1px solid #cfc7dd; border-radius: 6px; background: #fff; }

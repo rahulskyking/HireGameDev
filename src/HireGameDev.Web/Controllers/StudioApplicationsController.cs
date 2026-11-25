@@ -21,13 +21,13 @@ public sealed class StudioApplicationsController(IStudioApplicantListService lis
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 
     [HttpGet("job/{jobId:guid}")]
-    public async Task<IActionResult> Index(Guid jobId, int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(Guid jobId, int page = 1, ApplicationStatus? applicationStatus = null, CancellationToken cancellationToken = default)
     {
         Private(); if (!Enabled) return NotFound();
         if (!ModelState.IsValid) return BadRequest();
-        var result = await list.ListAsync(Actor, jobId, page, 25, cancellationToken);
+        var result = await list.ListAsync(Actor, jobId, page, 25, cancellationToken, applicationStatus);
         if (result.IsFailure) return BadRequest();
-        return View(new ApplicantListPage(jobId, page, result.Value));
+        return View(new ApplicantListPage(jobId, page, applicationStatus, result.Value));
     }
 
     [HttpGet("{applicationId:guid}")]

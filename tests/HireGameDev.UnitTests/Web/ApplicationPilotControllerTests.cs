@@ -109,7 +109,7 @@ public sealed class ApplicationPilotControllerTests
         { Calls++; Actor = actorUserId; Application = applicationId; return Task.FromResult(Result.Success(new ApplicationWithdrawalResult(true))); }
         public Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(new CandidateApplicationPage(Array.Empty<CandidateApplicationListItem>(), page, false)));
-        public Task<Result<StudioApplicantPage>> ListAsync(Guid actorUserId, Guid jobId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default) =>
+        public Task<Result<StudioApplicantPage>> ListAsync(Guid actorUserId, Guid jobId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default, ApplicationStatus? status = null) =>
             Task.FromResult(Result.Success(new StudioApplicantPage(Array.Empty<StudioApplicantListItem>(), false)));
         public Task<Result<StudioApplicantDetail>> GetAsync(Guid actorUserId, Guid applicationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Failure<StudioApplicantDetail>(Error.NotFound("test", "test")));

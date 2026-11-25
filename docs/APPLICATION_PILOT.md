@@ -8,7 +8,7 @@ Use a disposable local PostgreSQL database and fictitious accounts/data only. Ru
 
 1. With an active Candidate account and complete profile, open an active job and provide its screening answer if appropriate. Choose **Review application**. Check all snapshot fields, the consent text and phone notice. Agree and submit. Verify a stale or altered review cannot be submitted.
 2. Open **My applications**. Verify the submission appears, then test withdrawal and confirmation using a separate test application; verify Studio access is revoked.
-3. As an active verified Studio Owner or Recruiter, open that job's management page and choose **View applicants**. Open a snapshot and transition its status using allowed transitions. Verify phone appears only for Shortlisted or Hired.
+3. As an active verified Studio Owner or Recruiter, open that job's management page and choose **View applicants**. Filter by status, open a submitted snapshot and transition its status using allowed transitions. Names on the list come from the submitted snapshot, not the live profile. Verify phone appears only for Shortlisted or Hired.
 4. Repeat as a Studio Viewer: list and detail are read-only. Check a non-member and a Candidate-blocked Studio cannot retrieve the snapshot; also check an inactive account and a withdrawn/purged application. Never use real candidate data.
 5. Exercise pagination, role/access changes between requests, form anti-forgery, expired review tokens, invalid transitions and concurrent requests. Listing uses offset pagination; concurrent changes can shift rows. Candidate history also uses offset pagination; its job and Studio names are current values rather than the submitted snapshot.
 
