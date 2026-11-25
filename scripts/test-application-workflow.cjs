@@ -1,5 +1,5 @@
-// Destructive browser smoke test: local Development pilot and fictitious accounts only.
-// See docs/APPLICATION_PILOT.md. Credentials are read from environment, never printed.
+// Destructive browser smoke test: local Development application and fictitious accounts only.
+// See docs/APPLICATION_WORKFLOW.md. Credentials are read from environment, never printed.
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
@@ -50,11 +50,10 @@ async function main() {
         step = 'Candidate login and clean-account preflight';
         const candidatePage = await login(candidate);
         await candidatePage.goto(`${origin}/candidate/applications`);
-        await candidatePage.getByText('Development pilot · test data only', { exact: true }).waitFor();
+        await candidatePage.getByRole('heading', { name: 'My applications', exact: true }).waitFor();
         assert.equal(await candidatePage.locator('a[href*="/withdraw"]').count(), 0, 'Use a fresh Candidate with no other applications.');
         step = 'Candidate review and submission';
         await candidatePage.goto(`${origin}/jobs/${slug}`);
-        await candidatePage.getByText('Development pilot · test data only', { exact: true }).waitFor();
         const reviewForm = candidatePage.locator('form').filter({ has: candidatePage.getByRole('button', { name: 'Review application' }) });
         const action = await reviewForm.getAttribute('action');
         assert.ok(action && action.toLowerCase().includes(jobId.toLowerCase()), 'Job slug and job ID must match.');
@@ -77,7 +76,7 @@ async function main() {
         step = 'Studio Owner review and shortlist';
         const ownerPage = await login(owner);
         await ownerPage.goto(`${origin}/studio/applications/job/${jobId}`);
-        await ownerPage.getByText('Development pilot · test data only', { exact: true }).waitFor();
+        await ownerPage.getByRole('heading', { name: 'Applicants', exact: true }).waitFor();
         await ownerPage.locator(`a[href$="/${applicationId}"]`).click();
         await ownerPage.getByRole('heading', { name: 'Applicant snapshot' }).waitFor();
         assert.equal(await ownerPage.getByText(phone, { exact: true }).count(), 0, 'Phone must be hidden before shortlist.');
@@ -108,6 +107,6 @@ async function main() {
 }
 main().catch(() => {
     // No page content, account details, tokens or credentials are logged.
-    console.error(`Application pilot browser smoke test failed during: ${step}. Check disposable setup and the manual walkthrough.`);
+    console.error(`Application workflow browser smoke test failed during: ${step}. Check disposable setup and the manual walkthrough.`);
     process.exitCode = 1;
 });

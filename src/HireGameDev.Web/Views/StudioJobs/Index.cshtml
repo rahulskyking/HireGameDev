@@ -1,5 +1,4 @@
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Environment
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @model HireGameDev.Web.Models.Jobs.JobListPage
 @{
     ViewData["Title"] = "Studio Jobs";
@@ -42,7 +41,7 @@
             {
                 <tr><td><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId">@(string.IsNullOrWhiteSpace(job.Title) ? "Untitled draft" : job.Title)</a></td>
                 <td><span class="jw-badge" data-status="@job.Status">@job.Status</span></td><td>@job.UpdatedAt.ToString("dd MMM yyyy")</td><td>@(job.ExpiresAt?.ToString("dd MMM yyyy") ?? "—")</td>
-                <td><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="Manage @(job.Title ?? "draft")">Open →</a> @if (HireGameDev.Web.Models.Applications.ApplicationPilot.Enabled(Environment, Configuration)) { <a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@Model.Studio.StudioId">Applicants</a> }</td></tr>
+                <td><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="Manage @(job.Title ?? "draft")">Open →</a> @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@Model.Studio.StudioId">Applicants</a> }</td></tr>
             }
             </tbody></table></div>
         }

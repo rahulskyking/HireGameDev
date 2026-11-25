@@ -15,9 +15,9 @@ namespace HireGameDev.Web.Controllers;
 [Route("candidate/applications")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CandidateApplicationsController(IApplicationSubmissionService submission, ICandidateApplicationListService list,
-    ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment, IConfiguration configuration) : Controller
+    ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment) : Controller
 {
-    private bool Enabled => ApplicationPilot.Enabled(environment, configuration);
+    private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 
@@ -25,9 +25,7 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
     {
         Private();
-        // Development users can discover why the pilot is hidden without enabling it.
-        // Other environments remain closed and no application data is queried.
-        if (!Enabled) return environment.IsDevelopment() ? View("Setup") : NotFound();
+        if (!Enabled) return NotFound();
         if (!ModelState.IsValid) return BadRequest();
         var result = await list.ListAsync(Actor, page, 25, cancellationToken);
         if (result.IsFailure) return result.Error.Code == "Applications.InvalidPage" ? BadRequest() : StatusCode(503);

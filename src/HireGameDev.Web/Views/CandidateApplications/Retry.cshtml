@@ -1,7 +1,7 @@
 @model HireGameDev.Web.Models.Applications.ApplicationRetryPage
 @{ ViewData["Title"] = "Application not submitted"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Application not submitted</h1>
+<main class="ap"><h1>Application not submitted</h1>
 <section class="ap-card"><p role="alert">@Model.Message</p><p>The job, profile or review may have changed. Review again before giving consent; no application was submitted by this attempt.</p>
 <form asp-action="Review" asp-route-jobId="@Model.JobId" method="post"><input type="hidden" name="jobSlug" value="@Model.JobSlug" />
 @if (!string.IsNullOrEmpty(Model.ScreeningAnswer)) { <label for="screeningAnswer">Your previous answer</label><textarea id="screeningAnswer" name="screeningAnswer" maxlength="2000" rows="5">@Model.ScreeningAnswer</textarea> }

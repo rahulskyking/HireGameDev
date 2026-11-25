@@ -11,25 +11,24 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Xunit;
 
 namespace HireGameDev.UnitTests.Web;
 
-public sealed class ApplicationPilotControllerTests
+public sealed class ApplicationWorkflowControllerTests
 {
     [Theory]
-    [InlineData("Production", true)]
-    [InlineData("Development", false)]
-    public async Task PilotIsDisabledUnlessExplicitlyEnabledInDevelopment(string environment, bool enabled)
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public async Task ApplicationsAreDisabledOutsideDevelopment(string environment)
     {
         var fake = new FakeServices();
-        var controller = Candidate(fake, Guid.NewGuid(), environment, enabled);
+        var controller = Candidate(fake, Guid.NewGuid(), environment);
         Assert.IsType<NotFoundResult>(await controller.Review(Guid.NewGuid(), null, default));
         Assert.Equal(0, fake.Calls);
         Assert.Equal("private, no-store", controller.Response.Headers.CacheControl.ToString());
-        var studio = new StudioApplicationsController(fake, fake, fake, Environment(environment), Config(enabled));
+        var studio = new StudioApplicationsController(fake, fake, fake, Environment(environment));
         Attach(studio, Guid.NewGuid());
         Assert.IsType<NotFoundResult>(await studio.ChangeStatus(Guid.NewGuid(), ApplicationStatus.Reviewing, default));
         Assert.Equal(0, fake.Calls);
@@ -39,7 +38,7 @@ public sealed class ApplicationPilotControllerTests
     public async Task CandidateSubmitAndWithdrawUseAuthenticatedActor()
     {
         var fake = new FakeServices(); var actor = Guid.NewGuid(); var job = Guid.NewGuid(); var app = Guid.NewGuid();
-        var controller = Candidate(fake, actor, "Development", true);
+        var controller = Candidate(fake, actor, "Development");
         Assert.IsType<RedirectToActionResult>(await controller.Submit(job, "answer", "token", true, default));
         Assert.Equal(actor, fake.Command!.ActorUserId); Assert.Equal(job, fake.Command.JobId);
         Assert.True(fake.Command.Consent); Assert.Equal("token", fake.Command.ReviewToken);
@@ -51,7 +50,7 @@ public sealed class ApplicationPilotControllerTests
     public async Task ReviewRetryUsesSafeNavigationAndPreservesMultilineAnswerOnSubmit()
     {
         var fake = new FakeServices(); var actor = Guid.NewGuid(); var job = Guid.NewGuid();
-        var controller = Candidate(fake, actor, "Development", true);
+        var controller = Candidate(fake, actor, "Development");
         var failure = Assert.IsType<ViewResult>(await controller.Review(job, "first\nsecond", default, "//example.invalid"));
         var retry = Assert.IsType<HireGameDev.Web.Models.Applications.ApplicationRetryPage>(failure.Model);
         Assert.Null(retry.JobSlug); Assert.Equal("first\nsecond", retry.ScreeningAnswer);
@@ -67,7 +66,7 @@ public sealed class ApplicationPilotControllerTests
     public async Task StudioStatusUsesAuthenticatedActorAndRejectsInvalidStatus()
     {
         var fake = new FakeServices(); var actor = Guid.NewGuid(); var app = Guid.NewGuid();
-        var controller = new StudioApplicationsController(fake, fake, fake, Environment("Development"), Config(true));
+        var controller = new StudioApplicationsController(fake, fake, fake, Environment("Development"));
         Attach(controller, actor);
         Assert.IsType<BadRequestResult>(await controller.ChangeStatus(app, (ApplicationStatus)999, default));
         Assert.Equal(0, fake.Calls);
@@ -85,9 +84,9 @@ public sealed class ApplicationPilotControllerTests
         Assert.NotNull(typeof(StudioApplicationsController).GetMethod(nameof(StudioApplicationsController.ChangeStatus))!.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
     }
 
-    private static CandidateApplicationsController Candidate(FakeServices fake, Guid actor, string environment, bool enabled)
+    private static CandidateApplicationsController Candidate(FakeServices fake, Guid actor, string environment)
     {
-        var controller = new CandidateApplicationsController(fake, fake, fake, fake, Environment(environment), Config(enabled));
+        var controller = new CandidateApplicationsController(fake, fake, fake, fake, Environment(environment));
         Attach(controller, actor); return controller;
     }
     private static void Attach(Controller controller, Guid actor)
@@ -97,7 +96,6 @@ public sealed class ApplicationPilotControllerTests
         controller.ControllerContext = new ControllerContext { HttpContext = context };
         controller.TempData = new TempDataDictionary(context, new EmptyTempData());
     }
-    private static IConfiguration Config(bool enabled) => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["ApplicationPilot:Enabled"] = enabled.ToString() }).Build();
     private static IWebHostEnvironment Environment(string name) => new TestEnvironment { EnvironmentName = name };
     private sealed class TestEnvironment : IWebHostEnvironment
     {

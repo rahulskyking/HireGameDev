@@ -1,7 +1,7 @@
 @model HireGameDev.Web.Models.Applications.ApplicationReviewPage
 @{ ViewData["Title"] = "Review your application"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Review before applying</h1>
+<main class="ap"><h1>Review before applying</h1>
 <p>This is the snapshot the Studio can see. Phone is available only after shortlist or hire. Check your text and links for sensitive or confidential information.</p>
 <partial name="_ApplicationSnapshot" model="Model.Offer.Snapshot" />
 <section class="ap-card"><h2>Consent</h2><p>@Model.Offer.ConsentText</p><p>Review expires at @Model.Offer.ExpiresAt.ToString("u"). If your profile or the job changes, you will need to review again.</p>

@@ -2,7 +2,7 @@
 @model CandidateApplicationDetail
 @{ ViewData["Title"] = "Application timeline"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><a asp-action="Index">← My applications</a><p class="ap-label">Development pilot · test data only</p><h1>@Model.JobTitle</h1>
+<main class="ap"><a asp-action="Index">← My applications</a><h1>@Model.JobTitle</h1>
 @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
 <p>@Model.StudioName · Current status: <strong>@Model.Status</strong></p>
 <p>Job and Studio names reflect their current values. Statuses are shown most recent first, in UTC.</p>

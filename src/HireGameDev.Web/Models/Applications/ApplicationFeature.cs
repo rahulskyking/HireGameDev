@@ -5,10 +5,9 @@ using HireGameDev.Domain.Enums;
 namespace HireGameDev.Web.Models.Applications;
 
 // Deliberately impossible to enable outside Development. Never use for real personal data.
-public static class ApplicationPilot
+public static class ApplicationFeature
 {
-    public static bool Enabled(IWebHostEnvironment environment, IConfiguration configuration) =>
-        environment.IsDevelopment() && configuration.GetValue<bool>("ApplicationPilot:Enabled");
+    public static bool Enabled(IWebHostEnvironment environment) => environment.IsDevelopment();
 }
 
 public sealed record ApplicationReviewPage(Guid JobId, string? JobSlug, string? ScreeningAnswer, ApplicationReviewOffer Offer);

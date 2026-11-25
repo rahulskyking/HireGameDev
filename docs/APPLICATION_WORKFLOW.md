@@ -1,8 +1,8 @@
-# Application workflow: local development pilot only
+# Application workflow
 
-This is an unfinished test workflow, not a production release. It is disabled by default and cannot be enabled outside the ASP.NET Core `Development` environment. It is **not approved for real personal data, a public pilot, or production deployment**. The retention deletion prototype is still disabled and no application PDF feature exists.
+This workflow is available automatically in the ASP.NET Core `Development` environment. It is not enabled outside Development. It is **not approved for real personal data, public use or production deployment**. The retention deletion prototype is still disabled and no application PDF feature exists.
 
-Use a disposable local PostgreSQL database and fictitious accounts/data only. Run the checked-in migrations against that database (see `POSTGRES_TESTS.md` and existing setup instructions). In a git-ignored `src/HireGameDev.Web/appsettings.Development.local.json`, merge `"ApplicationPilot": { "Enabled": true }` into the local settings object; alternatively set `ApplicationPilot__Enabled=true` in the local process environment. Never place database credentials in tracked configuration. Restart the Development app. While the switch is off, a signed-in Candidate in Development can open **My applications** to see setup instructions; no application data is queried. Remove the setting to disable the workflow again.
+Run the Development app normally and sign in as a Candidate or Studio. No extra application-feature setting is required. Use a disposable local PostgreSQL database and fictional accounts/data. Apply the checked-in migrations against that database (see `POSTGRES_TESTS.md`).
 
 ## Manual walkthrough
 
@@ -20,9 +20,9 @@ Run `dotnet build`, `dotnet test`, and the non-skipped PostgreSQL integration su
 
 ## Optional browser smoke test
 
-`scripts/test-application-pilot.cjs` is a destructive browser smoke test. It submits and withdraws an application, changes its status and consumes that Candidate/job pair (duplicates remain disallowed). Run it **only** against a disposable local database with fictitious data and a fresh Candidate; it never deletes or resets the database. It rejects non-loopback base URLs and blocks browser requests to other origins, but that is not a guarantee that the database configured behind the local server is disposable—verify that yourself. A failure can leave an application or status change behind. Do not use production or shared environments.
+`scripts/test-application-workflow.cjs` is a destructive browser smoke test. It submits and withdraws an application, changes its status and consumes that Candidate/job pair (duplicates remain disallowed). Run it **only** against a disposable local database with fictitious data and a fresh Candidate; it never deletes or resets the database. It rejects non-loopback base URLs and blocks browser requests to other origins, but that is not a guarantee that the database configured behind the local server is disposable—verify that yourself. A failure can leave an application or status change behind. Do not use production or shared environments.
 
-Prerequisites: start the Development app with the pilot enabled; prepare an active job on a verified Studio, a fresh active Candidate with a complete profile and phone, an Owner for that Studio, and a separate Studio Viewer. Use local email/password login. Install Node.js and Playwright locally (`npm install --no-save --no-package-lock playwright`, then `npx playwright install chromium`). No browser binary or credentials belong in Git.
+Prerequisites: start the Development app; prepare an active job on a verified Studio, a fresh active Candidate with a complete profile and phone, an Owner for that Studio, and a separate Studio Viewer. Use local email/password login. Install Node.js and Playwright locally (`npm install --no-save --no-package-lock playwright`, then `npx playwright install chromium`). No browser binary or credentials belong in Git.
 
 Set these process environment variables privately, without posting credentials in chat or storing them in tracked files:
 
@@ -33,4 +33,4 @@ Set these process environment variables privately, without posting credentials i
 - `HGD_E2E_OWNER_EMAIL`, `HGD_E2E_OWNER_PASSWORD`.
 - `HGD_E2E_VIEWER_EMAIL`, `HGD_E2E_VIEWER_PASSWORD`.
 
-Then run `node scripts/test-application-pilot.cjs`. It checks review/consent/submission, Owner shortlist, phone visibility, Viewer read-only UI, Candidate withdrawal and a subsequent 404 for Studio detail. It does not cover all roles, attacks, accessibility, race conditions or browser configurations, and it does not prove production readiness. The separate PostgreSQL workflow test exercises the services, not HTTP or a browser.
+Then run `node scripts/test-application-workflow.cjs`. It checks review/consent/submission, Owner shortlist, phone visibility, Viewer read-only UI, Candidate withdrawal and a subsequent 404 for Studio detail. It does not cover all roles, attacks, accessibility, race conditions or browser configurations, and it does not prove production readiness. The separate PostgreSQL workflow test exercises the services, not HTTP or a browser.

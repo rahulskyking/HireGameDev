@@ -14,9 +14,9 @@ namespace HireGameDev.Web.Controllers;
 [Route("studio/applications")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioApplicationsController(IStudioApplicantListService list, IStudioApplicantDetailService detail,
-    IStudioApplicationStatusService status, IWebHostEnvironment environment, IConfiguration configuration) : Controller
+    IStudioApplicationStatusService status, IWebHostEnvironment environment) : Controller
 {
-    private bool Enabled => ApplicationPilot.Enabled(environment, configuration);
+    private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 

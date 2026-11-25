@@ -1,6 +1,6 @@
 @model Guid
 @{ ViewData["Title"] = "Withdraw application"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><p class="ap-label">Development pilot · test data only</p><h1>Withdraw application?</h1>
+<main class="ap"><h1>Withdraw application?</h1>
 <section class="ap-card"><p>Studio access to your submitted snapshot will be revoked. You cannot submit another application to the same job. A minimal record remains.</p>
 <form asp-action="Withdraw" asp-route-applicationId="@Model" method="post"><div class="ap-actions"><button class="c-btn c-btn--primary" type="submit">Confirm withdrawal</button><a asp-action="Index">Keep application</a></div></form></section></main>
