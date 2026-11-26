@@ -13,4 +13,4 @@ public interface ICandidateApplicationDetailService
 // Deliberately excludes Studio member identities, notes and the Candidate's snapshot data.
 public sealed record CandidateApplicationEvent(ApplicationStatus? PreviousStatus, ApplicationStatus NewStatus, DateTimeOffset OccurredAt);
 public sealed record CandidateApplicationDetail(Guid ApplicationId, string JobTitle, string StudioName,
-    ApplicationStatus Status, DateTimeOffset SubmittedAt, IReadOnlyList<CandidateApplicationEvent> Events, bool HasEarlierEvents, ApplicationSkillMatch? SkillMatch = null);
+    ApplicationStatus Status, DateTimeOffset SubmittedAt, IReadOnlyList<CandidateApplicationEvent> Events, bool HasEarlierEvents, ApplicationSkillMatch? SkillMatch = null, ApplicationFitScore? FitScore = null);

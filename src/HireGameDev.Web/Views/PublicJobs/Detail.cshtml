@@ -11,6 +11,7 @@
     <link rel="canonical" href="@Model.CanonicalUrl" />
     <meta name="description" content="@($"{job.Title} at {job.Studio.Name}. {PublicJobUi.Salary(job)}. {job.WorkMode}. Explore the role, requirements and team.")" />
     <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
+    @if (Model.FitScore is not null) { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 }
 <div class="jb">
 <a class="jb-back" asp-action="Index">← Explore all roles</a>
@@ -31,6 +32,7 @@
 <footer class="jb-detail-footer"><span>Published <time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></span><span>Expires <time datetime="@job.ExpiresAt.ToString("O")">@job.ExpiresAt.ToString("dd MMM yyyy, HH:mm") UTC</time></span></footer>
 </article>
 <aside class="jb-stack">
+@if (Model.FitScore is not null) { <partial name="_ApplicationFitScore" model="Model.FitScore" /> <p>Based on your current profile. Your submitted application uses a saved snapshot.</p> }
 @if (TempData["SavedJobMessage"] is string savedMessage) { <div class="jb-note" role="status">@savedMessage</div> }
 <section class="jb-panel jb-stack jb-stack--small" aria-label="Save this job">
 @if (User.Identity?.IsAuthenticated != true)

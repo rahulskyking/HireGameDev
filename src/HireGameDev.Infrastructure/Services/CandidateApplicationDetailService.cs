@@ -43,13 +43,19 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
         var head = rows[0];
         var events = rows.Select(x => new CandidateApplicationEvent(x.PreviousStatus, x.NewStatus, x.OccurredAt)).ToArray();
         ApplicationSkillMatch? match = null;
+        ApplicationFitScore? fit = null;
         if (head.CandidateData is not null && head.JobData is not null)
         {
-            try { match = ApplicationSkillMatch.Create(JsonSerializer.Deserialize<CandidateApplicationSnapshot>(head.CandidateData), JsonSerializer.Deserialize<JobApplicationSnapshot>(head.JobData)); }
+            try {
+                var candidateSnapshot = JsonSerializer.Deserialize<CandidateApplicationSnapshot>(head.CandidateData);
+                var jobSnapshot = JsonSerializer.Deserialize<JobApplicationSnapshot>(head.JobData);
+                match = ApplicationSkillMatch.Create(candidateSnapshot, jobSnapshot);
+                fit = ApplicationFitScore.Create(candidateSnapshot, jobSnapshot);
+            }
             catch (JsonException) { /* Matching is optional; timeline remains available. */ }
             catch (NotSupportedException) { }
         }
-        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match));
+        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match, fit));
     }
 
     private static Result<CandidateApplicationDetail> Unavailable() =>

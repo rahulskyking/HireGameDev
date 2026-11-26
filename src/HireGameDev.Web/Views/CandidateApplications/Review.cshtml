@@ -3,8 +3,10 @@
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <div class="ap"><header class="ap-detail-hero"><div><span class="ap-hero-kicker">● &nbsp; REVIEW &amp; SUBMIT</span><h1>Review before applying</h1><p>Check what you’re sharing before sending your application.</p></div><span class="ap-hero-step">01 / REVIEW</span></header>
 <p class="ap-muted">This is the snapshot the Studio can see. Phone is available only after shortlist or hire. Check your text and links for sensitive or confidential information.</p>
+@{ var fit = HireGameDev.Application.Features.Applications.ApplicationFitScore.Create(Model.Offer.Snapshot.Candidate, Model.Offer.Snapshot.Job); }
+@if (fit is not null) { <partial name="_ApplicationFitScore" model="fit" /> }
 @{ var match = HireGameDev.Application.Features.Applications.ApplicationSkillMatch.Create(Model.Offer.Snapshot.Candidate, Model.Offer.Snapshot.Job); }
-@if (match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> }
+@if (fit is null && match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> }
 <details class="ap-review-details" open><summary>Review the information you will share</summary><partial name="_ApplicationSnapshot" model="Model.Offer.Snapshot" /></details>
 <section class="ap-card"><h2>Consent</h2><p>@Model.Offer.ConsentText</p><p>Review expires at @Model.Offer.ExpiresAt.ToString("u"). If your profile or the job changes, you will need to review again.</p>
 <form asp-action="Submit" asp-route-jobId="@Model.JobId" method="post">

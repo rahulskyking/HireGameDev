@@ -6,6 +6,7 @@
     var options = Enum.GetValues<ApplicationStatus>().Where(x => ApplicationLifecycleRules.CanStudioTransition(application.Status, x)).ToArray();
     ViewData["Title"] = "Applicant snapshot";
     var match = ApplicationSkillMatch.Create(candidate, application.Job);
+    var fit = ApplicationFitScore.Create(candidate, application.Job);
     var initial = string.IsNullOrWhiteSpace(candidate.FullName) ? "A" : candidate.FullName.Trim().Substring(0, 1).ToUpperInvariant();
 }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /><link rel="stylesheet" href="~/css/applicant-review.css" asp-append-version="true" /> }
@@ -19,7 +20,8 @@
     <div class="ar-context"><span class="ar-context-icon" aria-hidden="true">↗</span><div><span>APPLIED FOR</span><strong>@application.Job.JobTitle</strong><small>@application.Job.StudioName</small></div><p>Submitted profile snapshot · Confidential</p></div>
     <div class="ar-layout">
         <div class="ar-main">
-            @if (match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> } else { <section class="ar-section"><h2>Skill match unavailable</h2><p class="ar-empty">The application did not record required skills, or this job had none. Review the profile for more context.</p></section> }
+            @if (fit is not null) { <partial name="_ApplicationFitScore" model="fit" /> }
+            @if (fit is null && match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> } else if (fit is null) { <section class="ar-section"><h2>Skill match unavailable</h2><p class="ar-empty">The application did not record required skills, or this job had none. Review the profile for more context.</p></section> }
             @if (!string.IsNullOrWhiteSpace(application.Job.ScreeningQuestion)) {
             <section class="ar-section" id="screening"><div class="ar-section-heading"><div><span class="ar-eyebrow">THE APPLICATION</span><h2>Screening answer</h2></div></div><div class="ar-answer"><h3>@application.Job.ScreeningQuestion</h3><p class="ar-text">@(string.IsNullOrWhiteSpace(application.Job.ScreeningAnswer) ? "No answer provided." : application.Job.ScreeningAnswer)</p></div></section>
             }

@@ -50,11 +50,14 @@ internal sealed class ApplicationReviewService(AppDbContext db, IApplicationElig
         // Capture the required skills as they were reviewed, rather than comparing to a later edit.
         var requirements = await (from required in db.JobSkills.AsNoTracking()
             join skill in db.Skills.AsNoTracking() on required.SkillId equals skill.Id
-            where required.JobId == jobId && required.IsRequired
+            where required.JobId == jobId
             orderby required.SkillId
-            select new ApplicationJobSkillSnapshot(skill.Name, required.MinProficiency)).ToArrayAsync(cancellationToken);
+            select new { required.IsRequired, skill.Name, required.MinProficiency }).ToArrayAsync(cancellationToken);
         var snapshot = ApplicationSnapshotBuilder.Create(candidate, job, studio, screeningAnswer);
         // Do not commit anything: disposal rolls back this read-only transaction.
-        return Result.Success(snapshot with { Job = snapshot.Job with { RequiredSkills = requirements } });
+        return Result.Success(snapshot with { Job = snapshot.Job with {
+            RequiredSkills = requirements.Where(x => x.IsRequired).Select(x => new ApplicationJobSkillSnapshot(x.Name, x.MinProficiency)).ToArray(),
+            MatchInputs = new ApplicationMatchInputs(requirements.Where(x => !x.IsRequired).Select(x => new ApplicationJobSkillSnapshot(x.Name, x.MinProficiency)).ToArray(),
+                job.MinYears, job.WorkMode, job.CityId.HasValue ? candidate.CityId == job.CityId.Value : null) } });
     }
 }

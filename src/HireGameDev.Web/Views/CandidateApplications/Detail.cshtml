@@ -7,8 +7,9 @@
     <header class="ap-detail-hero"><div><span class="ap-hero-kicker">● &nbsp; YOUR APPLICATION</span><h1>@Model.JobTitle</h1><p>@Model.StudioName</p></div><span class="ap-status" data-status="@Model.Status">@Model.Status</span></header>
     @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
     <div class="ap-detail-layout"><div class="ap-detail-main">
-    @if (Model.SkillMatch is not null) { <partial name="_ApplicationSkillMatch" model="Model.SkillMatch" /> }
-    else if (Model.Status != ApplicationStatus.Withdrawn) { <section class="ap-card"><h2>Skill match unavailable</h2><p>This application did not record required skills, or the job had none.</p></section> }
+    @if (Model.FitScore is not null) { <partial name="_ApplicationFitScore" model="Model.FitScore" /> }
+    @if (Model.FitScore is null && Model.SkillMatch is not null) { <partial name="_ApplicationSkillMatch" model="Model.SkillMatch" /> }
+    else if (Model.FitScore is null && Model.Status != ApplicationStatus.Withdrawn) { <section class="ap-card"><h2>Skill match unavailable</h2><p>This application did not record required skills, or the job had none.</p></section> }
     <section class="ap-card"><span class="ap-label">Current status</span><h2>@Model.Status</h2><p>@HireGameDev.Web.Models.Applications.ApplicationStatusUi.Description(Model.Status)</p></section>
     <section class="ap-card" aria-labelledby="timeline-heading"><div class="ap-section-head"><div><h2 id="timeline-heading">Application timeline</h2><p class="ap-muted">Updates are shown most recent first, in UTC.</p></div></div>
         <ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</time></li> }</ol>

@@ -82,7 +82,7 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
                     SELECT cs.skill_id FROM candidate_skills cs JOIN candidate_profiles c ON c.id = cs.candidate_id WHERE c.user_id = {command.ActorUserId}
                     UNION SELECT pls.skill_id FROM portfolio_link_skills pls JOIN portfolio_links pl ON pl.id = pls.portfolio_link_id JOIN candidate_profiles c ON c.id = pl.candidate_id WHERE c.user_id = {command.ActorUserId}
                     UNION SELECT st.engine_skill_id FROM shipped_titles st JOIN candidate_profiles c ON c.id = st.candidate_id WHERE c.user_id = {command.ActorUserId} AND st.engine_skill_id IS NOT NULL
-                    UNION SELECT js.skill_id FROM job_skills js WHERE js.job_id = {command.JobId} AND js.is_required
+                    UNION SELECT js.skill_id FROM job_skills js WHERE js.job_id = {command.JobId}
                 ) ORDER BY id FOR SHARE
                 """, cancellationToken);
             // Studio precedes Job, matching JobLifecycleService. The job's studio is read before
@@ -92,11 +92,11 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
                 .Select(j => (Guid?)j.StudioId).SingleOrDefaultAsync(cancellationToken);
             if (lockedStudioId != studioId)
                 return await AbortAsync(transaction, Error.Conflict("Applications.ConcurrentChange", "The application changed. Please review and retry."), cancellationToken);
-            // Re-read required skill references after locking the job: they may have changed
+            // Re-read job skill references after locking the job: they may have changed
             // before the job lock was acquired. Hold their names stable through submission.
             await _db.Database.ExecuteSqlInterpolatedAsync($"""
                 SELECT id FROM skills WHERE id IN (
-                    SELECT skill_id FROM job_skills WHERE job_id = {command.JobId} AND is_required
+                    SELECT skill_id FROM job_skills WHERE job_id = {command.JobId}
                 ) ORDER BY id FOR SHARE
                 """, cancellationToken);
             // A context may already track stale entities from an earlier request; start fresh after locking.

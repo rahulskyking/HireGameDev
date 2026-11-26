@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Applications;
+using HireGameDev.Application.Features.Applications;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Domain.Constants;
@@ -12,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -62,7 +64,15 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var state = await savedJobs.IsSavedAsync(userId, job.Summary.Id, cancellationToken);
             if (state.IsSuccess) isSaved = state.Value;
         }
-        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved));
+        ApplicationFitScore? fit = null;
+        if (environment?.IsDevelopment() == true && applicationReview is not null && ViewerUserId() is Guid candidateId &&
+            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate)
+        {
+            // Review service independently checks eligibility and returns a private, consistent preview.
+            var review = await applicationReview.ReviewAsync(candidateId, job.Summary.Id, null, cancellationToken);
+            if (review.IsSuccess) fit = ApplicationFitScore.Create(review.Value.Candidate, review.Value.Job);
+        }
+        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit));
     }
 
     private IActionResult? CanonicalPortal(string path)

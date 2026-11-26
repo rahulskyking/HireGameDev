@@ -18,6 +18,8 @@ public sealed record ApplicationPortfolioSnapshot(PortfolioLinkType LinkType, st
 public sealed record ApplicationGameSnapshot(string GameName, string StudioName, string Role, IReadOnlyList<string> Platforms, string? Engine, short? ReleaseYear, string? StoreUrl);
 // Null requirements identify older snapshots where requirements were not recorded.
 public sealed record ApplicationJobSkillSnapshot(string Name, SkillProficiency MinProficiency);
+public sealed record ApplicationMatchInputs(IReadOnlyList<ApplicationJobSkillSnapshot> PreferredSkills,
+    decimal? MinimumYears, JobWorkMode? WorkMode, bool? SameCity, int AlgorithmVersion = 1);
 public sealed record JobApplicationSnapshot(string JobTitle, string StudioName, string? ScreeningQuestion, string? ScreeningAnswer,
-    IReadOnlyList<ApplicationJobSkillSnapshot>? RequiredSkills = null);
+    IReadOnlyList<ApplicationJobSkillSnapshot>? RequiredSkills = null, ApplicationMatchInputs? MatchInputs = null);
 public sealed record ApplicationSnapshotDraft(int Version, CandidateApplicationSnapshot Candidate, JobApplicationSnapshot Job, string? Phone);
