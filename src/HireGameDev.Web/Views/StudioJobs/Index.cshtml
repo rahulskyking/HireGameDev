@@ -8,7 +8,7 @@
 <div class="jw">
     <a asp-controller="Studio" asp-action="EditProfile" asp-route-studioId="@Model.Studio.StudioId" class="jw-help">← Studio workspace</a>
     <header class="jw-header">
-        <div class="jw-heading"><span class="jw-eyebrow">@Model.Studio.Name / Hiring workspace</span><h1>Your jobs</h1><p class="jw-muted">Build your team. Manage every role in one place.</p></div>
+        <div class="jw-heading"><span class="jw-eyebrow">@Model.Studio.Name / Hiring workspace</span><h1>Your jobs</h1><p class="jw-muted">Build your team. Manage every role in one place.</p>@if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <p class="jw-muted">To review applications, select Applicants next to a job.</p> }</div>
         @if (canWrite) { <a class="c-btn c-btn--primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId">+ Create a job</a> }
     </header>
     @if (Model.Memberships.Count > 1)

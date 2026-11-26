@@ -112,7 +112,7 @@
                     <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/saved"))">Saved jobs</a>
                 }
 
-                @if (hasCandidateRole && currentPortal != PortalSite.Studio && HostEnvironment.IsDevelopment())
+                @if (hasCandidateRole && HostEnvironment.IsDevelopment())
                 {
                     <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))">My applications</a>
                 }
@@ -122,6 +122,11 @@
                     <a class="c-nav-link"
                        href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio"))"
                        aria-current="@(Context.Request.Path.StartsWithSegments("/Studio") ? "page" : null)">Studio</a>
+                }
+
+                @if (hasStudioRole)
+                {
+                    <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio/Jobs"))">Jobs &amp; applicants</a>
                 }
 
                 @if (isAuthenticated)
@@ -243,11 +248,16 @@
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile"))">Developer Profile</a>
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile/Preview"))">Preview as Studio</a>
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Settings"))">Privacy &amp; Settings</a>
+                        @if (HostEnvironment.IsDevelopment())
+                        {
+                            <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))">My applications</a>
+                        }
                     }
 
                     @if (hasStudioRole)
                     {
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio"))">Studio Workspace</a>
+                        <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio/Jobs"))">Jobs &amp; applicants</a>
                     }
 
                     @if (isAuthenticated)
