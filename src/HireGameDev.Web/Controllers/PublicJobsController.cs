@@ -65,14 +65,15 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             if (state.IsSuccess) isSaved = state.Value;
         }
         ApplicationFitScore? fit = null;
-        if (environment?.IsDevelopment() == true && applicationReview is not null && ViewerUserId() is Guid candidateId &&
-            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate)
+        var showFit = environment?.IsDevelopment() == true && ViewerUserId().HasValue &&
+            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate;
+        if (showFit && applicationReview is not null && ViewerUserId() is Guid candidateId)
         {
             // Review service independently checks eligibility and returns a private, consistent preview.
             var review = await applicationReview.ReviewAsync(candidateId, job.Summary.Id, null, cancellationToken);
             if (review.IsSuccess) fit = ApplicationFitScore.Create(review.Value.Candidate, review.Value.Job);
         }
-        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit));
+        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit, showFit && fit is null));
     }
 
     private IActionResult? CanonicalPortal(string path)

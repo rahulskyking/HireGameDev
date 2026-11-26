@@ -1802,6 +1802,50 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task LegacyMatch_UsesSubmittedProfileCurrentJobAndRechecksAccess()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        var profile = new CandidateApplicationSnapshot("Snapshot name", "Developer", default, "Snapshot city", default, 3,
+            null, default, true, false, null, null, null,
+            new[] { new ApplicationSkillSnapshot("Unity", SkillProficiency.Strong, null, null, true) },
+            Array.Empty<ApplicationExperienceSnapshot>(), Array.Empty<ApplicationEducationSnapshot>(),
+            Array.Empty<ApplicationPortfolioSnapshot>(), Array.Empty<ApplicationGameSnapshot>());
+        await using (var setup = h.Session())
+        {
+            var skill = new Skill { Name = "Unity", Slug = "legacy-match-unity" };
+            setup.Db.Skills.Add(skill); await setup.Db.SaveChangesAsync();
+            setup.Db.JobSkills.RemoveRange(await setup.Db.JobSkills.Where(x => x.JobId == fixture.Job).ToListAsync());
+            setup.Db.JobSkills.Add(new JobSkill { JobId = fixture.Job, SkillId = skill.Id, IsRequired = true, MinProficiency = SkillProficiency.Working });
+            var job = await setup.Db.Jobs.SingleAsync(x => x.Id == fixture.Job); job.MinYears = 2; job.WorkMode = JobWorkMode.Remote;
+            var snapshot = await setup.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == fixture.Application);
+            snapshot.CandidateData = System.Text.Json.JsonSerializer.Serialize(profile);
+            snapshot.JobData = System.Text.Json.JsonSerializer.Serialize(new JobApplicationSnapshot("Job", "Studio", null, null));
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+        {
+            var studio = await new StudioApplicantDetailService(session.Db).GetAsync(h.Owner, fixture.Application);
+            var candidate = await new CandidateApplicationDetailService(session.Db).GetAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(studio.IsSuccess && candidate.IsSuccess);
+            Assert.Equal(100, studio.Value.CurrentJobFit!.Percentage);
+            Assert.Equal(studio.Value.CurrentJobFit.Percentage, candidate.Value.FitScore!.Percentage);
+            Assert.True(candidate.Value.UsesCurrentJobRequirements);
+            Assert.Null(await LegacyApplicationMatch.GetAsync(session.Db, Guid.NewGuid(), fixture.Application, profile,
+                new JobApplicationSnapshot("Job", "Studio", null, null), default));
+        }
+        await using (var setup = h.Session())
+        {
+            var candidateId = await setup.Db.CandidateProfiles.Where(x => x.UserId == fixture.CandidateUser).Select(x => x.Id).SingleAsync();
+            setup.Db.CandidateStudioBlocks.Add(new CandidateStudioBlock { CandidateId = candidateId, StudioId = h.Studio });
+            await setup.Db.SaveChangesAsync();
+        }
+        await using (var session = h.Session())
+            Assert.Null(await LegacyApplicationMatch.GetAsync(session.Db, h.Owner, fixture.Application, profile,
+                new JobApplicationSnapshot("Job", "Studio", null, null), default));
+    }
+
+    [PostgresFact]
     public async Task StudioApplicantDetail_RestrictsSnapshotAndPhoneForEveryRequest()
     {
         await using var h = await DatabaseHarness.Create();

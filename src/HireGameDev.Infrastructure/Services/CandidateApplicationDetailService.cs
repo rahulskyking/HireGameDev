@@ -44,6 +44,7 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
         var events = rows.Select(x => new CandidateApplicationEvent(x.PreviousStatus, x.NewStatus, x.OccurredAt)).ToArray();
         ApplicationSkillMatch? match = null;
         ApplicationFitScore? fit = null;
+        var usesCurrentJobRequirements = false;
         if (head.CandidateData is not null && head.JobData is not null)
         {
             try {
@@ -51,11 +52,16 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
                 var jobSnapshot = JsonSerializer.Deserialize<JobApplicationSnapshot>(head.JobData);
                 match = ApplicationSkillMatch.Create(candidateSnapshot, jobSnapshot);
                 fit = ApplicationFitScore.Create(candidateSnapshot, jobSnapshot);
+                if (candidateSnapshot is not null && jobSnapshot is not null && jobSnapshot.MatchInputs is null)
+                {
+                    fit = await LegacyApplicationMatch.GetAsync(db, actorUserId, applicationId, candidateSnapshot, jobSnapshot, cancellationToken);
+                    usesCurrentJobRequirements = fit is not null;
+                }
             }
             catch (JsonException) { /* Matching is optional; timeline remains available. */ }
             catch (NotSupportedException) { }
         }
-        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match, fit));
+        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match, fit, usesCurrentJobRequirements));
     }
 
     private static Result<CandidateApplicationDetail> Unavailable() =>

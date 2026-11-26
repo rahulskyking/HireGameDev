@@ -56,7 +56,9 @@ internal sealed class StudioApplicantDetailService(AppDbContext db) : IStudioApp
                 candidate.ShippedGames.Any(x => x is null || x.Platforms is null || x.Platforms.Any(string.IsNullOrWhiteSpace) ||
                     string.IsNullOrWhiteSpace(x.GameName) || string.IsNullOrWhiteSpace(x.StudioName) || string.IsNullOrWhiteSpace(x.Role)) ||
                 string.IsNullOrWhiteSpace(job.JobTitle) || string.IsNullOrWhiteSpace(job.StudioName)) return Unavailable();
-            return Result.Success(new StudioApplicantDetail(row.Id, row.JobId, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus));
+            var currentJobFit = job.MatchInputs is null
+                ? await LegacyApplicationMatch.GetAsync(db, actorUserId, applicationId, candidate, job, cancellationToken) : null;
+            return Result.Success(new StudioApplicantDetail(row.Id, row.JobId, row.Status, row.SubmittedAt, candidate, job, row.Phone, row.CanChangeStatus, currentJobFit));
         }
         catch (JsonException) { return Unavailable(); }
         catch (NotSupportedException) { return Unavailable(); }
