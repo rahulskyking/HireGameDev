@@ -2,14 +2,15 @@
 @model CandidateApplicationDetail
 @{ ViewData["Title"] = "Application timeline"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><a asp-action="Index">← My applications</a><h1>@Model.JobTitle</h1>
-@if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
-<p>@Model.StudioName · Current status: <strong>@Model.Status</strong></p>
-<p>@HireGameDev.Web.Models.Applications.ApplicationStatusUi.Description(Model.Status)</p>
-<p>Job and Studio names reflect their current values. Statuses are shown most recent first, in UTC.</p>
-<section class="ap-card" aria-labelledby="timeline-heading"><h2 id="timeline-heading">Application timeline</h2>
-<ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><span>@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</span></li> }</ol>
-@if (Model.HasEarlierEvents) { <p>Only the 50 most recent status changes are shown.</p> }</section>
-@if (ApplicationLifecycleRules.CanCandidateWithdraw(Model.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@Model.ApplicationId">Withdraw application</a> }
-else if (Model.Status == ApplicationStatus.Withdrawn) { <p>Your application was withdrawn. The Studio can no longer access its snapshot.</p> }
-</main>
+<div class="ap">
+    <a class="ap-back" asp-action="Index">← My applications</a>
+    <header class="ap-header"><div><span class="ap-label">Application details</span><h1>@Model.JobTitle</h1><p class="ap-muted">@Model.StudioName</p></div><span class="ap-status" data-status="@Model.Status">@Model.Status</span></header>
+    @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
+    <section class="ap-card"><span class="ap-label">Current status</span><h2>@Model.Status</h2><p>@HireGameDev.Web.Models.Applications.ApplicationStatusUi.Description(Model.Status)</p></section>
+    <section class="ap-card" aria-labelledby="timeline-heading"><div class="ap-section-head"><div><h2 id="timeline-heading">Application timeline</h2><p class="ap-muted">Updates are shown most recent first, in UTC.</p></div></div>
+        <ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</time></li> }</ol>
+        @if (Model.HasEarlierEvents) { <p class="ap-muted">Only the 50 most recent status changes are shown.</p> }
+    </section>
+    @if (ApplicationLifecycleRules.CanCandidateWithdraw(Model.Status)) { <section class="ap-card ap-card--subtle"><h2>Need to withdraw?</h2><p>You can withdraw your application if you no longer wish to be considered.</p><a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@Model.ApplicationId">Withdraw application</a></section> }
+    <p class="ap-muted ap-footnote">Job and Studio names reflect their current values.</p>
+</div>

@@ -2,14 +2,12 @@
 @model CandidateApplicationPage
 @{ ViewData["Title"] = "My applications"; }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<main class="ap"><h1>My applications</h1>
-@if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
-<p>Track updates from Studios and manage your applications in one place.</p>
-@if (Model.Items.Count == 0) { <section class="ap-card"><h2>@(Model.Page == 1 ? "No applications yet" : "No applications on this page")</h2>@if (Model.Page == 1) { <p>Explore jobs and apply to roles that interest you.</p><a class="c-btn c-btn--primary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a> } else { <p>Return to a previous page to see your applications.</p> }</section> }
-@foreach (var app in Model.Items) { <article class="ap-card"><h2>@app.JobTitle</h2><p>@app.StudioName · @app.Status · @app.SubmittedAt.ToString("dd MMM yyyy")</p>
-<a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">View application timeline →</a>
-@if (ApplicationLifecycleRules.CanCandidateWithdraw(app.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@app.ApplicationId">Withdraw application</a> }
-</article> }
-<nav class="ap-actions" aria-label="Application pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">Previous</a> } @if (Model.HasMore) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next</a> }</nav>
-<p>Applications can shift between pages when the list changes. Job and Studio names reflect their current values.</p>
-<a asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></main>
+<div class="ap">
+    <header class="ap-header"><div><span class="ap-label">Your career</span><h1>My applications</h1><p class="ap-muted">Keep track of your applications and their latest updates.</p></div><a class="c-btn c-btn--secondary" asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a></header>
+    @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
+    <section class="ap-panel" aria-label="Your applications"><div class="ap-section-head"><div><h2>Application activity</h2><p class="ap-muted">Select an application to see its timeline.</p></div></div>
+        @if (Model.Items.Count == 0) { <div class="ap-empty"><h2>@(Model.Page == 1 ? "No applications yet" : "No applications on this page")</h2>@if (Model.Page == 1) { <p>Find a role that interests you and take the next step.</p><a class="c-btn c-btn--primary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a> } else { <p>Go back to see your applications.</p> }</div> }
+        else { <div class="ap-list">@foreach (var app in Model.Items) { <article class="ap-list-item"><div class="ap-list-main"><div class="ap-item-title"><h3><a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">@app.JobTitle</a></h3><span class="ap-status" data-status="@app.Status">@app.Status</span></div><p>@app.StudioName · Applied <time datetime="@app.SubmittedAt.ToString("O")">@app.SubmittedAt.ToString("dd MMM yyyy")</time></p></div><a class="c-btn c-btn--secondary c-btn--sm" asp-action="Detail" asp-route-applicationId="@app.ApplicationId" aria-label="View application for @app.JobTitle">View application →</a></article> }</div> }
+        @if (Model.Page > 1 || Model.HasMore) { <nav class="ap-pagination" aria-label="Application pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">← Previous</a> }<span>Page @Model.Page</span>@if (Model.HasMore) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next →</a> }</nav> }
+    </section>
+</div>

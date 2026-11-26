@@ -80,3 +80,6 @@
 @media(max-width:500px) { .jb-filter-form { grid-template-columns:1fr; } .jb-panel,.jb-job,.jb-cta { padding:20px; } .jb-job-top { flex-wrap:wrap; } .jb-facts { grid-template-columns:1fr; } .jb { margin-top:16px; } }
 .jb-studio { min-width:0; }
 .jb-studio a,.jb-job h2 { overflow-wrap:anywhere; }
+.jb-apply, .jb-apply form { display:grid; gap:12px; }
+.jb-apply label { font-size:.86rem; font-weight:600; }
+.jb-apply textarea { width:100%; min-width:0; padding:10px; border:1px solid var(--control-border); border-radius:8px; background:var(--control-bg); color:var(--text); font:inherit; resize:vertical; }

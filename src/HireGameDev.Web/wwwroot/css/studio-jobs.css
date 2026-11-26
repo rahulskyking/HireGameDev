@@ -69,3 +69,15 @@
 .jp-facts strong { font-size:1rem; }
 .jp-skill { padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface); font-size:.85rem; }
 @media(max-width:520px) { .jp-facts { grid-template-columns:1fr; } }
+
+/* Job cards keep the important actions visible without horizontal scrolling. */
+.jw-job-list { display:grid; gap:12px; }
+.jw-job-card { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:20px; border:1px solid var(--border); border-radius:12px; background:var(--surface-elevated); }
+.jw-job-main { min-width:0; display:grid; gap:10px; }
+.jw-job-title { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.jw-job-title h2 { overflow-wrap:anywhere; }
+.jw-job-title a { color:var(--text); text-decoration:none; }
+.jw-job-title a:hover { text-decoration:underline; }
+.jw-job-meta { display:flex; flex-wrap:wrap; gap:8px 20px; color:var(--text-muted); font-size:.85rem; }
+.jw-job-actions { display:flex; flex-wrap:wrap; gap:8px; flex-shrink:0; }
+@media(max-width:700px) { .jw-job-card { align-items:flex-start; flex-direction:column; } .jw-job-actions { width:100%; } }
