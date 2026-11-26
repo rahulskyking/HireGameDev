@@ -36,11 +36,29 @@ public sealed class ApplicationFitScoreTests
     }
 
     [Fact]
-    public void LowCoverageOrNoAssessedRequiredSkillsDoesNotGivePercentage()
+    public void LowCoverageStillShowsAssessedScore()
     {
         var fit = ApplicationFitScore.Create(Candidate(), Job(new[] { Requirement("Unity") }, Array.Empty<ApplicationJobSkillSnapshot>()))!;
-        Assert.Null(fit.Percentage);
+        Assert.Equal(100, fit.Percentage);
         Assert.True(fit.Coverage < 70);
+    }
+
+    [Fact]
+    public void ZeroScoreIsDisplayedWithoutAnArtificialMinimum()
+    {
+        var fit = ApplicationFitScore.Create(Candidate(Skill("Unity", SkillProficiency.Beginner)),
+            Job(new[] { Requirement("Unity") }, Array.Empty<ApplicationJobSkillSnapshot>(), years: 5, mode: null))!;
+        Assert.Equal(0, fit.Percentage);
+        Assert.Equal(100, fit.Coverage);
+    }
+
+    [Fact]
+    public void NoAssessableCriteriaHasNoPercentage()
+    {
+        var fit = ApplicationFitScore.Create(Candidate(),
+            Job(new[] { Requirement("Unity") }, Array.Empty<ApplicationJobSkillSnapshot>(), years: null, mode: null))!;
+        Assert.Null(fit.Percentage);
+        Assert.Equal(0, fit.Coverage);
     }
 
     [Fact]

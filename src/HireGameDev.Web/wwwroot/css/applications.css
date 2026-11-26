@@ -70,3 +70,5 @@
 .ap-review-details > summary { cursor:pointer; padding:16px 20px; margin:18px 0; border:1px solid var(--border); border-radius:10px; background:var(--surface-elevated); font-weight:700; }
 .match-unavailable { font-size:.9rem !important; line-height:1.3 !important; }.match-summary { cursor:pointer; font-size:.85rem; font-weight:700; padding:10px 0; }.match-card details[open] .match-summary { margin-bottom:8px; }
 .match-attention { margin:12px 0 0 !important; padding:10px 12px; border-radius:8px; background:var(--warning-subtle); color:var(--warning-ink); font-size:.8rem; font-weight:600; }
+
+.match-progress { height:8px; margin-top:16px; border-radius:999px; background:var(--surface-2); overflow:hidden; }.match-progress span { display:block; height:100%; border-radius:inherit; background:var(--accent); }

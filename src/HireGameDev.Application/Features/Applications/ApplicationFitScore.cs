@@ -32,9 +32,9 @@ public sealed record ApplicationFitScore(int? Percentage, int Coverage, IReadOnl
         var possible = criteria.Sum(x => x.Weight);
         var assessed = criteria.Where(x => x.Fraction.HasValue).Sum(x => x.Weight);
         var coverage = possible == 0 ? 0 : (int)Math.Round(100m * assessed / possible, MidpointRounding.AwayFromZero);
-        // At least one required skill must be assessable; missing skills are never treated as absent.
-        var hasRequired = criteria.Any(x => x.Label.StartsWith("Required: ", StringComparison.Ordinal) && x.Fraction.HasValue);
-        int? score = possible > 0 && assessed / possible >= 0.70m && hasRequired && assessed > 0
+        // Show every actual calculated score, including zero. Unknown data never counts as failure;
+        // without any assessed criteria there is no defensible percentage.
+        int? score = assessed > 0
             ? (int)Math.Round(100m * criteria.Where(x => x.Fraction.HasValue).Sum(x => x.Weight * x.Fraction!.Value) / assessed, MidpointRounding.AwayFromZero)
             : null;
         return new ApplicationFitScore(score, coverage, criteria);
