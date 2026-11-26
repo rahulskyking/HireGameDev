@@ -24,10 +24,19 @@ public sealed class ApplicationSubmissionTokenTests
         var job = new Job { Id = Guid.NewGuid(), StudioId = studio.Id, Title = "Game Developer" };
         var candidate = new CandidateProfile { FullName = "Alex", City = new City { Name = "Kolkata" } };
         var draft = ApplicationSnapshotBuilder.Create(candidate, job, studio, null);
-        var service = new ApplicationSubmissionService(db, new StubReview(draft), clock, new EphemeralDataProtectionProvider());
+        var protection = new EphemeralDataProtectionProvider();
+        var service = new ApplicationSubmissionService(db, new StubReview(draft), clock, protection);
         var prepared = await service.PrepareAsync(actor, job.Id, null);
         Assert.True(prepared.IsSuccess);
+        Assert.Equal("application-share-v2", prepared.Value.ConsentVersion);
+        Assert.Contains("does not automatically delete", prepared.Value.ConsentText);
         var token = prepared.Value.ReviewToken;
+        var oldPayload = System.Text.Json.JsonSerializer.Serialize(new {
+            ActorUserId = actor, JobId = job.Id, ConsentVersion = "application-share-v1",
+            ExpiresAt = clock.UtcNow.AddMinutes(15), Fingerprint = "old"
+        });
+        var oldToken = protection.CreateProtector("HireGameDev.Applications.Review.v1").Protect(oldPayload);
+        Assert.Equal("Applications.ReviewStale", (await service.SubmitAsync(new(actor, job.Id, null, oldToken, true))).Error.Code);
         Assert.Equal("Applications.ConsentRequired", (await service.SubmitAsync(new(actor, job.Id, null, token, false))).Error.Code);
         Assert.Equal("Applications.ReviewStale", (await service.SubmitAsync(new(Guid.NewGuid(), job.Id, null, token, true))).Error.Code);
         Assert.Equal("Applications.ReviewStale", (await service.SubmitAsync(new(actor, Guid.NewGuid(), null, token, true))).Error.Code);

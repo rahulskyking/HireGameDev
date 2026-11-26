@@ -9,7 +9,7 @@
 
 ## Current state and risks
 
-`ApplicationRetentionRules` calculates a deadline. An internal deletion prototype exists, but is not registered, exposed or scheduled; it must only be invoked against disposable test databases. Application snapshots currently hold the candidate JSON, job JSON, phone, consent version and consent time in one row. Deleting the row removes the consent metadata too. A Candidate withdrawal backend exists; application-reading services are not implemented. Status history records `OccurredAt` for a withdrawal. Job expiry may be effective before the expiry scheduler marks a job expired; renewal changes its `ExpiresAt`. A worker must not rely on an old candidate list or cached deadline when making a deletion decision.
+`ApplicationRetentionRules` calculates a deadline. An internal deletion prototype exists, but is not registered, exposed or scheduled; it must only be invoked against disposable test databases. Application snapshots currently hold the candidate JSON, job JSON, phone, consent version and consent time in one row. Deleting the row removes the consent metadata too. Candidate withdrawal and application-reading services exist. Withdrawal revokes Studio access but does not delete the stored snapshot. Status history records `OccurredAt` for a withdrawal. Job expiry may be effective before the expiry scheduler marks a job expired; renewal changes its `ExpiresAt`. A worker must not rely on an old candidate list or cached deadline when making a deletion decision.
 
 ## Proposed implementation, in small steps
 

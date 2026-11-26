@@ -19,7 +19,7 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
 {
     private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
-    private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
+    private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; Response.Headers["Referrer-Policy"] = "no-referrer"; }
 
     [HttpGet("")]
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)

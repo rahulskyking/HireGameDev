@@ -34,3 +34,7 @@ Set these process environment variables privately, without posting credentials i
 - `HGD_E2E_VIEWER_EMAIL`, `HGD_E2E_VIEWER_PASSWORD`.
 
 Then run `node scripts/test-application-workflow.cjs`. It checks review/consent/submission, Owner shortlist, phone visibility, Viewer read-only UI, Candidate withdrawal and a subsequent 404 for Studio detail. It does not cover all roles, attacks, accessibility, race conditions or browser configurations, and it does not prove production readiness. The separate PostgreSQL workflow test exercises the services, not HTTP or a browser.
+
+## Consent and privacy status
+
+The current application-share-v2 disclosure describes snapshot sharing, match scoring and the fact that withdrawal does not automatically delete stored records. Changing the version makes outstanding v1 review tokens stale; existing consent records remain unchanged. The Development-only flow still has no self-service account erasure, production retention worker, or verified backup deletion process. The privacy notice is an engineering draft, not a legal approval; do not use real personal data.

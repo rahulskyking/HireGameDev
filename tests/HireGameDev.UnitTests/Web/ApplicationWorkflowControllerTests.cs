@@ -28,10 +28,12 @@ public sealed class ApplicationWorkflowControllerTests
         Assert.IsType<NotFoundResult>(await controller.Review(Guid.NewGuid(), null, default));
         Assert.Equal(0, fake.Calls);
         Assert.Equal("private, no-store", controller.Response.Headers.CacheControl.ToString());
+        Assert.Equal("no-referrer", controller.Response.Headers["Referrer-Policy"].ToString());
         var studio = new StudioApplicationsController(fake, fake, fake, Environment(environment));
         Attach(studio, Guid.NewGuid());
         Assert.IsType<NotFoundResult>(await studio.ChangeStatus(Guid.NewGuid(), ApplicationStatus.Reviewing, default));
         Assert.Equal(0, fake.Calls);
+        Assert.Equal("no-referrer", studio.Response.Headers["Referrer-Policy"].ToString());
     }
 
     [Fact]

@@ -18,7 +18,7 @@ public sealed class StudioApplicationsController(IStudioApplicantListService lis
 {
     private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
-    private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
+    private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; Response.Headers["Referrer-Policy"] = "no-referrer"; }
 
     [HttpGet("job/{jobId:guid}")]
     public async Task<IActionResult> Index(Guid jobId, int page = 1, ApplicationStatus? applicationStatus = null, CancellationToken cancellationToken = default, Guid? studioId = null)

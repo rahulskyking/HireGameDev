@@ -22,8 +22,8 @@ namespace HireGameDev.Infrastructure.Services;
 /// </summary>
 internal sealed class ApplicationSubmissionService : IApplicationSubmissionService
 {
-    public const string ConsentVersion = "application-share-v1";
-    public const string ConsentText = "I consent to sharing the reviewed application information with this studio. I understand it is saved as a snapshot, may include personal or confidential information in my text and links, and that phone is shown after shortlist.";
+    public const string ConsentVersion = "application-share-v2";
+    public const string ConsentText = "I agree to share the reviewed application snapshot with this Studio. It may include personal information and anything I put in my answers and links. My phone, if provided, is visible to the Studio only when shortlisted or hired. A profile match compares the submitted information with job requirements; it is not a hiring decision. Withdrawing stops Studio access but does not automatically delete the stored snapshot or application record.";
     private const int TokenMinutes = 15;
     private readonly AppDbContext _db;
     private readonly IApplicationReviewService _review;
