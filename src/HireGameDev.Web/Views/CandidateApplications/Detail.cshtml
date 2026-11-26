@@ -16,8 +16,17 @@
         <ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</time></li> }</ol>
         @if (Model.HasEarlierEvents) { <p class="ap-muted">Only the 50 most recent status changes are shown.</p> }
     </section>
+    <section class="ap-card"><h2>Your submitted information</h2>
+        @if (Model.SubmittedSnapshot is not null) {
+            <p>This is the saved snapshot from when you applied, not your current profile. Your phone is shown here for you; the Studio can only see it when shortlisted or hired.</p>
+            @if (Model.Status == ApplicationStatus.Withdrawn) { <p>The Studio cannot access this snapshot because you withdrew. It is still stored until it is deleted.</p> }
+            <details class="ap-submitted"><summary>View your submitted snapshot</summary><partial name="_ApplicationSnapshot" model="Model.SubmittedSnapshot" /></details>
+        } else if (Model.SnapshotPurged) { <p>Your submitted snapshot has been removed. Your application status history remains.</p> }
+        else { <p>The submitted snapshot is unavailable. <a href="/Legal/Grievance">Contact us</a> if you have questions about your data.</p> }
+    </section>
     </div><aside class="ap-detail-aside" aria-label="Application actions">
     @if (ApplicationLifecycleRules.CanCandidateWithdraw(Model.Status)) { <section class="ap-card ap-card--subtle"><h2>Need to withdraw?</h2><p>You can withdraw your application if you no longer wish to be considered.</p><a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@Model.ApplicationId">Withdraw application</a></section> }
+    <section class="ap-card ap-card--subtle"><h2>Privacy &amp; data</h2><p>Withdrawing removes Studio access but does not automatically delete stored data. Account erasure and automatic snapshot deletion are not yet available.</p><a href="/Legal/Grievance">Contact us about your data →</a></section>
     </aside></div>
     <p class="ap-muted ap-footnote">Job and Studio names reflect their current values.</p>
 </div>

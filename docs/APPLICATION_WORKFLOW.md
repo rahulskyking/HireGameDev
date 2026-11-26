@@ -38,3 +38,5 @@ Then run `node scripts/test-application-workflow.cjs`. It checks review/consent/
 ## Consent and privacy status
 
 The current application-share-v2 disclosure describes snapshot sharing, match scoring and the fact that withdrawal does not automatically delete stored records. Changing the version makes outstanding v1 review tokens stale; existing consent records remain unchanged. The Development-only flow still has no self-service account erasure, production retention worker, or verified backup deletion process. The privacy notice is an engineering draft, not a legal approval; do not use real personal data.
+
+Candidates can open their own submitted snapshot from their application timeline, including after withdrawal while it remains stored. Studio access remains revoked after withdrawal. An intentionally purged snapshot is reported as removed; missing or invalid data is only reported as unavailable. This does not implement deletion, account erasure, or a retention schedule.

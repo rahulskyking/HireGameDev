@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HireGameDev.Infrastructure.Services;
 
 // Authorized owner and timeline are read in one statement; an in-flight response cannot
-// be recalled after account state changes. This does not grant Studio or snapshot access.
+// be recalled after account state changes. Snapshot access is limited to its authenticated owner.
 internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICandidateApplicationDetailService
 {
     private const int MaxEvents = 50;
@@ -32,9 +32,10 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
                 user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
             orderby history.OccurredAt descending, history.Id descending
             select new { app.Id, app.Status, app.SubmittedAt, JobTitle = job.Title ?? "Untitled job", StudioName = studio.Name,
-                history.PreviousStatus, history.NewStatus, history.OccurredAt,
-                CandidateData = app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.CandidateData : null,
-                JobData = app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.JobData : null })
+                history.PreviousStatus, history.NewStatus, history.OccurredAt, app.SnapshotPurgedAt, SnapshotExists = snapshot != null,
+                CandidateData = app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.CandidateData : null,
+                JobData = app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.JobData : null,
+                Phone = app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.Phone : null })
             .Take(MaxEvents + 1).ToListAsync(cancellationToken);
         // Missing history is an integrity problem, not permission to expose other data.
         if (rows.Count == 0) return Unavailable();
@@ -45,24 +46,48 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
         ApplicationSkillMatch? match = null;
         ApplicationFitScore? fit = null;
         var usesCurrentJobRequirements = false;
+        ApplicationSnapshotDraft? submittedSnapshot = null;
         if (head.CandidateData is not null && head.JobData is not null)
         {
             try {
                 var candidateSnapshot = JsonSerializer.Deserialize<CandidateApplicationSnapshot>(head.CandidateData);
                 var jobSnapshot = JsonSerializer.Deserialize<JobApplicationSnapshot>(head.JobData);
-                match = ApplicationSkillMatch.Create(candidateSnapshot, jobSnapshot);
-                fit = ApplicationFitScore.Create(candidateSnapshot, jobSnapshot);
-                if (candidateSnapshot is not null && jobSnapshot is not null && jobSnapshot.MatchInputs is null)
+                if (ValidSnapshot(candidateSnapshot, jobSnapshot))
                 {
-                    fit = await LegacyApplicationMatch.GetAsync(db, actorUserId, applicationId, candidateSnapshot, jobSnapshot, cancellationToken);
-                    usesCurrentJobRequirements = fit is not null;
+                    submittedSnapshot = new ApplicationSnapshotDraft(1, candidateSnapshot!, jobSnapshot!, head.Phone);
+                    // Withdrawal revokes Studio access and removes matching; the owner can still
+                    // inspect their stored data until it is purged.
+                    if (head.Status != ApplicationStatus.Withdrawn)
+                    {
+                        match = ApplicationSkillMatch.Create(candidateSnapshot, jobSnapshot);
+                        fit = ApplicationFitScore.Create(candidateSnapshot, jobSnapshot);
+                        if (jobSnapshot!.MatchInputs is null)
+                        {
+                            fit = await LegacyApplicationMatch.GetAsync(db, actorUserId, applicationId, candidateSnapshot!, jobSnapshot, cancellationToken);
+                            usesCurrentJobRequirements = fit is not null;
+                        }
+                    }
                 }
             }
             catch (JsonException) { /* Matching is optional; timeline remains available. */ }
             catch (NotSupportedException) { }
         }
-        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match, fit, usesCurrentJobRequirements));
+        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match, fit, usesCurrentJobRequirements, submittedSnapshot, head.SnapshotPurgedAt.HasValue && !head.SnapshotExists));
     }
+
+    // Fail closed for malformed or unsupported snapshots; never substitute the live profile.
+    private static bool ValidSnapshot(CandidateApplicationSnapshot? candidate, JobApplicationSnapshot? job) =>
+        candidate is not null && job is not null && !string.IsNullOrWhiteSpace(candidate.FullName) &&
+        !string.IsNullOrWhiteSpace(candidate.Headline) && !string.IsNullOrWhiteSpace(candidate.City) &&
+        candidate.Skills is not null && candidate.Experience is not null && candidate.Education is not null &&
+        candidate.Portfolio is not null && candidate.ShippedGames is not null &&
+        candidate.Skills.All(x => x is not null && !string.IsNullOrWhiteSpace(x.Name)) &&
+        candidate.Experience.All(x => x is not null && !string.IsNullOrWhiteSpace(x.Company) && !string.IsNullOrWhiteSpace(x.Title)) &&
+        candidate.Education.All(x => x is not null && !string.IsNullOrWhiteSpace(x.Institution) && !string.IsNullOrWhiteSpace(x.Degree)) &&
+        candidate.Portfolio.All(x => x is not null && x.Skills is not null && x.Skills.All(s => !string.IsNullOrWhiteSpace(s)) && !string.IsNullOrWhiteSpace(x.Url)) &&
+        candidate.ShippedGames.All(x => x is not null && x.Platforms is not null && x.Platforms.All(s => !string.IsNullOrWhiteSpace(s)) &&
+            !string.IsNullOrWhiteSpace(x.GameName) && !string.IsNullOrWhiteSpace(x.StudioName) && !string.IsNullOrWhiteSpace(x.Role)) &&
+        !string.IsNullOrWhiteSpace(job.JobTitle) && !string.IsNullOrWhiteSpace(job.StudioName);
 
     private static Result<CandidateApplicationDetail> Unavailable() =>
         Result.Failure<CandidateApplicationDetail>(Error.NotFound("Applications.Unavailable", "This application is unavailable."));

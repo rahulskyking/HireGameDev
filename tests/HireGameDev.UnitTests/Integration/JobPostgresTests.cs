@@ -175,10 +175,30 @@ public sealed class JobPostgresTests
             Assert.True(timeline.IsSuccess, timeline.Error.Message);
             Assert.Equal(new[] { ApplicationStatus.Withdrawn, ApplicationStatus.Shortlisted, ApplicationStatus.Submitted }, timeline.Value.Events.Select(x => x.NewStatus));
             Assert.False(timeline.Value.HasEarlierEvents);
+            Assert.NotNull(timeline.Value.SubmittedSnapshot);
+            Assert.Equal(phone, timeline.Value.SubmittedSnapshot!.Phone);
+            Assert.Equal(answer, timeline.Value.SubmittedSnapshot.Job.ScreeningAnswer);
+            Assert.False(timeline.Value.SnapshotPurged);
+            Assert.Null(timeline.Value.FitScore); // Withdrawn applicants do not receive a Studio-facing match.
             var deniedTimeline = await new CandidateApplicationDetailService(verify.Db).GetAsync(h.Owner, applicationId);
             Assert.True(deniedTimeline.IsFailure); Assert.Equal("Applications.Unavailable", deniedTimeline.Error.Code);
             Assert.Equal(0, (await verify.Db.Jobs.SingleAsync(x => x.Id == draft.Id)).ApplicationsCount);
             Assert.Equal(3, await verify.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == applicationId));
+        }
+        // An intentionally purged snapshot is absent for its owner as well; timeline remains available.
+        await using (var purge = h.Session())
+        {
+            purge.Db.ApplicationSnapshots.Remove(await purge.Db.ApplicationSnapshots.SingleAsync(x => x.ApplicationId == applicationId));
+            (await purge.Db.Applications.SingleAsync(x => x.Id == applicationId)).SnapshotPurgedAt = new WorkflowWithdrawalClock().UtcNow;
+            await purge.Db.SaveChangesAsync();
+        }
+        await using (var verify = h.Session())
+        {
+            var timeline = await new CandidateApplicationDetailService(verify.Db).GetAsync(userId, applicationId);
+            Assert.True(timeline.IsSuccess);
+            Assert.True(timeline.Value.SnapshotPurged);
+            Assert.Null(timeline.Value.SubmittedSnapshot);
+            Assert.Equal(3, timeline.Value.Events.Count);
         }
     }
 
