@@ -1,22 +1,51 @@
-@using HireGameDev.Application.Abstractions.Applications
 @using HireGameDev.Application.Features.Applications
 @model HireGameDev.Web.Models.Applications.StudioApplicantDetailPage
-@{ ViewData["Title"] = "Applicant snapshot"; var application = Model.Application; var snapshot = new ApplicationSnapshotDraft(1, application.Candidate, application.Job, application.Phone); var options = Enum.GetValues<ApplicationStatus>().Where(x => ApplicationLifecycleRules.CanStudioTransition(application.Status, x)).ToArray(); }
-@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
-<div class="ap">
-    <a class="ap-back" asp-action="Index" asp-route-jobId="@application.JobId" asp-route-studioId="@Model.StudioId" asp-route-page="@Model.Page" asp-route-applicationStatus="@Model.Status">← Back to applicants</a>
-    <header class="ap-detail-hero"><div><span class="ap-hero-kicker">● &nbsp; APPLICATION REVIEW</span><h1>Applicant snapshot</h1><p>@application.Candidate.FullName · @application.Job.JobTitle</p></div><span class="ap-status" data-status="@application.Status">@application.Status</span></header>
-    @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
-    <p class="ap-muted">This is the submitted snapshot, not the Candidate’s live profile. Treat its contents as confidential.</p>
-    <div class="ap-detail-layout"><div class="ap-detail-main"><partial name="_ApplicationSnapshot" model="snapshot" /></div><aside class="ap-detail-aside" aria-label="Application actions">
-    @if (application.CanChangeStatus && options.Length > 0) {
-        <section class="ap-card"><h2>Change status</h2><p class="ap-muted">Choose the next step. Marking an applicant as Hired is final and cannot be undone here.</p>
-            <form class="ap-status-form" asp-action="ChangeStatus" asp-route-applicationId="@application.ApplicationId" method="post">
-                <input type="hidden" name="studioId" value="@Model.StudioId" /><input type="hidden" name="page" value="@Model.Page" /><input type="hidden" name="applicationStatus" value="@Model.Status" />
-                <label for="newStatus">New status</label><select id="newStatus" name="newStatus">@foreach (var option in options) { <option value="@option">@option</option> }</select>
-                <label class="ap-check"><input type="checkbox" name="confirmed" value="true" required /> I confirm this status change</label><button class="c-btn c-btn--primary" type="submit">Update</button>
-            </form>
-        </section>
-    } else if (!application.CanChangeStatus) { <p class="ap-note">Viewer access is read-only.</p> }
-    </aside></div>
+@{
+    var application = Model.Application;
+    var candidate = application.Candidate;
+    var options = Enum.GetValues<ApplicationStatus>().Where(x => ApplicationLifecycleRules.CanStudioTransition(application.Status, x)).ToArray();
+    ViewData["Title"] = "Applicant snapshot";
+    var initial = string.IsNullOrWhiteSpace(candidate.FullName) ? "A" : candidate.FullName.Trim().Substring(0, 1).ToUpperInvariant();
+}
+@section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /><link rel="stylesheet" href="~/css/applicant-review.css" asp-append-version="true" /> }
+<div class="ar">
+    <div class="ar-breadcrumb"><a asp-action="Index" asp-route-jobId="@application.JobId" asp-route-studioId="@Model.StudioId" asp-route-page="@Model.Page" asp-route-applicationStatus="@Model.Status">← Back to applicants</a><span>Applicant snapshot</span></div>
+    @if (TempData["ApplicationMessage"] is string message) { <div class="ar-notice" role="status">@message</div> }
+    <header class="ar-profile">
+        <div class="ar-profile-main"><div class="ar-avatar" aria-hidden="true">@initial</div><div class="ar-identity"><h1 class="ar-eyebrow">Applicant snapshot</h1><h2 class="ar-name">@candidate.FullName</h2><p class="ar-headline">@candidate.Headline</p><div class="ar-profile-meta"><span>@candidate.PrimaryCategory</span><span>@candidate.City</span><span>@candidate.YearsExperience years experience</span></div></div></div>
+        <div class="ar-profile-status"><span class="ar-eyebrow">APPLICATION STATUS</span><span class="ap-status" data-status="@application.Status">@application.Status</span><span>Applied @application.SubmittedAt.ToUniversalTime().ToString("dd MMM yyyy") · UTC</span></div>
+    </header>
+    <div class="ar-context"><span class="ar-context-icon" aria-hidden="true">↗</span><div><span>APPLIED FOR</span><strong>@application.Job.JobTitle</strong><small>@application.Job.StudioName</small></div><p>Submitted profile snapshot · Confidential</p></div>
+    <div class="ar-layout">
+        <div class="ar-main">
+            @if (!string.IsNullOrWhiteSpace(application.Job.ScreeningQuestion)) {
+            <section class="ar-section" id="screening"><div class="ar-section-heading"><div><span class="ar-eyebrow">THE APPLICATION</span><h2>Screening answer</h2></div></div><div class="ar-answer"><h3>@application.Job.ScreeningQuestion</h3><p class="ar-text">@(string.IsNullOrWhiteSpace(application.Job.ScreeningAnswer) ? "No answer provided." : application.Job.ScreeningAnswer)</p></div></section>
+            }
+            <section class="ar-section" id="about"><div class="ar-section-heading"><div><span class="ar-eyebrow">CANDIDATE PROFILE</span><h2>About</h2></div></div><p class="ar-text">@(string.IsNullOrWhiteSpace(candidate.Bio) ? "No bio provided." : candidate.Bio)</p></section>
+            <section class="ar-section" id="skills"><div class="ar-section-heading"><div><span class="ar-eyebrow">CAPABILITIES</span><h2>Skills</h2></div><span class="ar-count">@candidate.Skills.Count</span></div>
+                @if (candidate.Skills.Count == 0) { <p class="ar-empty">No skills provided.</p> } else { <div class="ar-skills">@foreach (var skill in candidate.Skills) { <div class="ar-skill"><div><strong>@skill.Name</strong>@if (skill.IsPrimary) { <span class="ar-primary">Primary</span> }</div><p>@skill.Proficiency · @(skill.YearsUsed?.ToString() ?? "—") years · Last used @(skill.LastUsedYear?.ToString() ?? "—")</p></div> }</div> }
+            </section>
+            <section class="ar-section" id="experience"><div class="ar-section-heading"><div><span class="ar-eyebrow">CAREER</span><h2>Experience</h2></div><span class="ar-count">@candidate.Experience.Count</span></div>
+                @if (candidate.Experience.Count == 0) { <p class="ar-empty">No experience provided.</p> } else { <div class="ar-entries">@foreach (var item in candidate.Experience) { <article class="ar-entry"><div class="ar-entry-marker" aria-hidden="true"></div><div><h3>@item.Title</h3><p class="ar-entry-subtitle">@item.Company</p><p class="ar-entry-date">@item.StartDate – @(item.IsCurrent ? "Present" : item.EndDate?.ToString() ?? "—")</p>@if (!string.IsNullOrWhiteSpace(item.Description)) { <p class="ar-text">@item.Description</p> }</div></article> }</div> }
+            </section>
+            <section class="ar-section" id="portfolio"><div class="ar-section-heading"><div><span class="ar-eyebrow">SELECTED WORK</span><h2>Portfolio</h2></div><span class="ar-count">@candidate.Portfolio.Count</span></div>
+                @if (candidate.Portfolio.Count == 0) { <p class="ar-empty">No portfolio links provided.</p> } else { <div class="ar-work-grid">@foreach (var item in candidate.Portfolio) { var safe = ExternalUrlRules.TryNormalizeHttpsUrl(item.Url, out var url, out _); <article class="ar-work"><span class="ar-eyebrow">@item.LinkType</span><h3>@(string.IsNullOrWhiteSpace(item.Title) ? "Portfolio link" : item.Title)</h3>@if (item.Skills.Count > 0) { <p>@string.Join(", ", item.Skills)</p> }@if (safe) { <a href="@url" target="_blank" rel="noopener noreferrer">Open portfolio ↗</a> } else { <span class="ar-text ar-url">@item.Url</span> }</article> }</div> }
+            </section>
+            <section class="ar-section" id="games"><div class="ar-section-heading"><div><span class="ar-eyebrow">RELEASED WORK</span><h2>Shipped games</h2></div><span class="ar-count">@candidate.ShippedGames.Count</span></div>
+                @if (candidate.ShippedGames.Count == 0) { <p class="ar-empty">No shipped games provided.</p> } else { <div class="ar-entries">@foreach (var game in candidate.ShippedGames) { var safe = ExternalUrlRules.TryNormalizeHttpsUrl(game.StoreUrl, out var url, out _); <article class="ar-game"><div><h3>@game.GameName</h3><p>@game.Role · @game.StudioName</p><p>@string.Join(", ", game.Platforms) @if (!string.IsNullOrWhiteSpace(game.Engine)) { <span>· @game.Engine</span> } @if (game.ReleaseYear.HasValue) { <span>· @game.ReleaseYear</span> }</p></div>@if (safe) { <a href="@url" target="_blank" rel="noopener noreferrer">View game ↗</a> } else if (!string.IsNullOrWhiteSpace(game.StoreUrl)) { <span class="ar-url">@game.StoreUrl</span> }</article> }</div> }
+            </section>
+            <section class="ar-section" id="education"><div class="ar-section-heading"><div><span class="ar-eyebrow">BACKGROUND</span><h2>Education</h2></div><span class="ar-count">@candidate.Education.Count</span></div>
+                @if (candidate.Education.Count == 0) { <p class="ar-empty">No education provided.</p> } else { <div class="ar-entries">@foreach (var item in candidate.Education) { <article class="ar-game"><div><h3>@item.Degree @if (!string.IsNullOrWhiteSpace(item.Field)) { <span>· @item.Field</span> }</h3><p>@item.Institution</p><p>@(item.StartYear?.ToString() ?? "—") – @(item.EndYear?.ToString() ?? "—")</p></div></article> }</div> }
+            </section>
+        </div>
+        <aside class="ar-side" aria-label="Application details and actions">
+            <section class="ar-side-card ar-action-card"><span class="ar-eyebrow">APPLICATION STATUS</span><div class="ar-action-heading"><h2>@application.Status</h2><span class="ap-status" data-status="@application.Status">@application.Status</span></div>
+                @if (application.CanChangeStatus && options.Length > 0) { <p>Move this application to the next stage.</p><form class="ar-form" asp-action="ChangeStatus" asp-route-applicationId="@application.ApplicationId" method="post"><input type="hidden" name="studioId" value="@Model.StudioId" /><input type="hidden" name="page" value="@Model.Page" /><input type="hidden" name="applicationStatus" value="@Model.Status" /><label for="newStatus">Change status</label><select id="newStatus" name="newStatus">@foreach (var option in options) { <option value="@option">@option</option> }</select><label class="ar-confirm"><input type="checkbox" name="confirmed" value="true" required /> <span>I confirm this status change</span></label><p class="ar-form-hint">Hired is final and cannot be undone here.</p><button class="c-btn c-btn--primary" type="submit">Update</button></form> }
+                else if (!application.CanChangeStatus) { <p>Viewer access is read-only.</p> } else { <p>There are no further status changes available.</p> }
+            </section>
+            <section class="ar-side-card"><span class="ar-eyebrow">AT A GLANCE</span><h2>Candidate details</h2><dl class="ar-details"><div><dt>Seniority</dt><dd>@candidate.Seniority</dd></div><div><dt>Availability</dt><dd>@candidate.Availability</dd></div><div><dt>Notice period</dt><dd>@(candidate.NoticePeriodDays.HasValue ? $"{candidate.NoticePeriodDays} days" : "Not specified")</dd></div><div><dt>Open to remote</dt><dd>@(candidate.OpenToRemote ? "Yes" : "No")</dd></div><div><dt>Willing to relocate</dt><dd>@(candidate.WillingToRelocate ? "Yes" : "No")</dd></div></dl></section>
+            <section class="ar-side-card"><span class="ar-eyebrow">SHARED INFORMATION</span><h2>Compensation &amp; contact</h2><dl class="ar-details"><div><dt>Expected CTC</dt><dd>@(candidate.ExpectedCtcLpa.HasValue ? $"{candidate.ExpectedCtcLpa} LPA" : "Not shared")</dd></div><div><dt>Current CTC</dt><dd>@(candidate.CurrentCtcLpa.HasValue ? $"{candidate.CurrentCtcLpa} LPA" : "Not shared")</dd></div><div><dt>Phone</dt><dd>@(application.Phone ?? "Not shared at this stage")</dd></div></dl><p class="ar-privacy">Phone is available after shortlist or hire. This is the submitted snapshot, not a live profile. Treat it as confidential.</p></section>
+            <nav class="ar-side-card ar-jump" aria-label="On this page"><span class="ar-eyebrow">ON THIS PAGE</span>@if (!string.IsNullOrWhiteSpace(application.Job.ScreeningQuestion)) { <a href="#screening">Screening answer <span>↗</span></a> }<a href="#about">About <span>↗</span></a><a href="#skills">Skills <span>↗</span></a><a href="#experience">Experience <span>↗</span></a><a href="#portfolio">Portfolio <span>↗</span></a><a href="#games">Shipped games <span>↗</span></a><a href="#education">Education <span>↗</span></a></nav>
+        </aside>
+    </div>
 </div>
