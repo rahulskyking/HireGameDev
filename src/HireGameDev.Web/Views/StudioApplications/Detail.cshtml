@@ -5,9 +5,10 @@
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <div class="ap">
     <a class="ap-back" asp-action="Index" asp-route-jobId="@application.JobId" asp-route-studioId="@Model.StudioId" asp-route-page="@Model.Page" asp-route-applicationStatus="@Model.Status">← Back to applicants</a>
-    <header class="ap-header"><div><span class="ap-label">Applicant snapshot</span><h1>Applicant snapshot</h1><p class="ap-muted">@application.Candidate.FullName · @application.Job.JobTitle</p></div><span class="ap-status" data-status="@application.Status">@application.Status</span></header>
+    <header class="ap-detail-hero"><div><span class="ap-hero-kicker">● &nbsp; APPLICATION REVIEW</span><h1>Applicant snapshot</h1><p>@application.Candidate.FullName · @application.Job.JobTitle</p></div><span class="ap-status" data-status="@application.Status">@application.Status</span></header>
     @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
     <p class="ap-muted">This is the submitted snapshot, not the Candidate’s live profile. Treat its contents as confidential.</p>
+    <div class="ap-detail-layout"><div class="ap-detail-main"><partial name="_ApplicationSnapshot" model="snapshot" /></div><aside class="ap-detail-aside" aria-label="Application actions">
     @if (application.CanChangeStatus && options.Length > 0) {
         <section class="ap-card"><h2>Change status</h2><p class="ap-muted">Choose the next step. Marking an applicant as Hired is final and cannot be undone here.</p>
             <form class="ap-status-form" asp-action="ChangeStatus" asp-route-applicationId="@application.ApplicationId" method="post">
@@ -17,5 +18,5 @@
             </form>
         </section>
     } else if (!application.CanChangeStatus) { <p class="ap-note">Viewer access is read-only.</p> }
-    <partial name="_ApplicationSnapshot" model="snapshot" />
+    </aside></div>
 </div>

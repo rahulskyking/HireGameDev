@@ -5,60 +5,28 @@
     var canWrite = Model.Studio.MemberRole is StudioMemberRole.Owner or StudioMemberRole.Recruiter;
 }
 @section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
-<div class="jw">
-    <a asp-controller="Studio" asp-action="EditProfile" asp-route-studioId="@Model.Studio.StudioId" class="jw-help">← Studio workspace</a>
-    <header class="jw-header">
-        <div class="jw-heading"><span class="jw-eyebrow">@Model.Studio.Name / Hiring workspace</span><h1>Your jobs</h1><p class="jw-muted">Build your team. Manage every role in one place.</p>@if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <p class="jw-muted">To review applications, select Applicants next to a job.</p> }</div>
-        @if (canWrite) { <a class="c-btn c-btn--primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId">+ Create a job</a> }
+<div class="jw jw-desk">
+    <div class="desk-topline"><a asp-controller="Studio" asp-action="EditProfile" asp-route-studioId="@Model.Studio.StudioId">← Studio workspace</a><span>HIRING / JOBS</span></div>
+    <header class="desk-hero">
+        <div><div class="desk-kicker"><span class="desk-dot"></span> @Model.Studio.Name · HIRING WORKSPACE</div><h1>Make your next<br /><em>great hire.</em></h1><p>Manage your open roles and the people applying to them, all in one place.</p></div>
+        <div class="desk-hero-action">@if (canWrite) { <a class="desk-primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId"><span>＋</span> Create a job</a> }<span>@(canWrite ? "Start with a draft, publish when ready." : "You have view-only access.")</span></div>
     </header>
-    @if (Model.Memberships.Count > 1)
-    {
-        <nav class="jw-actions" aria-label="Workspaces">
-        @foreach (var membership in Model.Memberships) { <a class="jw-tab" asp-action="Index" asp-route-studioId="@membership.StudioId" aria-current="@(membership.StudioId == Model.Studio.StudioId ? "page" : null)">@membership.Name</a> }
-        </nav>
-    }
+    @if (Model.Memberships.Count > 1) { <nav class="desk-workspaces" aria-label="Workspaces"><span>WORKSPACE</span>@foreach (var membership in Model.Memberships) { <a asp-action="Index" asp-route-studioId="@membership.StudioId" aria-current="@(membership.StudioId == Model.Studio.StudioId ? "page" : null)">@membership.Name</a> }</nav> }
     @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status">@message</div> }
-    @if (Model.Studio.VerificationStatus != StudioVerificationStatus.Verified)
-    {
-        <div class="jw-notice"><strong>Prepare now. Publish once verified.</strong><p>You can save drafts while your Studio is @Model.Studio.VerificationStatus.ToString().ToLowerInvariant().</p><a asp-controller="Studio" asp-action="Verification" asp-route-studioId="@Model.Studio.StudioId">View Studio verification →</a></div>
-    }
-    <section class="jw-panel" aria-label="Job listings">
-        <nav class="jw-tabs" aria-label="Job status">
-            <a class="jw-tab" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" aria-current="@(!Model.Filter.HasValue ? "page" : null)">All jobs <span>@Model.Jobs.Counts.Values.Sum()</span></a>
-            @foreach (var status in Enum.GetValues<JobStatus>())
-            {
-                <a class="jw-tab" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@status" aria-current="@(Model.Filter == status ? "page" : null)">@status <span>@Model.Jobs.Counts.GetValueOrDefault(status)</span></a>
-            }
-        </nav>
-        @if (Model.Jobs.Items.Count == 0)
-        {
-            <div class="jw-empty"><h2>@(Model.Filter.HasValue ? "No jobs with this status" : "No jobs yet")</h2><p class="jw-muted">@(Model.Filter.HasValue ? "Choose another status to see more jobs." : canWrite ? "Start with a draft. You can finish the details before publishing." : "Jobs created by your team will appear here.")</p>@if (Model.Filter.HasValue) { <a class="c-btn c-btn--secondary" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">View all jobs</a> } else if (canWrite) { <a class="c-btn c-btn--primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId">Create a job</a> }</div>
-        }
-        else
-        {
-            <div class="jw-job-list">
-            @foreach (var job in Model.Jobs.Items)
-            {
-                var title = string.IsNullOrWhiteSpace(job.Title) ? "Untitled draft" : job.Title;
-                <article class="jw-job-card">
-                    <div class="jw-job-main">
-                        <div class="jw-job-title"><h2><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId">@title</a></h2><span class="jw-badge" data-status="@job.Status">@job.Status</span></div>
-                        <div class="jw-job-meta"><span>Updated <time datetime="@job.UpdatedAt.ToString("O")">@job.UpdatedAt.ToString("dd MMM yyyy")</time></span><span>Expires @(job.ExpiresAt?.ToString("dd MMM yyyy") ?? "—")</span></div>
-                    </div>
-                    <div class="jw-job-actions">
-                        @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <a class="c-btn c-btn--primary c-btn--sm" asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="View applicants for @title">Applicants →</a> }
-                        <a class="c-btn c-btn--secondary c-btn--sm" asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="Manage @title">Manage job</a>
-                    </div>
-                </article>
-            }
-            </div>
-        }
-        <footer class="jw-row"><small>Past-expiry jobs cannot accept applications, even before their stored status updates.</small><nav class="jw-actions" aria-label="Pagination">
-        @for (var pageNumber = Math.Max(1, Model.Jobs.Page - 2); pageNumber <= Math.Min(Model.Jobs.TotalPages, Model.Jobs.Page + 2); pageNumber++)
-        {
-            <a class="jw-tab" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@Model.Filter" asp-route-page="@pageNumber" aria-current="@(pageNumber == Model.Jobs.Page ? "page" : null)">@pageNumber</a>
-        }
-        </nav></footer>
-    </section>
-    <p class="jw-help">@(canWrite ? "Verified Studios publish directly when checks pass. No routine Admin approval." : "You have Viewer access. Only Owners and Recruiters can change jobs.")</p>
+    @if (Model.Studio.VerificationStatus != StudioVerificationStatus.Verified) { <div class="jw-notice"><strong>Prepare now. Publish once verified.</strong><p>You can save drafts while your Studio is @Model.Studio.VerificationStatus.ToString().ToLowerInvariant().</p><a asp-controller="Studio" asp-action="Verification" asp-route-studioId="@Model.Studio.StudioId">View Studio verification →</a></div> }
+    <div class="desk-layout">
+        <aside class="desk-sidebar"><div class="desk-sidebar-title">YOUR PIPELINE <span>↗</span></div><nav aria-label="Job status" class="desk-nav">
+            <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" aria-current="@(!Model.Filter.HasValue ? "page" : null)"><span>All jobs</span><b>@Model.Jobs.Counts.Values.Sum()</b></a>
+            @foreach (var status in Enum.GetValues<JobStatus>()) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@status" aria-current="@(Model.Filter == status ? "page" : null)"><span>@status</span><b>@Model.Jobs.Counts.GetValueOrDefault(status)</b></a> }
+        </nav><div class="desk-sidebar-note"><strong>A little help</strong><p>Select a role to manage it, or open its applicants to review submissions.</p></div></aside>
+        <section class="desk-content" aria-label="Job listings">
+            <div class="desk-section-head"><div><span class="desk-overline">YOUR JOBS / @(Model.Filter?.ToString().ToUpperInvariant() ?? "ALL")</span><h2>@(Model.Filter.HasValue ? $"{Model.Filter} jobs" : "All jobs") <span>@(Model.Filter.HasValue ? Model.Jobs.Counts.GetValueOrDefault(Model.Filter.Value) : Model.Jobs.Counts.Values.Sum())</span></h2><p>Roles in @Model.Studio.Name</p></div></div>
+            @if (Model.Jobs.Items.Count == 0) { <div class="desk-empty"><span class="desk-empty-icon">↗</span><h3>@(Model.Filter.HasValue ? "Nothing in this view" : "Your next hire starts here")</h3><p>@(Model.Filter.HasValue ? "There are no jobs with this status. Try another view." : canWrite ? "Create your first job and build it at your own pace." : "Jobs created by your team will appear here.")</p>@if (Model.Filter.HasValue) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">View all jobs →</a> } else if (canWrite) { <a class="desk-primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId">Create a job →</a> }</div> }
+            else { <div class="desk-jobs">@foreach (var job in Model.Jobs.Items) { var title = string.IsNullOrWhiteSpace(job.Title) ? "Untitled draft" : job.Title;
+                <article class="desk-job"><div class="desk-job-index" aria-hidden="true">↗</div><div class="desk-job-info"><div class="desk-job-heading"><span class="jw-badge" data-status="@job.Status">@job.Status</span><span class="desk-job-date">UPDATED @job.UpdatedAt.ToString("dd MMM yyyy").ToUpperInvariant()</span></div><h3><a asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId">@title</a></h3><p>Expires @(job.ExpiresAt?.ToString("dd MMM yyyy") ?? "when published")</p></div><div class="desk-job-links">@if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <a class="desk-applicants" asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="View applicants for @title">Applicants <span>↗</span></a> }<a class="desk-manage" asp-action="Manage" asp-route-id="@job.Id" asp-route-studioId="@Model.Studio.StudioId" aria-label="Manage @title">Manage job →</a></div></article>
+            }</div> }
+            @if (Model.Jobs.TotalPages > 1) { <nav class="desk-pages" aria-label="Pagination"><span>Page @Model.Jobs.Page of @Model.Jobs.TotalPages</span><div>@for (var pageNumber = Math.Max(1, Model.Jobs.Page - 2); pageNumber <= Math.Min(Model.Jobs.TotalPages, Model.Jobs.Page + 2); pageNumber++) { <a class="jw-tab" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-status="@Model.Filter" asp-route-page="@pageNumber" aria-current="@(pageNumber == Model.Jobs.Page ? "page" : null)">@pageNumber</a> }</div></nav> }
+            <p class="desk-footnote">Expired jobs cannot accept applications, even before their stored status updates. All dates shown in UTC.</p>
+        </section>
+    </div>
 </div>

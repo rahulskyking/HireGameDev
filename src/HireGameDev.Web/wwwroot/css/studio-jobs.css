@@ -81,3 +81,36 @@
 .jw-job-meta { display:flex; flex-wrap:wrap; gap:8px 20px; color:var(--text-muted); font-size:.85rem; }
 .jw-job-actions { display:flex; flex-wrap:wrap; gap:8px; flex-shrink:0; }
 @media(max-width:700px) { .jw-job-card { align-items:flex-start; flex-direction:column; } .jw-job-actions { width:100%; } }
+
+/* Hiring desk — editorial header and persistent pipeline navigation. */
+.jw-desk { max-width:1200px; gap:16px; }
+.desk-topline { display:flex; justify-content:space-between; color:var(--text-muted); font-size:.75rem; letter-spacing:.08em; font-weight:700; }
+.desk-topline a { color:var(--text-muted); letter-spacing:0; }
+.desk-hero { min-height:260px; padding:38px 42px; display:flex; justify-content:space-between; align-items:end; gap:32px; border-radius:18px; background:#171713; color:#f7f6ee; overflow:hidden; position:relative; }
+.desk-hero::after { content:'↗'; position:absolute; right:25%; top:-76px; font-size:250px; line-height:1; color:rgba(255,255,255,.035); pointer-events:none; }
+.desk-kicker { color:#d9d7c9; font-size:.7rem; font-weight:700; letter-spacing:.13em; display:flex; gap:8px; align-items:center; }
+.desk-dot { width:8px; height:8px; background:#f5d900; border-radius:50%; }
+.jw .desk-hero h1 { margin:20px 0 14px; font-size:clamp(2.6rem,5vw,4rem); line-height:.98; letter-spacing:-.055em; }
+.desk-hero h1 em { font-style:normal; color:#f5d900; }
+.desk-hero p { color:#d2d0c5; max-width:390px; line-height:1.6; font-size:.92rem; }
+.desk-hero-action { display:grid; gap:12px; position:relative; z-index:1; font-size:.75rem; color:#d2d0c5; }
+.desk-primary { display:inline-flex; align-items:center; justify-content:center; gap:12px; padding:13px 18px; border-radius:8px; background:#f5d900; color:#171713; font-weight:700; text-decoration:none; }
+.desk-primary:hover { background:#ffe933; color:#171713; }
+.desk-primary span { font-size:1.3rem; line-height:1; }
+.desk-workspaces { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:12px 16px; border:1px solid var(--border); border-radius:10px; }
+.desk-workspaces span,.desk-overline { color:var(--text-muted); font-size:.68rem; letter-spacing:.12em; font-weight:700; }
+.desk-workspaces a { color:var(--text-muted); text-decoration:none; padding:6px 10px; border-radius:6px; font-size:.85rem; }
+.desk-workspaces a[aria-current=page] { background:var(--accent-subtle); color:var(--accent-ink); font-weight:700; }
+.desk-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:16px; align-items:start; }
+.desk-sidebar,.desk-content { background:var(--surface-elevated); border:1px solid var(--border); border-radius:16px; }
+.desk-sidebar { padding:20px 12px; }
+.desk-sidebar-title { display:flex; justify-content:space-between; padding:4px 10px 16px; color:var(--text-muted); font-size:.67rem; font-weight:700; letter-spacing:.12em; }
+.desk-nav { display:grid; gap:3px; }.desk-nav a { display:flex; justify-content:space-between; align-items:center; padding:10px; color:var(--text-muted); border-radius:8px; text-decoration:none; font-size:.85rem; }.desk-nav a:hover { background:var(--surface); }.desk-nav a[aria-current=page] { background:var(--text); color:var(--bg); font-weight:700; }.desk-nav b { font-size:.75rem; }
+.desk-sidebar-note { margin:24px 8px 0; padding:16px 0 0; border-top:1px solid var(--border); font-size:.8rem; color:var(--text-muted); line-height:1.5; }.desk-sidebar-note strong { color:var(--text); }.desk-sidebar-note p { margin-top:8px; }
+.desk-content { padding:26px; min-width:0; }.desk-section-head { padding-bottom:22px; border-bottom:1px solid var(--border); }.jw .desk-section-head h2 { font-size:1.7rem; margin:8px 0 5px; }.desk-section-head h2 span { display:inline-block; vertical-align:middle; font-size:.75rem; color:var(--text-muted); background:var(--surface); border-radius:999px; padding:5px 9px; }.desk-section-head p,.desk-footnote { color:var(--text-muted); font-size:.83rem; }
+.desk-job { display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:16px; align-items:center; padding:22px 0; border-bottom:1px solid var(--border); }.desk-job-index { display:grid; place-items:center; width:42px; height:42px; border-radius:10px; background:var(--accent-subtle); color:var(--accent-ink); font-size:1.3rem; }.desk-job-info { min-width:0; }.desk-job-heading { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }.desk-job-date { color:var(--text-muted); font-size:.65rem; letter-spacing:.06em; }.jw .desk-job h3 { margin:9px 0 5px; font-size:1.08rem; overflow-wrap:anywhere; }.desk-job h3 a { color:var(--text); text-decoration:none; }.desk-job h3 a:hover { text-decoration:underline; }.desk-job-info p { font-size:.8rem; color:var(--text-muted); }.desk-job-links { display:grid; justify-items:end; gap:10px; font-size:.8rem; font-weight:600; }.desk-applicants { display:flex; gap:18px; align-items:center; background:var(--surface); border:1px solid var(--border); padding:10px 12px; border-radius:8px; color:var(--text); text-decoration:none; }.desk-applicants:hover { border-color:var(--text-muted); }.desk-manage { color:var(--text-muted); }
+.desk-empty { text-align:center; padding:68px 20px; display:grid; gap:14px; justify-items:center; }.desk-empty-icon { display:grid; place-items:center; width:54px; height:54px; border-radius:15px; background:var(--accent-subtle); color:var(--accent-ink); font-size:1.6rem; }.desk-empty p { max-width:300px; color:var(--text-muted); font-size:.9rem; line-height:1.6; }.desk-pages { display:flex; justify-content:space-between; align-items:center; margin-top:18px; color:var(--text-muted); font-size:.8rem; }.desk-footnote { margin-top:20px !important; line-height:1.6; }
+@media(max-width:760px) { .desk-hero { padding:28px; min-height:0; flex-direction:column; align-items:start; }.desk-layout { grid-template-columns:1fr; }.desk-sidebar { padding:14px; }.desk-sidebar-title,.desk-sidebar-note { display:none; }.desk-nav { display:flex; overflow-x:auto; gap:6px; }.desk-nav a { white-space:nowrap; gap:12px; }.desk-content { padding:20px; } }
+@media(max-width:480px) { .desk-job { grid-template-columns:36px minmax(0,1fr); gap:12px; }.desk-job-index { width:36px; height:36px; }.desk-job-links { grid-column:2; display:flex; justify-items:start; align-items:center; gap:16px; flex-wrap:wrap; }.desk-topline span { display:none; } }
+.desk-manage-hero { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:24px; padding:32px; border-radius:16px; background:#171713; color:#f7f6ee; }.jw .desk-manage-hero h1 { margin:16px 0 10px; font-size:clamp(2rem,4vw,3.3rem); overflow-wrap:anywhere; }.desk-manage-hero p { color:#d2d0c5; margin-bottom:16px; }.desk-manage-hero .jw-badge { color:#171713; background:#f5d900; border-color:#f5d900; }
+.jw-desk a:focus-visible,.jw-desk button:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
