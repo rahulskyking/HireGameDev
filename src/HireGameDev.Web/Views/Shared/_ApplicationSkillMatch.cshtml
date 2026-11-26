@@ -1,0 +1,6 @@
+@model HireGameDev.Application.Features.Applications.ApplicationSkillMatch
+<section class="match-card" aria-labelledby="match-heading">
+    <div class="match-head"><div><span class="match-label">REQUIRED SKILLS</span><h2 id="match-heading">Skill match</h2></div><div class="match-score"><strong>@Model.Met <span>/ @Model.Total</span></strong><small>requirements met</small></div></div>
+    <p class="match-explainer">Compares the required skills and levels in the job with the Candidate’s self-reported skills at application time. This is not an overall fit score or a hiring decision.</p>
+    <div class="match-list">@foreach (var skill in Model.Skills) { var met = skill.Candidate.HasValue && (int)skill.Candidate.Value >= (int)skill.Required; <div class="match-row"><div><strong>@skill.Name</strong><small>Required: @skill.Required</small></div><span class="match-result @(met ? "match-result--met" : "")">@(met ? "Meets level" : skill.Candidate.HasValue ? $"Listed: {skill.Candidate}" : "Not listed")</span></div> }</div>
+</section>

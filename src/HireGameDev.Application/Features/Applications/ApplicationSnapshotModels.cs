@@ -16,5 +16,8 @@ public sealed record ApplicationExperienceSnapshot(string Company, string Title,
 public sealed record ApplicationEducationSnapshot(string Institution, string Degree, string? Field, short? StartYear, short? EndYear);
 public sealed record ApplicationPortfolioSnapshot(PortfolioLinkType LinkType, string Url, string? Title, IReadOnlyList<string> Skills);
 public sealed record ApplicationGameSnapshot(string GameName, string StudioName, string Role, IReadOnlyList<string> Platforms, string? Engine, short? ReleaseYear, string? StoreUrl);
-public sealed record JobApplicationSnapshot(string JobTitle, string StudioName, string? ScreeningQuestion, string? ScreeningAnswer);
+// Null requirements identify older snapshots where requirements were not recorded.
+public sealed record ApplicationJobSkillSnapshot(string Name, SkillProficiency MinProficiency);
+public sealed record JobApplicationSnapshot(string JobTitle, string StudioName, string? ScreeningQuestion, string? ScreeningAnswer,
+    IReadOnlyList<ApplicationJobSkillSnapshot>? RequiredSkills = null);
 public sealed record ApplicationSnapshotDraft(int Version, CandidateApplicationSnapshot Candidate, JobApplicationSnapshot Job, string? Phone);

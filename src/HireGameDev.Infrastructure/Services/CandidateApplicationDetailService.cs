@@ -1,4 +1,6 @@
+using System.Text.Json;
 using HireGameDev.Application.Abstractions.Applications;
+using HireGameDev.Application.Features.Applications;
 using HireGameDev.Application.Common;
 using HireGameDev.Domain.Enums;
 using HireGameDev.Infrastructure.Persistence;
@@ -24,11 +26,15 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
             join job in db.Jobs.AsNoTracking() on app.JobId equals job.Id
             join studio in db.StudioProfiles.AsNoTracking() on job.StudioId equals studio.Id
             join history in db.ApplicationStatusHistory.AsNoTracking() on app.Id equals history.ApplicationId
+            join snapshot in db.ApplicationSnapshots.AsNoTracking() on app.Id equals snapshot.ApplicationId into snapshots
+            from snapshot in snapshots.DefaultIfEmpty()
             where app.Id == applicationId && user.Id == actorUserId && user.IsActive && user.DeletedAt == null &&
                 user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
             orderby history.OccurredAt descending, history.Id descending
             select new { app.Id, app.Status, app.SubmittedAt, JobTitle = job.Title ?? "Untitled job", StudioName = studio.Name,
-                history.PreviousStatus, history.NewStatus, history.OccurredAt })
+                history.PreviousStatus, history.NewStatus, history.OccurredAt,
+                CandidateData = app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.CandidateData : null,
+                JobData = app.Status != ApplicationStatus.Withdrawn && app.SnapshotPurgedAt == null && snapshot != null && snapshot.SnapshotVersion == 1 ? snapshot.JobData : null })
             .Take(MaxEvents + 1).ToListAsync(cancellationToken);
         // Missing history is an integrity problem, not permission to expose other data.
         if (rows.Count == 0) return Unavailable();
@@ -36,7 +42,14 @@ internal sealed class CandidateApplicationDetailService(AppDbContext db) : ICand
         if (hasEarlier) rows.RemoveAt(rows.Count - 1);
         var head = rows[0];
         var events = rows.Select(x => new CandidateApplicationEvent(x.PreviousStatus, x.NewStatus, x.OccurredAt)).ToArray();
-        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier));
+        ApplicationSkillMatch? match = null;
+        if (head.CandidateData is not null && head.JobData is not null)
+        {
+            try { match = ApplicationSkillMatch.Create(JsonSerializer.Deserialize<CandidateApplicationSnapshot>(head.CandidateData), JsonSerializer.Deserialize<JobApplicationSnapshot>(head.JobData)); }
+            catch (JsonException) { /* Matching is optional; timeline remains available. */ }
+            catch (NotSupportedException) { }
+        }
+        return Result.Success(new CandidateApplicationDetail(head.Id, head.JobTitle, head.StudioName, head.Status, head.SubmittedAt, events, hasEarlier, match));
     }
 
     private static Result<CandidateApplicationDetail> Unavailable() =>

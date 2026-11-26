@@ -47,7 +47,14 @@ internal sealed class ApplicationReviewService(AppDbContext db, IApplicationElig
             return Result.Failure<ApplicationSnapshotDraft>(Error.NotFound("Applications.Unavailable", "This listing is unavailable."));
         if (string.IsNullOrWhiteSpace(job.ScreeningQuestion) && !string.IsNullOrWhiteSpace(screeningAnswer))
             return Result.Failure<ApplicationSnapshotDraft>(Error.Validation("Applications.NoScreeningQuestion", "This job has no screening question."));
+        // Capture the required skills as they were reviewed, rather than comparing to a later edit.
+        var requirements = await (from required in db.JobSkills.AsNoTracking()
+            join skill in db.Skills.AsNoTracking() on required.SkillId equals skill.Id
+            where required.JobId == jobId && required.IsRequired
+            orderby required.SkillId
+            select new ApplicationJobSkillSnapshot(skill.Name, required.MinProficiency)).ToArrayAsync(cancellationToken);
+        var snapshot = ApplicationSnapshotBuilder.Create(candidate, job, studio, screeningAnswer);
         // Do not commit anything: disposal rolls back this read-only transaction.
-        return Result.Success(ApplicationSnapshotBuilder.Create(candidate, job, studio, screeningAnswer));
+        return Result.Success(snapshot with { Job = snapshot.Job with { RequiredSkills = requirements } });
     }
 }

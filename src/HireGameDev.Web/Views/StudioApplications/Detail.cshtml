@@ -5,6 +5,7 @@
     var candidate = application.Candidate;
     var options = Enum.GetValues<ApplicationStatus>().Where(x => ApplicationLifecycleRules.CanStudioTransition(application.Status, x)).ToArray();
     ViewData["Title"] = "Applicant snapshot";
+    var match = ApplicationSkillMatch.Create(candidate, application.Job);
     var initial = string.IsNullOrWhiteSpace(candidate.FullName) ? "A" : candidate.FullName.Trim().Substring(0, 1).ToUpperInvariant();
 }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /><link rel="stylesheet" href="~/css/applicant-review.css" asp-append-version="true" /> }
@@ -18,9 +19,11 @@
     <div class="ar-context"><span class="ar-context-icon" aria-hidden="true">↗</span><div><span>APPLIED FOR</span><strong>@application.Job.JobTitle</strong><small>@application.Job.StudioName</small></div><p>Submitted profile snapshot · Confidential</p></div>
     <div class="ar-layout">
         <div class="ar-main">
+            @if (match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> } else { <section class="ar-section"><h2>Skill match unavailable</h2><p class="ar-empty">The application did not record required skills, or this job had none. Review the profile for more context.</p></section> }
             @if (!string.IsNullOrWhiteSpace(application.Job.ScreeningQuestion)) {
             <section class="ar-section" id="screening"><div class="ar-section-heading"><div><span class="ar-eyebrow">THE APPLICATION</span><h2>Screening answer</h2></div></div><div class="ar-answer"><h3>@application.Job.ScreeningQuestion</h3><p class="ar-text">@(string.IsNullOrWhiteSpace(application.Job.ScreeningAnswer) ? "No answer provided." : application.Job.ScreeningAnswer)</p></div></section>
             }
+            <details class="ar-profile-details"><summary>View full submitted profile <span>↓</span></summary>
             <section class="ar-section" id="about"><div class="ar-section-heading"><div><span class="ar-eyebrow">CANDIDATE PROFILE</span><h2>About</h2></div></div><p class="ar-text">@(string.IsNullOrWhiteSpace(candidate.Bio) ? "No bio provided." : candidate.Bio)</p></section>
             <section class="ar-section" id="skills"><div class="ar-section-heading"><div><span class="ar-eyebrow">CAPABILITIES</span><h2>Skills</h2></div><span class="ar-count">@candidate.Skills.Count</span></div>
                 @if (candidate.Skills.Count == 0) { <p class="ar-empty">No skills provided.</p> } else { <div class="ar-skills">@foreach (var skill in candidate.Skills) { <div class="ar-skill"><div><strong>@skill.Name</strong>@if (skill.IsPrimary) { <span class="ar-primary">Primary</span> }</div><p>@skill.Proficiency · @(skill.YearsUsed?.ToString() ?? "—") years · Last used @(skill.LastUsedYear?.ToString() ?? "—")</p></div> }</div> }
@@ -37,6 +40,7 @@
             <section class="ar-section" id="education"><div class="ar-section-heading"><div><span class="ar-eyebrow">BACKGROUND</span><h2>Education</h2></div><span class="ar-count">@candidate.Education.Count</span></div>
                 @if (candidate.Education.Count == 0) { <p class="ar-empty">No education provided.</p> } else { <div class="ar-entries">@foreach (var item in candidate.Education) { <article class="ar-game"><div><h3>@item.Degree @if (!string.IsNullOrWhiteSpace(item.Field)) { <span>· @item.Field</span> }</h3><p>@item.Institution</p><p>@(item.StartYear?.ToString() ?? "—") – @(item.EndYear?.ToString() ?? "—")</p></div></article> }</div> }
             </section>
+            </details>
         </div>
         <aside class="ar-side" aria-label="Application details and actions">
             <section class="ar-side-card ar-action-card"><span class="ar-eyebrow">APPLICATION STATUS</span><div class="ar-action-heading"><h2>@application.Status</h2><span class="ap-status" data-status="@application.Status">@application.Status</span></div>
@@ -45,7 +49,7 @@
             </section>
             <section class="ar-side-card"><span class="ar-eyebrow">AT A GLANCE</span><h2>Candidate details</h2><dl class="ar-details"><div><dt>Seniority</dt><dd>@candidate.Seniority</dd></div><div><dt>Availability</dt><dd>@candidate.Availability</dd></div><div><dt>Notice period</dt><dd>@(candidate.NoticePeriodDays.HasValue ? $"{candidate.NoticePeriodDays} days" : "Not specified")</dd></div><div><dt>Open to remote</dt><dd>@(candidate.OpenToRemote ? "Yes" : "No")</dd></div><div><dt>Willing to relocate</dt><dd>@(candidate.WillingToRelocate ? "Yes" : "No")</dd></div></dl></section>
             <section class="ar-side-card"><span class="ar-eyebrow">SHARED INFORMATION</span><h2>Compensation &amp; contact</h2><dl class="ar-details"><div><dt>Expected CTC</dt><dd>@(candidate.ExpectedCtcLpa.HasValue ? $"{candidate.ExpectedCtcLpa} LPA" : "Not shared")</dd></div><div><dt>Current CTC</dt><dd>@(candidate.CurrentCtcLpa.HasValue ? $"{candidate.CurrentCtcLpa} LPA" : "Not shared")</dd></div><div><dt>Phone</dt><dd>@(application.Phone ?? "Not shared at this stage")</dd></div></dl><p class="ar-privacy">Phone is available after shortlist or hire. This is the submitted snapshot, not a live profile. Treat it as confidential.</p></section>
-            <nav class="ar-side-card ar-jump" aria-label="On this page"><span class="ar-eyebrow">ON THIS PAGE</span>@if (!string.IsNullOrWhiteSpace(application.Job.ScreeningQuestion)) { <a href="#screening">Screening answer <span>↗</span></a> }<a href="#about">About <span>↗</span></a><a href="#skills">Skills <span>↗</span></a><a href="#experience">Experience <span>↗</span></a><a href="#portfolio">Portfolio <span>↗</span></a><a href="#games">Shipped games <span>↗</span></a><a href="#education">Education <span>↗</span></a></nav>
+
         </aside>
     </div>
 </div>
