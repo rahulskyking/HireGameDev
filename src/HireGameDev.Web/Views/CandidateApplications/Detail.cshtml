@@ -5,6 +5,7 @@
 <main class="ap"><a asp-action="Index">← My applications</a><h1>@Model.JobTitle</h1>
 @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
 <p>@Model.StudioName · Current status: <strong>@Model.Status</strong></p>
+<p>@HireGameDev.Web.Models.Applications.ApplicationStatusUi.Description(Model.Status)</p>
 <p>Job and Studio names reflect their current values. Statuses are shown most recent first, in UTC.</p>
 <section class="ap-card" aria-labelledby="timeline-heading"><h2 id="timeline-heading">Application timeline</h2>
 <ol class="ap-timeline">@foreach (var item in Model.Events) { <li><strong>@item.NewStatus</strong><span>@item.OccurredAt.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC</span></li> }</ol>

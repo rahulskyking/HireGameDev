@@ -13,8 +13,12 @@
 <h3>Skills</h3><ul>@foreach (var x in c.Skills) { <li>@x.Name · @x.Proficiency · @(x.YearsUsed?.ToString() ?? "—") years · last used @(x.LastUsedYear?.ToString() ?? "—") · @(x.IsPrimary ? "Primary" : "Additional")</li> }</ul>
 <h3>Experience</h3><ul>@foreach (var x in c.Experience) { <li><strong>@x.Title at @x.Company</strong> · @x.StartDate – @(x.IsCurrent ? "Present" : x.EndDate?.ToString() ?? "—")<p class="ap-text">@x.Description</p></li> }</ul>
 <h3>Education</h3><ul>@foreach (var x in c.Education) { <li>@x.Degree · @x.Field · @x.Institution · @x.StartYear – @x.EndYear</li> }</ul>
-<h3>Portfolio</h3><ul>@foreach (var x in c.Portfolio) { <li>@x.LinkType · @x.Title · <span class="ap-text">@x.Url</span> · @string.Join(", ", x.Skills)</li> }</ul>
-<h3>Shipped games</h3><ul>@foreach (var x in c.ShippedGames) { <li>@x.GameName · @x.StudioName · @x.Role · @string.Join(", ", x.Platforms) · @x.Engine · @x.ReleaseYear · @x.StoreUrl</li> }</ul>
+<h3>Portfolio</h3>
+@if (c.Portfolio.Count == 0) { <p>None provided.</p> }
+else { <ul>@foreach (var x in c.Portfolio) { var safe = ExternalUrlRules.TryNormalizeHttpsUrl(x.Url, out var url, out _); <li>@x.LinkType · @x.Title · @if (safe) { <a href="@url" target="_blank" rel="noopener noreferrer">@x.Url ↗</a> } else { <span class="ap-text">@x.Url</span> } · @string.Join(", ", x.Skills)</li> }</ul> }
+<h3>Shipped games</h3>
+@if (c.ShippedGames.Count == 0) { <p>None provided.</p> }
+else { <ul>@foreach (var x in c.ShippedGames) { var safe = ExternalUrlRules.TryNormalizeHttpsUrl(x.StoreUrl, out var url, out _); <li>@x.GameName · @x.StudioName · @x.Role · @string.Join(", ", x.Platforms) · @x.Engine · @x.ReleaseYear @if (safe) { <a href="@url" target="_blank" rel="noopener noreferrer">View game ↗</a> } else if (!string.IsNullOrWhiteSpace(x.StoreUrl)) { <span class="ap-text">@x.StoreUrl</span> }</li> }</ul> }
 </section>
 <section class="ap-card"><h2>Job and screening</h2><p>@Model.Job.JobTitle · @Model.Job.StudioName</p>
 @if (!string.IsNullOrWhiteSpace(Model.Job.ScreeningQuestion)) { <h3>@Model.Job.ScreeningQuestion</h3><p class="ap-text">@Model.Job.ScreeningAnswer</p> }

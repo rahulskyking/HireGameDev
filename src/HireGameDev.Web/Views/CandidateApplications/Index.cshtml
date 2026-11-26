@@ -4,8 +4,8 @@
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <main class="ap"><h1>My applications</h1>
 @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
-<p>Withdrawing removes Studio access to your snapshot; it does not automatically reopen a full job.</p>
-@if (Model.Items.Count == 0) { <p>No applications to show.</p> }
+<p>Track updates from Studios and manage your applications in one place.</p>
+@if (Model.Items.Count == 0) { <section class="ap-card"><h2>@(Model.Page == 1 ? "No applications yet" : "No applications on this page")</h2>@if (Model.Page == 1) { <p>Explore jobs and apply to roles that interest you.</p><a class="c-btn c-btn--primary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a> } else { <p>Return to a previous page to see your applications.</p> }</section> }
 @foreach (var app in Model.Items) { <article class="ap-card"><h2>@app.JobTitle</h2><p>@app.StudioName · @app.Status · @app.SubmittedAt.ToString("dd MMM yyyy")</p>
 <a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">View application timeline →</a>
 @if (ApplicationLifecycleRules.CanCandidateWithdraw(app.Status)) { <a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@app.ApplicationId">Withdraw application</a> }

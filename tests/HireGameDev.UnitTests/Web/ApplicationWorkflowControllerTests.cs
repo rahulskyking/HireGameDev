@@ -70,8 +70,13 @@ public sealed class ApplicationWorkflowControllerTests
         Attach(controller, actor);
         Assert.IsType<BadRequestResult>(await controller.ChangeStatus(app, (ApplicationStatus)999, default));
         Assert.Equal(0, fake.Calls);
-        Assert.IsType<RedirectToActionResult>(await controller.ChangeStatus(app, ApplicationStatus.Reviewing, default, confirmed: true));
+        var workspace = Guid.NewGuid();
+        var redirect = Assert.IsType<RedirectToActionResult>(await controller.ChangeStatus(app, ApplicationStatus.Reviewing, default,
+            confirmed: true, studioId: workspace, page: 2, applicationStatus: ApplicationStatus.Submitted));
         Assert.Equal(actor, fake.Actor); Assert.Equal(app, fake.Application);
+        Assert.Equal(workspace, redirect.RouteValues!["studioId"]);
+        Assert.Equal(2, redirect.RouteValues["page"]);
+        Assert.Equal(ApplicationStatus.Submitted, redirect.RouteValues["applicationStatus"]);
     }
 
     [Fact]

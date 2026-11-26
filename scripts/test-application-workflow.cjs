@@ -72,12 +72,13 @@ async function main() {
         const match = withdrawHref.match(/\/([0-9a-f-]{36})\/withdraw\/?$/i);
         assert.ok(match, 'Could not identify the submitted application.');
         const applicationId = match[1];
+        const candidateDetailUrl = candidatePage.url();
 
         step = 'Studio Owner review and shortlist';
         const ownerPage = await login(owner);
         await ownerPage.goto(`${origin}/studio/applications/job/${jobId}`);
         await ownerPage.getByRole('heading', { name: 'Applicants', exact: true }).waitFor();
-        await ownerPage.locator(`a[href$="/${applicationId}"]`).click();
+        await ownerPage.locator(`a[href*="/${applicationId}"]`).click();
         await ownerPage.getByRole('heading', { name: 'Applicant snapshot' }).waitFor();
         assert.equal(await ownerPage.getByText(phone, { exact: true }).count(), 0, 'Phone must be hidden before shortlist.');
         await ownerPage.locator('#newStatus').selectOption({ label: 'Shortlisted' });
@@ -85,6 +86,8 @@ async function main() {
         await ownerPage.getByRole('button', { name: 'Update', exact: true }).click();
         await ownerPage.getByText('Status updated.', { exact: true }).waitFor();
         await ownerPage.getByText(phone, { exact: true }).waitFor();
+        await candidatePage.goto(candidateDetailUrl);
+        await candidatePage.getByText('Shortlisted', { exact: true }).first().waitFor();
 
         step = 'Studio Viewer read-only access';
         const viewerPage = await login(viewer);

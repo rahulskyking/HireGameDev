@@ -31,20 +31,25 @@ public sealed class StudioApplicationsController(IStudioApplicantListService lis
     }
 
     [HttpGet("{applicationId:guid}")]
-    public async Task<IActionResult> Detail(Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Detail(Guid applicationId, CancellationToken cancellationToken, Guid? studioId = null, int page = 1, ApplicationStatus? applicationStatus = null)
     {
         Private(); if (!Enabled) return NotFound();
         var result = await detail.GetAsync(Actor, applicationId, cancellationToken);
-        return result.IsSuccess ? View(result.Value) : NotFound();
+        if (result.IsFailure) return NotFound();
+        return View(new StudioApplicantDetailPage(result.Value, studioId, SafePage(page), SafeStatus(applicationStatus)));
     }
 
+    private static int SafePage(int page) => page is >= 1 and <= 1000000 ? page : 1;
+    private static ApplicationStatus? SafeStatus(ApplicationStatus? status) =>
+        status.HasValue && Enum.IsDefined(status.Value) && status.Value != ApplicationStatus.Withdrawn ? status : null;
+
     [HttpPost("{applicationId:guid}/status"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]
-    public async Task<IActionResult> ChangeStatus(Guid applicationId, ApplicationStatus newStatus, CancellationToken cancellationToken, bool confirmed = false)
+    public async Task<IActionResult> ChangeStatus(Guid applicationId, ApplicationStatus newStatus, CancellationToken cancellationToken, bool confirmed = false, Guid? studioId = null, int page = 1, ApplicationStatus? applicationStatus = null)
     {
         Private(); if (!Enabled) return NotFound();
         if (!ModelState.IsValid || !Enum.IsDefined(newStatus) || !confirmed) return BadRequest();
         var result = await status.ChangeStatusAsync(Actor, applicationId, newStatus, cancellationToken);
         TempData["ApplicationMessage"] = result.IsSuccess ? "Status updated." : "Status could not be updated. Access or application status may have changed.";
-        return RedirectToAction(nameof(Detail), new { applicationId });
+        return RedirectToAction(nameof(Detail), new { applicationId, studioId, page = SafePage(page), applicationStatus = SafeStatus(applicationStatus) });
     }
 }
