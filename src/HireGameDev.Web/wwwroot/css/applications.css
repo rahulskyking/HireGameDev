@@ -72,3 +72,4 @@
 .match-attention { margin:12px 0 0 !important; padding:10px 12px; border-radius:8px; background:var(--warning-subtle); color:var(--warning-ink); font-size:.8rem; font-weight:600; }
 
 .match-progress { height:8px; margin-top:16px; border-radius:999px; background:var(--surface-2); overflow:hidden; }.match-progress span { display:block; height:100%; border-radius:inherit; background:var(--accent); }
+.ap-card-fit { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; margin-top:9px; }.ap-card-fit strong { font-size:.78rem; color:var(--text); background:var(--surface-2); padding:4px 8px; border-radius:6px; }.ap-card-fit span { font-size:.74rem; color:var(--text-muted); }

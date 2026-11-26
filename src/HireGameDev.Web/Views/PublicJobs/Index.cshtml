@@ -40,8 +40,9 @@
 {
     foreach (var job in results.Items)
     {
+        var fit = Model.FitScores is not null && Model.FitScores.TryGetValue(job.Id, out var foundFit) ? foundFit : null;
         <article class="jb-job"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></div>
-        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div><footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
+        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { <div class="jb-card-fit">@if (fit?.Percentage is int score) { <span><strong>@score% match</strong><small>@fit.Coverage% of criteria assessed</small></span> } else { <span><strong>Match unavailable</strong><small>See job for details</small></span> }</div> }<footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
     }
     if (results.TotalPages > 1)
     {

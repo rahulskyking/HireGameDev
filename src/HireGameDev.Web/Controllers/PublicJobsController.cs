@@ -14,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -36,9 +36,14 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         if (PublicJobUi.HasFilters(search) || (results?.Page ?? 1) > 1)
             Response.Headers["X-Robots-Tag"] = "noindex, follow";
         var canonicalPath = PublicJobUi.PageUrl(results is null ? new PublicJobSearch() : search, results?.Page ?? 1);
+        var showMatches = environment?.IsDevelopment() == true && ViewerUserId().HasValue &&
+            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate;
+        IReadOnlyDictionary<Guid, ApplicationFitScore>? fits = null;
+        if (showMatches && cardFits is not null && results is not null && ViewerUserId() is Guid candidateId)
+            fits = await cardFits.GetAsync(candidateId, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
-            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath)));
+            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches));
     }
 
     [HttpGet("jobs/{slug}")]

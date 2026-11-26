@@ -8,7 +8,9 @@ namespace HireGameDev.Web.Models.Jobs;
 
 public sealed record PublicJobBrowsePage(PublicJobSearch Search, PublicJobSearchPage? Results,
     IReadOnlyList<CityLookupItem> Cities, IReadOnlyList<SkillLookupItem> Skills,
-    string CanonicalUrl, string RegistrationUrl);
+    string CanonicalUrl, string RegistrationUrl,
+    IReadOnlyDictionary<Guid, HireGameDev.Application.Features.Applications.ApplicationFitScore>? FitScores = null,
+    bool ShowMatches = false);
 public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false);
 
 public static class PublicJobUi

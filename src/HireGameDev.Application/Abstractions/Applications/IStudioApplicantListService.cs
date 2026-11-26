@@ -1,4 +1,5 @@
 using HireGameDev.Application.Common;
+using HireGameDev.Application.Features.Applications;
 using HireGameDev.Domain.Enums;
 
 namespace HireGameDev.Application.Abstractions.Applications;
@@ -14,4 +15,4 @@ public interface IStudioApplicantListService
 public sealed record StudioApplicantPage(IReadOnlyList<StudioApplicantListItem> Items, bool HasMore);
 
 // Name comes only from the submitted snapshot, never the live Candidate profile.
-public sealed record StudioApplicantListItem(Guid ApplicationId, ApplicationStatus Status, DateTimeOffset SubmittedAt, string? CandidateName);
+public sealed record StudioApplicantListItem(Guid ApplicationId, ApplicationStatus Status, DateTimeOffset SubmittedAt, string? CandidateName, ApplicationFitScore? FitScore = null, bool UsesCurrentJobRequirements = false);

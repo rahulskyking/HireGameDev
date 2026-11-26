@@ -106,6 +106,16 @@ public sealed class JobPostgresTests
             Assert.Equal(question, offer.Snapshot.Job.ScreeningQuestion); Assert.Equal(answer, offer.Snapshot.Job.ScreeningAnswer);
             Assert.Null(offer.Snapshot.Candidate.CurrentCtcLpa); Assert.Equal(phone, offer.Snapshot.Phone);
         }
+        await using (var cardSession = h.Session())
+        {
+            var cards = new JobCardFitService(cardSession.Db, new TestClock());
+            var result = await cards.GetAsync(userId, new[] { draft.Id });
+            var card = Assert.Single(result).Value;
+            var detail = ApplicationFitScore.Create(offer.Snapshot.Candidate, offer.Snapshot.Job)!;
+            Assert.Equal(detail.Percentage, card.Percentage);
+            Assert.Equal(detail.Coverage, card.Coverage);
+            Assert.Empty(await cards.GetAsync(h.Owner, new[] { draft.Id }));
+        }
         Guid applicationId;
         await using (var submit = h.Session())
         {
@@ -1831,6 +1841,12 @@ public sealed class JobPostgresTests
             Assert.Equal(100, studio.Value.CurrentJobFit!.Percentage);
             Assert.Equal(studio.Value.CurrentJobFit.Percentage, candidate.Value.FitScore!.Percentage);
             Assert.True(candidate.Value.UsesCurrentJobRequirements);
+            var list = await new StudioApplicantListService(session.Db).ListAsync(h.Owner, fixture.Job);
+            Assert.True(list.IsSuccess);
+            var card = Assert.Single(list.Value.Items);
+            Assert.Equal(studio.Value.CurrentJobFit.Percentage, card.FitScore!.Percentage);
+            Assert.True(card.UsesCurrentJobRequirements);
+            Assert.Empty((await new StudioApplicantListService(session.Db).ListAsync(Guid.NewGuid(), fixture.Job)).Value.Items);
             Assert.Null(await LegacyApplicationMatch.GetAsync(session.Db, Guid.NewGuid(), fixture.Application, profile,
                 new JobApplicationSnapshot("Job", "Studio", null, null), default));
         }
