@@ -115,6 +115,7 @@
                 @if (hasCandidateRole && HostEnvironment.IsDevelopment())
                 {
                     <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))">My applications</a>
+                    <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/recommended-jobs"))">Recommended jobs</a>
                 }
 
                 @if (hasStudioRole && currentPortal != PortalSite.Jobs)
@@ -251,6 +252,7 @@
                         @if (HostEnvironment.IsDevelopment())
                         {
                             <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))">My applications</a>
+                    <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/recommended-jobs"))">Recommended jobs</a>
                         }
                     }
 

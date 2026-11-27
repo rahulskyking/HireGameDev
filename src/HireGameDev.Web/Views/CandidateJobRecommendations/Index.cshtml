@@ -1,0 +1,28 @@
+@using HireGameDev.Application.Abstractions.Applications
+@using HireGameDev.Web.Models.Jobs
+@model IReadOnlyList<CandidateJobRecommendation>
+@{ ViewData["Title"] = "Recommended jobs"; }
+@section Styles { <meta name="robots" content="noindex, nofollow" /><link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" /> }
+<div class="jb">
+    <header class="jb-hero"><div><span class="jb-eyebrow">Based on your profile</span><h1>Roles to explore.</h1><p>A small selection of open jobs with skills you have listed. Your profile stays private.</p></div></header>
+    <section class="jb-stack" aria-label="Recommended jobs">
+        <p class="jb-muted">These suggestions compare your current profile with a limited pool of up to 50 jobs sharing listed skills. Only scores of at least 60% with at least 70% criteria coverage are shown. This is not a hiring decision or a complete list; other suitable jobs may be available.</p>
+        @if (Model.Count == 0)
+        {
+            <div class="jb-panel jb-empty"><h2>No recommendations right now.</h2><p>Other suitable roles may still be available. Adding relevant skills to your profile may also improve suggestions.</p><a class="c-btn c-btn--secondary" asp-controller="PublicJobs" asp-action="Index">Explore all jobs</a></div>
+        }
+        @foreach (var item in Model)
+        {
+            var job = item.Job;
+            <article class="jb-job">
+                <div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div>
+                <h2><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2>
+                <div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span></div>
+                <partial name="_JobCardMatch" model="item.Fit" />
+                <div class="jb-reasons"><strong>Why this role?</strong><ul>@foreach (var criterion in item.Fit.Criteria.Where(x => x.Fraction == 1m).Take(3)) { <li>@criterion.Label: @criterion.Explanation</li> }</ul></div>
+                <footer><strong>@PublicJobUi.Salary(job)</strong><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">View role →</a></footer>
+            </article>
+        }
+        <a asp-controller="PublicJobs" asp-action="Index">Explore all open jobs →</a>
+    </section>
+</div>
