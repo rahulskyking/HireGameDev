@@ -10,7 +10,7 @@ using Npgsql;
 
 namespace HireGameDev.Infrastructure.Services;
 
-internal sealed class SavedJobService(AppDbContext db, IPublicJobQueryService publicJobs, IClock clock) : ISavedJobService
+internal sealed class SavedJobService(AppDbContext db, IPublicJobQueryService publicJobs, IClock clock) : ISavedJobService, ISavedJobStateQuery
 {
     private static Error Denied() => Error.Forbidden("SavedJobs.Forbidden", "A Candidate account is required.");
     private static Error Unavailable() => Error.NotFound("SavedJobs.Unavailable", "This listing is unavailable.");
@@ -21,6 +21,18 @@ internal sealed class SavedJobService(AppDbContext db, IPublicJobQueryService pu
          where actor != Guid.Empty && user.Id == actor && user.IsActive && user.DeletedAt == null &&
              user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
          select (Guid?)candidate.Id).SingleOrDefaultAsync(ct);
+
+    public async Task<Result<IReadOnlySet<Guid>>> GetSavedIdsAsync(Guid actorUserId, IReadOnlyCollection<Guid> jobIds, CancellationToken cancellationToken = default)
+    {
+        if (jobIds.Count > 50) return Result.Failure<IReadOnlySet<Guid>>(Error.Validation("SavedJobs.TooManyJobs", "Choose up to 50 jobs."));
+        var candidate = await CandidateAsync(actorUserId, cancellationToken);
+        if (!candidate.HasValue) return Result.Failure<IReadOnlySet<Guid>>(Denied());
+        var ids = jobIds.Distinct().ToArray();
+        var saved = await db.CandidateSavedJobs.AsNoTracking()
+            .Where(s => s.CandidateId == candidate.Value && ids.Contains(s.JobId))
+            .Select(s => s.JobId).ToArrayAsync(cancellationToken);
+        return Result.Success<IReadOnlySet<Guid>>(saved.ToHashSet());
+    }
 
     public async Task<Result<bool>> IsSavedAsync(Guid actorUserId, Guid jobId, CancellationToken cancellationToken = default)
     {

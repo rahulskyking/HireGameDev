@@ -14,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -41,9 +41,16 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         IReadOnlyDictionary<Guid, ApplicationFitScore>? fits = null;
         if (showMatches && cardFits is not null && results is not null && ViewerUserId() is Guid candidateId)
             fits = await cardFits.GetAsync(candidateId, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
+        IReadOnlySet<Guid>? savedIds = null;
+        if (savedStates is not null && results is not null && ViewerUserId() is Guid savedUserId &&
+            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate)
+        {
+            var saved = await savedStates.GetSavedIdsAsync(savedUserId, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
+            if (saved.IsSuccess) savedIds = saved.Value;
+        }
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
-            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches));
+            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds));
     }
 
     [HttpGet("jobs/{slug}")]

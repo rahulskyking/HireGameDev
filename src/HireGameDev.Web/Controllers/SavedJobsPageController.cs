@@ -21,23 +21,29 @@ public sealed class SavedJobsPageController(ISavedJobService service) : Controll
 
     [HttpPost("{jobId:guid}/save")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(Guid jobId, string? slug, CancellationToken cancellationToken)
+    public async Task<IActionResult> Save(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null)
     {
         Private();
         var result = await service.SaveAsync(Actor(), jobId, cancellationToken);
         TempData["SavedJobMessage"] = result.IsSuccess ? "Job saved to your private list." : "This job could not be saved. It may no longer be available.";
-        return SafeJobRedirect(slug);
+        return SafeBrowseRedirect(returnUrl) ?? SafeJobRedirect(slug);
     }
 
     [HttpPost("{jobId:guid}/remove")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken)
+    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null)
     {
         Private();
         var result = await service.RemoveAsync(Actor(), jobId, cancellationToken);
         TempData["SavedJobMessage"] = result.IsSuccess ? "Job removed from your saved list." : "Your saved list could not be updated.";
-        return string.IsNullOrEmpty(slug) ? RedirectToAction(nameof(Index)) : SafeJobRedirect(slug);
+        return SafeBrowseRedirect(returnUrl) ?? (string.IsNullOrEmpty(slug) ? RedirectToAction(nameof(Index)) : SafeJobRedirect(slug));
     }
+    // Only return to the jobs listing, never an arbitrary supplied URL.
+    private IActionResult? SafeBrowseRedirect(string? returnUrl) =>
+        !string.IsNullOrEmpty(returnUrl) && returnUrl.Length <= 4096 &&
+        (returnUrl == "/jobs" || returnUrl.StartsWith("/jobs?", StringComparison.Ordinal) || returnUrl.StartsWith("/jobs#", StringComparison.Ordinal)) &&
+        !returnUrl.Contains('\\') && !returnUrl.Any(char.IsControl) && Url.IsLocalUrl(returnUrl)
+            ? LocalRedirect(returnUrl) : null;
     private IActionResult SafeJobRedirect(string? slug) =>
         !string.IsNullOrEmpty(slug) && slug.Length <= 160 && slug.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-')
             ? LocalRedirect("/jobs/" + slug) : RedirectToAction(nameof(Index));
