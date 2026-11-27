@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
 using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Web.Authorization;
+using HireGameDev.Web.Models.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,34 +34,33 @@ public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFi
 
     [HttpPost("{jobId:guid}/save")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null)
+    public async Task<IActionResult> Save(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null, string? browseReturnUrl = null)
     {
         Private();
         var result = await service.SaveAsync(Actor(), jobId, cancellationToken);
         TempData["SavedJobMessage"] = result.IsSuccess ? "Job saved to your private list." : "This job could not be saved. It may no longer be available.";
-        return SafeBrowseRedirect(returnUrl) ?? SafeJobRedirect(slug);
+        return SafeBrowseRedirect(returnUrl) ?? SafeJobRedirect(slug, browseReturnUrl);
     }
 
     [HttpPost("{jobId:guid}/remove")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null, int? page = null)
+    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null, int? page = null, string? browseReturnUrl = null)
     {
         Private();
         var result = await service.RemoveAsync(Actor(), jobId, cancellationToken);
         TempData["SavedJobMessage"] = result.IsSuccess ? "Job removed from your saved list." : "Your saved list could not be updated.";
         return SafeBrowseRedirect(returnUrl) ?? (string.IsNullOrEmpty(slug)
             ? RedirectToAction(nameof(Index), new { page = page is > 0 and <= 100000 ? page : 1 })
-            : SafeJobRedirect(slug));
+            : SafeJobRedirect(slug, browseReturnUrl));
     }
     // Only return to the jobs listing, never an arbitrary supplied URL.
     private IActionResult? SafeBrowseRedirect(string? returnUrl) =>
-        !string.IsNullOrEmpty(returnUrl) && returnUrl.Length <= 4096 &&
-        (returnUrl == "/jobs" || returnUrl.StartsWith("/jobs?", StringComparison.Ordinal) || returnUrl.StartsWith("/jobs#", StringComparison.Ordinal)) &&
-        !returnUrl.Contains('\\') && !returnUrl.Any(char.IsControl) && Url.IsLocalUrl(returnUrl)
+        PublicJobUi.IsSafeBrowseReturnUrl(returnUrl)
             ? LocalRedirect(returnUrl) : null;
-    private IActionResult SafeJobRedirect(string? slug) =>
+    private IActionResult SafeJobRedirect(string? slug, string? browseReturnUrl = null) =>
         !string.IsNullOrEmpty(slug) && slug.Length <= 160 && slug.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-')
-            ? LocalRedirect("/jobs/" + slug) : RedirectToAction(nameof(Index));
+            ? LocalRedirect("/jobs/" + slug + (PublicJobUi.IsSafeBrowseReturnUrl(browseReturnUrl)
+                ? QueryString.Create("returnUrl", browseReturnUrl).ToString() : "")) : RedirectToAction(nameof(Index));
     private Guid Actor() => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 }

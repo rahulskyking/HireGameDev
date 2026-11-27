@@ -60,9 +60,12 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
     }
 
     [HttpGet("jobs/{slug}")]
-    public async Task<IActionResult> Detail(string slug, CancellationToken cancellationToken)
+    public async Task<IActionResult> Detail(string slug, CancellationToken cancellationToken, string? returnUrl = null)
     {
-        var redirect = CanonicalPortal("/jobs/" + Uri.EscapeDataString(slug));
+        var browseReturnUrl = PublicJobUi.IsSafeBrowseReturnUrl(returnUrl) ? returnUrl : null;
+        var navigationQuery = browseReturnUrl is null ? "" : QueryString.Create("returnUrl", browseReturnUrl).ToString();
+        if (browseReturnUrl is not null) Response.Headers["Referrer-Policy"] = "no-referrer";
+        var redirect = CanonicalPortal("/jobs/" + Uri.EscapeDataString(slug) + navigationQuery);
         if (redirect is not null) return redirect;
         var result = await jobs.GetBySlugAsync(slug, cancellationToken, viewerUserId: ViewerUserId());
         if (result.IsFailure)
@@ -73,7 +76,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         }
         var job = result.Value;
         if (!string.Equals(slug, job.Summary.Slug, StringComparison.Ordinal))
-            return RedirectPermanent(portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/jobs/" + job.Summary.Slug));
+            return RedirectPermanent(portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, "/jobs/" + job.Summary.Slug + navigationQuery));
         var path = "/jobs/" + job.Summary.Slug;
         bool? isSaved = null;
         if (savedJobs is not null && ViewerUserId() is Guid userId && User.IsInRole(HireGameDevRoleNames.Candidate) &&
@@ -97,7 +100,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var states = await applicationStates.GetAsync(actor, new[] { job.Summary.Id }, cancellationToken);
             if (states.IsSuccess) states.Value.TryGetValue(job.Summary.Id, out application);
         }
-        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit, showFit && fit is null && application is null, application));
+        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit, showFit && fit is null && application is null, application, browseReturnUrl));
     }
 
     private IActionResult? CanonicalPortal(string path)

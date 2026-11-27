@@ -14,7 +14,8 @@
     @if (Model.FitScore is not null || Model.ShowFitUnavailable) { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 }
 <div class="jb">
-<a class="jb-back" asp-action="Index">← Explore all roles</a>
+@if (Model.BrowseReturnUrl is not null) { <a class="jb-back" href="@Model.BrowseReturnUrl">← Back to search results</a> }
+else { <a class="jb-back" asp-action="Index">← Explore all roles</a> }
 <div class="jb-detail-layout"><article class="jb-panel jb-detail">
 <div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="56" height="56" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div>
 <header class="jb-detail-heading"><span class="jb-eyebrow">@detail.Category / @PublicJobUi.Type(job.JobType)</span><h1>@job.Title</h1><div class="jb-tags"><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName + ", " + job.CityStateCode)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }@if (detail.RelocationAssistance) { <span>Relocation assistance</span> }</div></header>
@@ -40,7 +41,7 @@ else if (Model.ShowFitUnavailable) { <section class="match-card"><h2>Profile mat
 @if (User.Identity?.IsAuthenticated != true)
 { <h2>Keep this role handy</h2><p>Sign in or create a Candidate account, then confirm Save when you return.</p><a class="c-btn c-btn--primary" asp-controller="Account" asp-action="Login" asp-route-returnUrl="@($"/jobs/{job.Slug}")">Sign in to save</a><a href="@Model.RegistrationUrl">Create a Candidate account</a> }
 else if (Model.IsSaved.HasValue)
-{ <h2>@(Model.IsSaved.Value ? "Saved to your list" : "Save for later")</h2><p>Only you can see your saved jobs.</p><form asp-controller="SavedJobsPage" asp-action="@(Model.IsSaved.Value ? "Remove" : "Save")" asp-route-jobId="@job.Id" method="post"><input type="hidden" name="slug" value="@job.Slug" /><button class="c-btn c-btn--primary" type="submit">@(Model.IsSaved.Value ? "Remove from saved jobs" : "Save job")</button></form><a asp-controller="SavedJobsPage" asp-action="Index">View saved jobs</a> }
+{ <h2>@(Model.IsSaved.Value ? "Saved to your list" : "Save for later")</h2><p>Only you can see your saved jobs.</p><form asp-controller="SavedJobsPage" asp-action="@(Model.IsSaved.Value ? "Remove" : "Save")" asp-route-jobId="@job.Id" method="post"><input type="hidden" name="slug" value="@job.Slug" />@if (Model.BrowseReturnUrl is not null) { <input type="hidden" name="browseReturnUrl" value="@Model.BrowseReturnUrl" /> }<button class="c-btn c-btn--primary" type="submit">@(Model.IsSaved.Value ? "Remove from saved jobs" : "Save job")</button></form><a asp-controller="SavedJobsPage" asp-action="Index">View saved jobs</a> }
 else { <h2>Save for later</h2><p>Saving jobs is available to active Candidate accounts.</p> }
 </section>
 <section class="jb-panel jb-summary"><span class="jb-eyebrow">The essentials</span><h2>@PublicJobUi.Salary(job)</h2><p>@PublicJobUi.Type(job.JobType) · @job.WorkMode</p><dl><div><dt>Experience</dt><dd>@PublicJobUi.Experience(job)</dd></div><div><dt>Notice period</dt><dd>@(detail.MaxNoticeDays.HasValue ? $"Up to {detail.MaxNoticeDays} days" : "Not specified")</dd></div><div><dt>Openings</dt><dd>@detail.Openings</dd></div></dl>@if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment) && User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value == HireGameDevRoleNames.Candidate)

@@ -12,10 +12,16 @@ public sealed record PublicJobBrowsePage(PublicJobSearch Search, PublicJobSearch
     IReadOnlyDictionary<Guid, HireGameDev.Application.Features.Applications.ApplicationFitScore>? FitScores = null,
     bool ShowMatches = false, IReadOnlySet<Guid>? SavedJobIds = null,
     IReadOnlyDictionary<Guid, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState>? Applications = null);
-public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState? Application = null);
+public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState? Application = null, string? BrowseReturnUrl = null);
 
 public static class PublicJobUi
 {
+    // Navigation hint only: allow the local job listing, never another host or path.
+    public static bool IsSafeBrowseReturnUrl(string? value) =>
+        !string.IsNullOrEmpty(value) && value.Length <= 4096 &&
+        (value == "/jobs" || value.StartsWith("/jobs?", StringComparison.Ordinal) || value.StartsWith("/jobs#", StringComparison.Ordinal)) &&
+        !value.Contains('\\') && !value.Any(char.IsControl);
+
     public static bool HasFilters(PublicJobSearch search) => !string.IsNullOrWhiteSpace(search.Keyword) ||
         search.StudioId.HasValue || search.Category.HasValue || search.JobType.HasValue || search.WorkMode.HasValue || search.CityId.HasValue ||
         search.ExperienceYears.HasValue || (search.SkillIds?.Count ?? 0) > 0 || search.FresherFriendlyOnly || search.Sort != PublicJobSort.Newest || search.PageSize != 20;
