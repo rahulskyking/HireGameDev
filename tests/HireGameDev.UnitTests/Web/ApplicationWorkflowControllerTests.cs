@@ -26,6 +26,7 @@ public sealed class ApplicationWorkflowControllerTests
         var fake = new FakeServices();
         var controller = Candidate(fake, Guid.NewGuid(), environment);
         Assert.IsType<NotFoundResult>(await controller.Review(Guid.NewGuid(), null, default));
+        Assert.IsType<NotFoundResult>(await controller.DeleteSnapshot(Guid.NewGuid(), true, default));
         Assert.Equal(0, fake.Calls);
         Assert.Equal("private, no-store", controller.Response.Headers.CacheControl.ToString());
         Assert.Equal("no-referrer", controller.Response.Headers["Referrer-Policy"].ToString());
@@ -86,7 +87,7 @@ public sealed class ApplicationWorkflowControllerTests
     {
         Assert.Equal(AuthorizationPolicies.CandidateOnly, typeof(CandidateApplicationsController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
         Assert.Equal(AuthorizationPolicies.StudioMember, typeof(StudioApplicationsController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
-        foreach (var method in new[] { nameof(CandidateApplicationsController.Review), nameof(CandidateApplicationsController.Submit), nameof(CandidateApplicationsController.Withdraw) })
+        foreach (var method in new[] { nameof(CandidateApplicationsController.Review), nameof(CandidateApplicationsController.Submit), nameof(CandidateApplicationsController.Withdraw), nameof(CandidateApplicationsController.DeleteSnapshot) })
             Assert.NotNull(typeof(CandidateApplicationsController).GetMethod(method)!.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
         Assert.NotNull(typeof(StudioApplicationsController).GetMethod(nameof(StudioApplicationsController.ChangeStatus))!.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
     }

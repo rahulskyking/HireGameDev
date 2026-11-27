@@ -1359,6 +1359,56 @@ public sealed class JobPostgresTests
     }
 
     [PostgresFact]
+    public async Task CandidateSnapshotDeletion_IsOwnerOnlyAtomicAndIdempotent()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h, alreadyWithdrawn: true);
+        await using (var session = h.Session())
+        {
+            var service = new WithdrawnApplicationSnapshotDeletionService(session.Db, new TestClock());
+            Assert.True((await service.DeleteAsync(h.Owner, fixture.Application)).IsFailure);
+            Assert.True((await service.DeleteAsync(Guid.NewGuid(), fixture.Application)).IsFailure);
+        }
+        await using (var failing = h.Session(interceptor: new FailAfterSave()))
+            await Assert.ThrowsAsync<InjectedFailure>(() => new WithdrawnApplicationSnapshotDeletionService(failing.Db, new TestClock()).DeleteAsync(fixture.CandidateUser, fixture.Application));
+        await using (var check = h.Session())
+        {
+            Assert.True(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Null((await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application)).SnapshotPurgedAt);
+        }
+        await using (var session = h.Session())
+        {
+            var service = new WithdrawnApplicationSnapshotDeletionService(session.Db, new TestClock());
+            var deleted = await service.DeleteAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(deleted.IsSuccess && deleted.Value);
+            var repeated = await service.DeleteAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(repeated.IsSuccess && !repeated.Value);
+        }
+        await using (var check = h.Session())
+        {
+            Assert.False(await check.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+            var app = await check.Db.Applications.SingleAsync(x => x.Id == fixture.Application);
+            Assert.NotNull(app.SnapshotPurgedAt); Assert.Equal(ApplicationStatus.Withdrawn, app.Status);
+            Assert.Equal("v1", app.ConsentVersion);
+            Assert.Equal(2, await check.Db.ApplicationStatusHistory.CountAsync(x => x.ApplicationId == fixture.Application));
+            Assert.Single(await check.Db.AuditLogs.Where(x => x.EntityId == fixture.Application.ToString() && x.Action == "application.snapshot_deleted_by_candidate").ToListAsync());
+            var detail = await new CandidateApplicationDetailService(check.Db).GetAsync(fixture.CandidateUser, fixture.Application);
+            Assert.True(detail.IsSuccess && detail.Value.SnapshotPurged);
+        }
+    }
+
+    [PostgresFact]
+    public async Task CandidateSnapshotDeletion_DoesNotDeleteActiveApplications()
+    {
+        await using var h = await DatabaseHarness.Create();
+        var fixture = await RetentionRaceFixture(h);
+        await using var session = h.Session();
+        var result = await new WithdrawnApplicationSnapshotDeletionService(session.Db, new TestClock()).DeleteAsync(fixture.CandidateUser, fixture.Application);
+        Assert.True(result.IsFailure);
+        Assert.True(await session.Db.ApplicationSnapshots.AnyAsync(x => x.ApplicationId == fixture.Application));
+    }
+
+    [PostgresFact]
     public async Task Retention_RenewalAndDeletion_LockBothOrdersAndRespectWithdrawalDeadline()
     {
         // Real lifecycle renewal holds the same Job lock as retention. The third case checks

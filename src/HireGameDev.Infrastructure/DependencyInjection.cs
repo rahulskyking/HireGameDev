@@ -240,6 +240,9 @@ public static class DependencyInjection
         services.AddScoped<IJobCardFitService, JobCardFitService>();
         services.AddScoped<IApplicationSubmissionService, ApplicationSubmissionService>();
         services.AddScoped<IApplicationWithdrawalService, ApplicationWithdrawalService>();
+        // No production registration: deletion policy, legal holds and backups are not ready.
+        if (environment.IsDevelopment())
+            services.AddScoped<IWithdrawnApplicationSnapshotDeletionService, WithdrawnApplicationSnapshotDeletionService>();
         services.AddScoped<IStudioApplicationStatusService, StudioApplicationStatusService>();
         services.AddScoped<IStudioApplicantListService, StudioApplicantListService>();
         services.AddScoped<ICandidateApplicationListService, CandidateApplicationListService>();

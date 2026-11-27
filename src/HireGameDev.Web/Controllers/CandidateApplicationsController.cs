@@ -15,7 +15,8 @@ namespace HireGameDev.Web.Controllers;
 [Route("candidate/applications")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CandidateApplicationsController(IApplicationSubmissionService submission, ICandidateApplicationListService list,
-    ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment) : Controller
+    ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment,
+    IWithdrawnApplicationSnapshotDeletionService? snapshotDeletion = null) : Controller
 {
     private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
@@ -70,6 +71,27 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     // Slug is only a navigation hint; it never authorizes or selects the application target.
     private static string? SafeSlug(string? slug) => !string.IsNullOrEmpty(slug) && slug.Length <= 160 &&
         slug.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-') ? slug : null;
+
+    [HttpGet("{applicationId:guid}/delete-snapshot")]
+    public async Task<IActionResult> ConfirmSnapshotDeletion(Guid applicationId, CancellationToken cancellationToken)
+    {
+        Private(); if (!Enabled || snapshotDeletion is null) return NotFound();
+        var application = await detail.GetAsync(Actor, applicationId, cancellationToken);
+        if (application.IsFailure || application.Value.Status != HireGameDev.Domain.Enums.ApplicationStatus.Withdrawn || application.Value.SnapshotPurged) return NotFound();
+        return View(applicationId);
+    }
+
+    [HttpPost("{applicationId:guid}/delete-snapshot"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.ApplicationWrite)]
+    public async Task<IActionResult> DeleteSnapshot(Guid applicationId, bool confirmed, CancellationToken cancellationToken)
+    {
+        Private(); if (!Enabled || snapshotDeletion is null) return NotFound();
+        if (!ModelState.IsValid || !confirmed) return BadRequest();
+        var result = await snapshotDeletion.DeleteAsync(Actor, applicationId, cancellationToken);
+        TempData["ApplicationMessage"] = result.IsSuccess
+            ? (result.Value ? "Your submitted snapshot was deleted." : "Your submitted snapshot was already deleted.")
+            : "The snapshot could not be deleted. Please try again or contact us.";
+        return RedirectToAction(nameof(Detail), new { applicationId });
+    }
 
     [HttpGet("{applicationId:guid}/withdraw")]
     public IActionResult ConfirmWithdrawal(Guid applicationId)

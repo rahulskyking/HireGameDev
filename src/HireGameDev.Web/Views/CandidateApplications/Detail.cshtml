@@ -26,7 +26,9 @@
     </section>
     </div><aside class="ap-detail-aside" aria-label="Application actions">
     @if (ApplicationLifecycleRules.CanCandidateWithdraw(Model.Status)) { <section class="ap-card ap-card--subtle"><h2>Need to withdraw?</h2><p>You can withdraw your application if you no longer wish to be considered.</p><a class="c-btn c-btn--secondary" asp-action="ConfirmWithdrawal" asp-route-applicationId="@Model.ApplicationId">Withdraw application</a></section> }
-    <section class="ap-card ap-card--subtle"><h2>Privacy &amp; data</h2><p>Withdrawing removes Studio access but does not automatically delete stored data. Account erasure and automatic snapshot deletion are not yet available.</p><a href="/Legal/Grievance">Contact us about your data →</a></section>
+    <section class="ap-card ap-card--subtle"><h2>Privacy &amp; data</h2><p>Withdrawing removes Studio access but does not automatically delete stored data. Account erasure and automatic snapshot deletion are not yet available.</p>
+    @if (Model.Status == ApplicationStatus.Withdrawn && !Model.SnapshotPurged) { <a class="c-btn c-btn--secondary" asp-action="ConfirmSnapshotDeletion" asp-route-applicationId="@Model.ApplicationId">Delete submitted snapshot</a> }
+    <a href="/Legal/Grievance">Contact us about your data →</a></section>
     </aside></div>
     <p class="ap-muted ap-footnote">Job and Studio names reflect their current values.</p>
 </div>
