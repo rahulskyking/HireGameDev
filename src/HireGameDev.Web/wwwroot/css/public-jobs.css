@@ -84,3 +84,8 @@
 .jb-apply label { font-size:.86rem; font-weight:600; }
 .jb-apply textarea { width:100%; min-width:0; padding:10px; border:1px solid var(--control-border); border-radius:8px; background:var(--control-bg); color:var(--text); font:inherit; resize:vertical; }
 .jb-card-fit { display:flex; align-items:center; border:1px solid var(--border); background:var(--surface); border-radius:10px; padding:10px 12px; }.jb-card-fit span { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }.jb-card-fit strong { color:var(--text); font-size:.84rem; }.jb-card-fit small { color:var(--text-muted); font-size:.75rem; }
+.jb-quick-filters, .jb-active-filters { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:.8rem; }
+.jb-quick-filters span, .jb-active-filters span { color:var(--text-muted); }
+.jb-quick-filters a, .jb-active-filters a { display:inline-flex; align-items:center; padding:7px 11px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text); text-decoration:none; overflow-wrap:anywhere; }
+.jb-quick-filters a[aria-current="true"] { border-color:var(--accent-border); background:var(--accent-subtle); font-weight:700; }
+.jb-quick-filters a:hover, .jb-active-filters a:hover { border-color:var(--accent-border); }

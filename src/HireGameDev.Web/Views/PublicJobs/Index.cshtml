@@ -20,7 +20,7 @@
 <details class="jb-filters" open id="job-filters"><summary>Search &amp; filters <span>⌄</span></summary>
 <form asp-controller="PublicJobs" asp-action="Index" method="get" class="jb-filter-form" role="search" aria-label="Find game development jobs">
 @if (Model.Search.StudioId.HasValue) { <input type="hidden" name="StudioId" value="@Model.Search.StudioId" /> <div class="jb-note"><strong>Showing jobs from one Studio</strong><p>Other filters apply to this Studio’s open roles.</p><a href="@(PublicJobUi.PageUrl(Model.Search with { StudioId = null }, 1))">Browse all Studios</a></div> }
-<div class="jb-field"><label for="Keyword">Search jobs</label><input class="c-input" id="Keyword" name="Keyword" value="@Model.Search.Keyword" maxlength="100" placeholder="Role, tool or keyword" /></div>
+<div class="jb-field"><label for="Keyword">Search jobs</label><input class="c-input" id="Keyword" name="Keyword" value="@Model.Search.Keyword" maxlength="100" placeholder="Role, Studio or skill" aria-describedby="keyword-help" /><small id="keyword-help">Search title, description, Studio name or listed skills.</small></div>
 <div class="jb-field"><label for="Category">Discipline</label><select class="c-select" id="Category" name="Category"><option value="">All disciplines</option>@foreach (var value in Enum.GetValues<DisciplineCategory>()) { <option value="@value" selected="@(Model.Search.Category == value)">@value</option> }</select></div>
 <div class="jb-field"><label for="JobType">Employment type</label><select class="c-select" id="JobType" name="JobType"><option value="">All types</option>@foreach (var value in Enum.GetValues<JobType>()) { <option value="@value" selected="@(Model.Search.JobType == value)">@PublicJobUi.Type(value)</option> }</select></div>
 <div class="jb-field"><label for="WorkMode">Work arrangement</label><select class="c-select" id="WorkMode" name="WorkMode"><option value="">Any arrangement</option>@foreach (var value in Enum.GetValues<JobWorkMode>()) { <option value="@value" selected="@(Model.Search.WorkMode == value)">@value</option> }</select></div>
@@ -32,6 +32,28 @@
 <button class="c-btn c-btn--primary" type="submit">Find my next role →</button><a class="jb-clear" asp-action="Index">Clear all filters</a>
 </form></details>
 <section class="jb-stack" aria-labelledby="job-results-heading">
+<nav class="jb-quick-filters" aria-label="Quick job filters">
+    <span>Explore:</span>
+    <a href="@PublicJobUi.PageUrl(Model.Search with { WorkMode = JobWorkMode.Remote, CityId = null }, 1)" aria-current="@(Model.Search.WorkMode == JobWorkMode.Remote && !Model.Search.CityId.HasValue ? "true" : null)" title="Select remote jobs and clear the office city filter">Remote</a>
+    <a href="@PublicJobUi.PageUrl(Model.Search with { FresherFriendlyOnly = true }, 1)" aria-current="@(Model.Search.FresherFriendlyOnly ? "true" : null)">Fresher-friendly</a>
+    <a href="@PublicJobUi.PageUrl(Model.Search with { JobType = JobType.Internship }, 1)" aria-current="@(Model.Search.JobType == JobType.Internship ? "true" : null)">Internships</a>
+</nav>
+@if (PublicJobUi.HasFilters(Model.Search))
+{
+    <div class="jb-active-filters" aria-label="Active filters">
+        <span>Active filters:</span>
+        @if (!string.IsNullOrWhiteSpace(Model.Search.Keyword)) { <a href="@PublicJobUi.PageUrl(Model.Search with { Keyword = null }, 1)" aria-label="Remove keyword filter">@Model.Search.Keyword ×</a> }
+        @if (Model.Search.StudioId.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { StudioId = null }, 1)" aria-label="Remove Studio filter">One Studio ×</a> }
+        @if (Model.Search.Category.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { Category = null }, 1)" aria-label="Remove discipline filter">@Model.Search.Category ×</a> }
+        @if (Model.Search.JobType.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { JobType = null }, 1)" aria-label="Remove employment type filter">@PublicJobUi.Type(Model.Search.JobType.Value) ×</a> }
+        @if (Model.Search.WorkMode.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { WorkMode = null }, 1)" aria-label="Remove work arrangement filter">@Model.Search.WorkMode ×</a> }
+        @if (Model.Search.CityId.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { CityId = null }, 1)" aria-label="Remove city filter">@(Model.Cities.FirstOrDefault(c => c.Id == Model.Search.CityId)?.Name ?? "City") ×</a> }
+        @if (Model.Search.ExperienceYears.HasValue) { <a href="@PublicJobUi.PageUrl(Model.Search with { ExperienceYears = null }, 1)" aria-label="Remove experience filter">@Model.Search.ExperienceYears years ×</a> }
+        @foreach (var skillId in (Model.Search.SkillIds ?? Array.Empty<int>()).Distinct()) { var skillName = Model.Skills.FirstOrDefault(s => s.Id == skillId)?.Name ?? "Skill"; <a href="@PublicJobUi.PageUrl(Model.Search with { SkillIds = Model.Search.SkillIds.Where(id => id != skillId).ToArray() }, 1)" aria-label="Remove @skillName skill filter">@skillName ×</a> }
+        @if (Model.Search.FresherFriendlyOnly) { <a href="@PublicJobUi.PageUrl(Model.Search with { FresherFriendlyOnly = false }, 1)" aria-label="Remove fresher-friendly filter">Fresher-friendly ×</a> }
+        <a asp-action="Index">Clear all</a>
+    </div>
+}
 <div class="jb-results-head"><h2 id="job-results-heading">@(results is null ? "Check your filters" : $"{results.TotalCount} open {(results.TotalCount == 1 ? "role" : "roles")}")</h2><span class="jb-muted">@(Model.Search.Sort switch { PublicJobSort.ClosingSoon => "Closing soon", PublicJobSort.HighestStartingPay => "Highest starting pay", _ => "Newest published first" })</span></div>
 @if (!ViewData.ModelState.IsValid) { <div class="jb-alert" role="alert"><strong>We couldn’t run that search.</strong><div asp-validation-summary="All"></div></div> }
 @if (results is not null && results.Items.Count == 0)
@@ -42,7 +64,7 @@
     {
         var fit = Model.FitScores is not null && Model.FitScores.TryGetValue(job.Id, out var foundFit) ? foundFit : null;
         <article class="jb-job"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></div>
-        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { <div class="jb-card-fit">@if (fit?.Percentage is int score) { <span><strong>@score% match</strong><small>@fit.Coverage% of criteria assessed</small></span> } else { <span><strong>Match unavailable</strong><small>See job for details</small></span> }</div> }<footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
+        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { <div class="jb-card-fit">@if (fit?.Percentage is int score) { <span><strong>@score% match</strong><small>@fit.Coverage% of criteria assessed@(fit.Coverage < 50 ? " · Limited data" : "")</small></span> } else { <span><strong>Match unavailable</strong><small>See job for details</small></span> }</div> }<footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
     }
     if (results.TotalPages > 1)
     {

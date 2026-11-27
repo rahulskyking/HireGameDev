@@ -26,11 +26,15 @@ internal sealed class PublicJobQueryService(AppDbContext db, IClock clock, IFile
         if (terms.Length > 8)
             return Result.Failure<PublicJobSearchPage>(Error.Validation("PublicJobs.InvalidSearch", "Use at most eight keyword terms."));
         var query = await VisibleForViewerAsync(viewerUserId, cancellationToken);
-        // AND between terms, OR between title/description. Contains is parameterized literal
+        // AND between terms, OR between title, description, Studio and listed skill names.
+        // Contains is parameterized literal
         // substring matching, not caller-provided SQL LIKE syntax (%, _ are literal characters).
         foreach (var term in terms)
             query = query.Where(x => (x.Job.Title != null && x.Job.Title.ToLower().Contains(term)) ||
-                (x.Job.Description != null && x.Job.Description.ToLower().Contains(term)));
+                (x.Job.Description != null && x.Job.Description.ToLower().Contains(term)) ||
+                x.Studio.Name.ToLower().Contains(term) ||
+                (from js in db.JobSkills join skill in db.Skills on js.SkillId equals skill.Id
+                 where js.JobId == x.Job.Id && skill.Name.ToLower().Contains(term) select js.JobId).Any());
         if (search.StudioId.HasValue) query = query.Where(x => x.Studio.Id == search.StudioId.Value);
         if (search.Category.HasValue) query = query.Where(x => x.Job.Category == search.Category);
         if (search.JobType.HasValue) query = query.Where(x => x.Job.JobType == search.JobType);
