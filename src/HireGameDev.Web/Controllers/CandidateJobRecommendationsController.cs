@@ -22,6 +22,6 @@ public sealed class CandidateJobRecommendationsController(IWebHostEnvironment en
         if (!ApplicationFeature.Enabled(environment) || recommendations is null) return NotFound();
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actor) || actor == Guid.Empty) return Forbid();
         var result = await recommendations.GetAsync(actor, cancellationToken);
-        return result.IsSuccess ? View(result.Value) : Forbid();
+        return result.IsSuccess ? View(result.Value) : result.Error.Type == HireGameDev.Application.Common.ErrorType.Forbidden ? Forbid() : StatusCode(503);
     }
 }

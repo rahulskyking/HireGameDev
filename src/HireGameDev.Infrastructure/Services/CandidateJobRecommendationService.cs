@@ -9,9 +9,9 @@ using Microsoft.EntityFrameworkCore;
 namespace HireGameDev.Infrastructure.Services;
 
 // Development-only entry point. Bounded retrieval, V1 scoring, no payment/activity input.
-internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock clock, IJobCardFitService fits, IPublicJobQueryService jobs) : ICandidateJobRecommendationService
+internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock clock, IJobCardFitService fits, IPublicJobQueryService jobs, IRecommendationPolicyService policies) : ICandidateJobRecommendationService
 {
-    public async Task<Result<IReadOnlyList<CandidateJobRecommendation>>> GetAsync(Guid actorUserId, CancellationToken cancellationToken = default)
+    public async Task<Result<CandidateJobRecommendationsPage>> GetAsync(Guid actorUserId, CancellationToken cancellationToken = default)
     {
         var candidateId = await (from c in db.CandidateProfiles.AsNoTracking()
             join u in db.Users.AsNoTracking() on c.UserId equals u.Id
@@ -19,7 +19,10 @@ internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock 
                 u.AccountType == AccountType.Candidate && c.DeletedAt == null
             select (Guid?)c.Id).SingleOrDefaultAsync(cancellationToken);
         if (!candidateId.HasValue)
-            return Result.Failure<IReadOnlyList<CandidateJobRecommendation>>(Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."));
+            return Result.Failure<CandidateJobRecommendationsPage>(Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."));
+        var policyResult = await policies.GetAsync(cancellationToken);
+        if (policyResult.IsFailure) return Result.Failure<CandidateJobRecommendationsPage>(policyResult.Error);
+        var policy = policyResult.Value;
         var now = clock.UtcNow.ToUniversalTime();
         // Relevance-first retrieval using the existing candidate/job skill indexes. This is a
         // bounded candidate pool, not an exhaustive or calibrated global ranking.
@@ -37,7 +40,7 @@ internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock 
             orderby matched descending, j.PublishedAt descending, j.Id
             select new { j.Id, j.Slug }).Take(50).ToArrayAsync(cancellationToken);
         var scores = await fits.GetAsync(actorUserId, pool.Select(x => x.Id).ToArray(), cancellationToken);
-        var candidates = pool.Where(x => scores.TryGetValue(x.Id, out var score) && IsRecommendable(score))
+        var candidates = pool.Where(x => scores.TryGetValue(x.Id, out var score) && IsRecommendable(score, policy))
             .OrderByDescending(x => scores[x.Id].Percentage).ThenByDescending(x => scores[x.Id].Coverage).ThenBy(x => x.Id).Take(12).ToArray();
         var visible = new List<(Guid Id, HireGameDev.Application.Features.Jobs.PublicJobCard Job)>();
         foreach (var row in candidates)
@@ -49,14 +52,14 @@ internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock 
         // response has begun, so application submission must independently revalidate.
         var fresh = await fits.GetAsync(actorUserId, visible.Select(x => x.Id).ToArray(), cancellationToken);
         IReadOnlyList<CandidateJobRecommendation> result = visible
-            .Where(x => fresh.TryGetValue(x.Id, out var score) && IsRecommendable(score))
+            .Where(x => fresh.TryGetValue(x.Id, out var score) && IsRecommendable(score, policy))
             .Select(x => new CandidateJobRecommendation(x.Job, fresh[x.Id]))
             .OrderByDescending(x => x.Fit.Percentage).ThenByDescending(x => x.Fit.Coverage).ThenBy(x => x.Job.Id)
             .Take(6).ToArray();
-        return Result.Success(result);
+        return Result.Success(new CandidateJobRecommendationsPage(result, policy));
     }
 
-    private static bool IsRecommendable(HireGameDev.Application.Features.Applications.ApplicationFitScore fit) =>
-        fit.Percentage is >= 60 && fit.Coverage >= 70 && fit.Criteria.Any(c =>
+    private static bool IsRecommendable(HireGameDev.Application.Features.Applications.ApplicationFitScore fit, RecommendationPolicy policy) =>
+        fit.Percentage.HasValue && fit.Percentage.Value >= policy.MinimumScore && fit.Coverage >= policy.MinimumCoverage && fit.Criteria.Any(c =>
             (c.Label.StartsWith("Required: ", StringComparison.Ordinal) || c.Label.StartsWith("Preferred: ", StringComparison.Ordinal)) && c.Fraction == 1m);
 }

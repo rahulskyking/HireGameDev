@@ -1,0 +1,18 @@
+@model HireGameDev.Application.Abstractions.Applications.RecommendationPolicy
+@{ ViewData["Title"] = "Recommendation settings"; }
+<section class="p-sg-stack">
+    <a asp-controller="Admin" asp-action="Index">← Admin console</a>
+    <h1>Candidate job recommendations</h1>
+    <p>These thresholds control which relevant jobs appear on the Development recommendations page. They do not change the match score, access permissions or application eligibility. At least one listed skill must still meet the job requirement.</p>
+    <p>Changes apply to new requests; other application instances can take up to one minute to refresh their settings. These values are provisional and have not been validated for real personal data.</p>
+    @if (TempData["RecommendationPolicyMessage"] is string message) { <p role="status">@message</p> }
+    <form asp-action="Update" method="post" class="c-card c-form">
+        <label class="c-label" for="minimumScore">Minimum match score (%)</label>
+        <input class="c-input" type="number" id="minimumScore" name="minimumScore" min="0" max="100" value="@Model.MinimumScore" required />
+        <label class="c-label" for="minimumCoverage">Minimum criteria coverage (%)</label>
+        <input class="c-input" type="number" id="minimumCoverage" name="minimumCoverage" min="0" max="100" value="@Model.MinimumCoverage" required />
+        <label class="c-label" for="reason">Reason for change</label>
+        <input class="c-input" id="reason" name="reason" maxlength="500" required />
+        <button class="c-btn c-btn--primary" type="submit">Save thresholds</button>
+    </form>
+</section>
