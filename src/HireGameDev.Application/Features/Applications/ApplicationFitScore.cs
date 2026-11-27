@@ -1,4 +1,5 @@
 using HireGameDev.Domain.Enums;
+using HireGameDev.Application.Features.Matching;
 
 namespace HireGameDev.Application.Features.Applications;
 
@@ -29,15 +30,7 @@ public sealed record ApplicationFitScore(int? Percentage, int Coverage, IReadOnl
                 : inputs.SameCity == true ? "Candidate and job are in the same city" : "Location needs a conversation";
             criteria.Add(new("Work preferences", text, 15m, result));
         }
-        var possible = criteria.Sum(x => x.Weight);
-        var assessed = criteria.Where(x => x.Fraction.HasValue).Sum(x => x.Weight);
-        var coverage = possible == 0 ? 0 : (int)Math.Round(100m * assessed / possible, MidpointRounding.AwayFromZero);
-        // Show every actual calculated score, including zero. Unknown data never counts as failure;
-        // without any assessed criteria there is no defensible percentage.
-        int? score = assessed > 0
-            ? (int)Math.Round(100m * criteria.Where(x => x.Fraction.HasValue).Sum(x => x.Weight * x.Fraction!.Value) / assessed, MidpointRounding.AwayFromZero)
-            : null;
-        return new ApplicationFitScore(score, coverage, criteria);
+        return MatchScoreMath.Calculate(criteria);
     }
 
     private static void AddSkills(List<FitCriterion> items, string group, decimal weight,
