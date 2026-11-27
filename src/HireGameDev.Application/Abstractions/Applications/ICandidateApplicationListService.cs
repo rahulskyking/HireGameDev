@@ -3,10 +3,10 @@ using HireGameDev.Domain.Enums;
 
 namespace HireGameDev.Application.Abstractions.Applications;
 
-// Internal pilot only; the actor must be obtained from trusted authentication.
+// The actor must be obtained from trusted authentication.
 public interface ICandidateApplicationListService
 {
-    Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default);
+    Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default, ApplicationStatus? status = null);
 }
 
 // Offset pages may shift when applications are added or removed between requests.

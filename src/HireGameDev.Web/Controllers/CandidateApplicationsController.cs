@@ -23,13 +23,14 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; Response.Headers["Referrer-Policy"] = "no-referrer"; }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default, HireGameDev.Domain.Enums.ApplicationStatus? status = null)
     {
         Private();
         if (!Enabled) return NotFound();
-        if (!ModelState.IsValid) return BadRequest();
-        var result = await list.ListAsync(Actor, page, 25, cancellationToken);
-        if (result.IsFailure) return result.Error.Code == "Applications.InvalidPage" ? BadRequest() : StatusCode(503);
+        if (!ModelState.IsValid || (status.HasValue && !Enum.IsDefined(status.Value))) return BadRequest();
+        var result = await list.ListAsync(Actor, page, 25, cancellationToken, status);
+        if (result.IsFailure) return result.Error.Code is "Applications.InvalidPage" or "Applications.InvalidStatus" ? BadRequest() : StatusCode(503);
+        ViewData["StatusFilter"] = status;
         return View(result.Value);
     }
 

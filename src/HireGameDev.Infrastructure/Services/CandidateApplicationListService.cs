@@ -9,10 +9,12 @@ namespace HireGameDev.Infrastructure.Services;
 // Only a Candidate's own application metadata; no Studio-private data or snapshot contents.
 internal sealed class CandidateApplicationListService(AppDbContext db) : ICandidateApplicationListService
 {
-    public async Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default)
+    public async Task<Result<CandidateApplicationPage>> ListAsync(Guid actorUserId, int page = 1, int pageSize = 25, CancellationToken cancellationToken = default, ApplicationStatus? status = null)
     {
         if (!db.Database.IsNpgsql()) return Result.Failure<CandidateApplicationPage>(Error.Failure("Applications.PostgresRequired", "This operation requires PostgreSQL."));
         if (db.Database.CurrentTransaction is not null || db.ChangeTracker.HasChanges()) return Result.Failure<CandidateApplicationPage>(Error.Conflict("Applications.UnitOfWorkBusy", "This operation requires a clean unit of work."));
+        if (status.HasValue && !Enum.IsDefined(status.Value))
+            return Result.Failure<CandidateApplicationPage>(Error.Validation("Applications.InvalidStatus", "Choose a valid application status."));
         if (page < 1 || pageSize < 1 || pageSize > 100 || (long)(page - 1) * pageSize > int.MaxValue - 100)
             return Result.Failure<CandidateApplicationPage>(Error.Validation("Applications.InvalidPage", "Choose a valid page and page size."));
         var items = await (from app in db.Applications.AsNoTracking()
@@ -21,7 +23,8 @@ internal sealed class CandidateApplicationListService(AppDbContext db) : ICandid
             join job in db.Jobs.AsNoTracking() on app.JobId equals job.Id
             join studio in db.StudioProfiles.AsNoTracking() on job.StudioId equals studio.Id
             where actorUserId != Guid.Empty && user.Id == actorUserId && user.IsActive && user.DeletedAt == null &&
-                user.AccountType == AccountType.Candidate && candidate.DeletedAt == null
+                user.AccountType == AccountType.Candidate && candidate.DeletedAt == null &&
+                (!status.HasValue || app.Status == status.Value)
             orderby app.SubmittedAt descending, app.Id descending
             select new CandidateApplicationListItem(app.Id, job.Title ?? "Untitled job", studio.Name, app.Status, app.SubmittedAt))
             .Skip((page - 1) * pageSize).Take(pageSize + 1).ToListAsync(cancellationToken);

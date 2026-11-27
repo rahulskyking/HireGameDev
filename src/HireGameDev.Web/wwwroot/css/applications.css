@@ -74,3 +74,6 @@
 .match-progress { height:8px; margin-top:16px; border-radius:999px; background:var(--surface-2); overflow:hidden; }.match-progress span { display:block; height:100%; border-radius:inherit; background:var(--accent); }
 .ap-card-fit { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; margin-top:9px; }.ap-card-fit strong { font-size:.78rem; color:var(--text); background:var(--surface-2); padding:4px 8px; border-radius:6px; }.ap-card-fit span { font-size:.74rem; color:var(--text-muted); }
 .ap-submitted > summary { cursor:pointer; font-weight:700; padding:10px 0; }.ap-submitted .ap-card { margin:12px 0 0; background:var(--surface); }.ap-submitted > summary:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
+.ap-filter--rail label { font-size:.78rem; font-weight:700; }
+.ap-filter--rail a { font-size:.8rem; }
+.ap-person .ap-status-description { margin-top:6px; line-height:1.5; }

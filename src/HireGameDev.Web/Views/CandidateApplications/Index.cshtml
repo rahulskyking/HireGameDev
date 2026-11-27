@@ -1,16 +1,25 @@
 @using HireGameDev.Application.Abstractions.Applications
 @model CandidateApplicationPage
-@{ ViewData["Title"] = "My applications"; }
+@{
+    ViewData["Title"] = "My applications";
+    var statusFilter = ViewData["StatusFilter"] as ApplicationStatus?;
+}
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <div class="ap ap-desk">
     <div class="ap-topline"><a asp-controller="PublicJobs" asp-action="Index">← Explore jobs</a><span>YOUR CAREER / APPLICATIONS</span></div>
     <header class="ap-hero"><div><span class="ap-hero-kicker">● &nbsp; YOUR CAREER SPACE</span><h1>Every application.<br /><em>One place.</em></h1><p>Your next opportunity is in motion. Follow each application from submission to the next step.</p></div><div class="ap-hero-aside"><span>KEEP EXPLORING</span><strong>Find work<br />you love. ↗</strong><a asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a></div></header>
     @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
-    <div class="ap-workspace"><aside class="ap-rail"><span class="ap-rail-label">YOUR JOURNEY</span><h2>Keep track.</h2><p>See where each application stands and open it for the full timeline.</p><div class="ap-rail-note"><strong>Changed your mind?</strong><p>You can withdraw an eligible application from its details page.</p></div></aside>
+    <div class="ap-workspace"><aside class="ap-rail"><span class="ap-rail-label">YOUR JOURNEY</span><h2>Keep track.</h2><p>See where each application stands and open it for the full timeline.</p>
+        <form asp-action="Index" method="get" class="ap-filter--rail">
+            <label for="status">Application status</label>
+            <select class="c-select" id="status" name="status"><option value="">All statuses</option>@foreach (var status in Enum.GetValues<ApplicationStatus>()) { <option value="@status" selected="@(statusFilter == status)">@status</option> }</select>
+            <button class="c-btn c-btn--primary" type="submit">Show applications</button>
+            @if (statusFilter.HasValue) { <a asp-action="Index">Clear filter</a> }
+        </form><div class="ap-rail-note"><strong>Changed your mind?</strong><p>You can withdraw an eligible application from its details page.</p></div></aside>
         <section class="ap-board" aria-label="Your applications"><div class="ap-board-head"><div><span class="ap-rail-label">YOUR CAREER / ACTIVITY</span><h2>My applications</h2><p>Your latest application updates, together.</p></div><span class="ap-board-mark">↗</span></div>
-            @if (Model.Items.Count == 0) { <div class="ap-empty"><span class="ap-empty-mark">↗</span><h2>@(Model.Page == 1 ? "Your story starts here" : "No applications on this page")</h2>@if (Model.Page == 1) { <p>Find a role that interests you and take the next step.</p><a class="c-btn c-btn--primary" asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a> } else { <p>Go back to see your applications.</p> }</div> }
-            else { <div class="ap-people">@foreach (var app in Model.Items) { <article class="ap-person"><div class="ap-avatar" aria-hidden="true">↗</div><div class="ap-person-info"><div class="ap-person-top"><span class="ap-status" data-status="@app.Status">@app.Status</span><span class="ap-reference">APPLIED @app.SubmittedAt.ToString("dd MMM yyyy").ToUpperInvariant()</span></div><h3><a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">@app.JobTitle</a></h3><p>@app.StudioName</p></div><a class="ap-open" asp-action="Detail" asp-route-applicationId="@app.ApplicationId" aria-label="View application for @app.JobTitle">View <span>↗</span></a></article> }</div> }
-            @if (Model.Page > 1 || Model.HasMore) { <nav class="ap-pagination" aria-label="Application pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">← Previous</a> }<span>Page @Model.Page</span>@if (Model.HasMore) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next →</a> }</nav> }
+            @if (Model.Items.Count == 0) { <div class="ap-empty"><span class="ap-empty-mark">↗</span><h2>@(statusFilter.HasValue ? (Model.Page == 1 ? "No applications with this status" : "No applications on this page") : Model.Page == 1 ? "Your story starts here" : "No applications on this page")</h2>@if (statusFilter.HasValue) { <p>Try another status or see all your applications.</p><a class="c-btn c-btn--secondary" asp-action="Index">See all applications</a> } else if (Model.Page == 1) { <p>Find a role that interests you and take the next step.</p><a class="c-btn c-btn--primary" asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a> } else { <p>Go back to see your applications.</p> }</div> }
+            else { <div class="ap-people">@foreach (var app in Model.Items) { <article class="ap-person"><div class="ap-avatar" aria-hidden="true">↗</div><div class="ap-person-info"><div class="ap-person-top"><span class="ap-status" data-status="@app.Status">@app.Status</span><span class="ap-reference">APPLIED @app.SubmittedAt.ToString("dd MMM yyyy").ToUpperInvariant()</span></div><h3><a asp-action="Detail" asp-route-applicationId="@app.ApplicationId">@app.JobTitle</a></h3><p>@app.StudioName</p><p class="ap-status-description">@HireGameDev.Web.Models.Applications.ApplicationStatusUi.Description(app.Status)</p></div><a class="ap-open" asp-action="Detail" asp-route-applicationId="@app.ApplicationId" aria-label="View application for @app.JobTitle">View <span>↗</span></a></article> }</div> }
+            @if (Model.Page > 1 || Model.HasMore) { <nav class="ap-pagination" aria-label="Application pages">@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-status="@statusFilter">← Previous</a> }<span>Page @Model.Page</span>@if (Model.HasMore) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-status="@statusFilter">Next →</a> }</nav> }
         </section>
     </div>
 </div>
