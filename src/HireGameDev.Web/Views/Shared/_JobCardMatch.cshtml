@@ -1,0 +1,18 @@
+@model HireGameDev.Application.Features.Applications.ApplicationFitScore
+<div class="jb-card-fit">
+    @if (Model.Percentage is int percentage)
+    {
+        <div class="jb-match-ring" role="img" aria-label="@percentage percent profile match on assessed criteria">
+            <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+                <circle class="jb-match-track" cx="20" cy="20" r="16" />
+                <circle class="jb-match-progress" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="@percentage 100" />
+            </svg>
+            <strong aria-hidden="true">@percentage%</strong>
+        </div>
+        <div class="jb-match-copy"><strong>Profile match</strong><small>@Model.Coverage% of applicable criteria assessed</small>@if (Model.Coverage < 70) { <small>Limited data</small> }</div>
+    }
+    else
+    {
+        <div class="jb-match-copy"><strong>Match unavailable</strong><small>Not enough comparable information</small></div>
+    }
+</div>

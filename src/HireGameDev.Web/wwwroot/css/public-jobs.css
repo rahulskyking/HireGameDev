@@ -91,3 +91,19 @@
 .jb-quick-filters a:hover, .jb-active-filters a:hover { border-color:var(--accent-border); }
 .jb-job-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
 .jb-job-actions form { margin:0; }
+/* The ring shows the match score; the adjacent label separately shows coverage. */
+.jb-job-meta { display:flex; align-items:center; gap:12px; }
+.jb-job-meta form { margin:0; }
+.jb-save-icon { display:grid; place-items:center; width:42px; height:42px; padding:9px; border:1px solid var(--border); border-radius:10px; color:var(--text-muted); background:var(--surface); cursor:pointer; }
+.jb-save-icon svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.jb-save-icon:hover, .jb-save-icon.is-saved { color:var(--accent-ink); border-color:var(--accent-border); background:var(--accent-subtle); }
+.jb-save-icon.is-saved svg { fill:currentColor; }
+.jb-save-icon:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
+.jb-card-fit { gap:12px; }
+.jb-card-fit .jb-match-ring { position:relative; flex:none; width:52px; height:52px; display:grid; place-items:center; }
+.jb-match-ring svg { position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
+.jb-match-ring circle { fill:none; stroke-width:3; }
+.jb-match-track { stroke:var(--border); }
+.jb-match-progress { stroke:var(--accent-ink); stroke-linecap:round; }
+.jb-card-fit .jb-match-ring strong { position:relative; font-size:.72rem; }
+.jb-card-fit .jb-match-copy { display:grid; gap:3px; }

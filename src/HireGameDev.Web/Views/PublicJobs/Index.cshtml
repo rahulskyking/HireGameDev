@@ -67,21 +67,26 @@
     {
         var returnToJob = PublicJobUi.PageUrl(Model.Search, results.Page) + "#job-" + job.Id;
         var fit = Model.FitScores is not null && Model.FitScores.TryGetValue(job.Id, out var foundFit) ? foundFit : null;
-        <article class="jb-job" id="job-@job.Id"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time></div>
-        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { <div class="jb-card-fit">@if (fit?.Percentage is int score) { <span><strong>@score% match</strong><small>@fit.Coverage% of criteria assessed@(fit.Coverage < 50 ? " · Limited data" : "")</small></span> } else { <span><strong>Match unavailable</strong><small>See job for details</small></span> }</div> }<footer><strong>@PublicJobUi.Salary(job)</strong><div class="jb-job-actions">
+        <article class="jb-job" id="job-@job.Id"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><div class="jb-job-meta"><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time>
         @if (Model.SavedJobIds is not null)
         {
             var isSaved = Model.SavedJobIds.Contains(job.Id);
             <form asp-controller="SavedJobsPage" asp-action="@(isSaved ? "Remove" : "Save")" asp-route-jobId="@job.Id" method="post">
                 <input type="hidden" name="returnUrl" value="@returnToJob" />
-                <button type="submit" class="c-btn c-btn--secondary c-btn--sm" aria-label="@(isSaved ? $"Remove {job.Title} from saved jobs" : $"Save {job.Title}")">@(isSaved ? "Saved ✓" : "Save job")</button>
+                <button type="submit" class="jb-save-icon @(isSaved ? "is-saved" : "")" aria-label="@(isSaved ? $"Remove {job.Title} from saved jobs" : $"Save {job.Title}")" title="@(isSaved ? "Remove from saved jobs" : "Save job")">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z" /></svg>
+                </button>
             </form>
         }
         else if (User.Identity?.IsAuthenticated != true)
         {
-            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@returnToJob" aria-label="Sign in to save @job.Title">Sign in to save</a>
+            <a class="jb-save-icon" asp-controller="Account" asp-action="Login" asp-route-returnUrl="@returnToJob" aria-label="Sign in to save @job.Title" title="Sign in to save">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z" /></svg>
+            </a>
         }
-        <a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></div></footer></article>
+        </div></div>
+        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { if (fit is not null) { <partial name="_JobCardMatch" model="fit" /> } else { <div class="jb-card-fit"><div class="jb-match-copy"><strong>Match unavailable</strong><small>See job for details</small></div></div> } }
+        <footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
     }
     if (results.TotalPages > 1)
     {
