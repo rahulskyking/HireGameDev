@@ -1,3 +1,4 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @model AdminDashboardViewModel
 @{
     ViewData["Title"] = "Admin Console";
@@ -19,6 +20,8 @@
             Restricted to verified <code>admin</code> role holders on the apex domain. Every administrative decision requires an internal audit reason persisted to <code>audit_logs</code>.
         </p>
     </header>
+
+    @if (HostEnvironment.EnvironmentName == "Development") { <p><a asp-controller="ErasureRequests" asp-action="Review">Review account erasure requests</a></p> }
 
     <div class="p-sg-grid-3">
         <!-- Active Module: Studio Verification Queue (M1.10) -->

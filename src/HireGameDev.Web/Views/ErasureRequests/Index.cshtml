@@ -1,0 +1,11 @@
+@{ ViewData["Title"] = "Request account erasure"; }
+<section class="p-sg-section">
+    <h1>Request account erasure</h1>
+    <p>Your request will be recorded for manual review. Submitting it does not delete or disable your account or stop you using it.</p>
+    <p>Review must consider application records, Studio ownership, legal holds, backups and any copies already downloaded. Do not include sensitive details in this request.</p>
+    <form asp-action="Submit" method="post">
+        <label><input type="checkbox" name="confirmed" value="true" required /> I want to request account erasure for review.</label>
+        <div><button class="c-btn c-btn--primary" type="submit">Submit request</button></div>
+    </form>
+    <p><a asp-controller="Account" asp-action="Manage">Back to account</a></p>
+</section>

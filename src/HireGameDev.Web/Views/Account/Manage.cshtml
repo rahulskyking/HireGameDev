@@ -1,3 +1,4 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
 @model AccountManageViewModel
 @{
     ViewData["Title"] = "Account settings";
@@ -330,6 +331,7 @@
             <div class="c-btn-group">
                 <a href="/Legal/Terms" class="c-btn c-btn--ghost c-btn--sm">Terms</a>
                 <a href="/Legal/Privacy" class="c-btn c-btn--ghost c-btn--sm">Privacy</a>
+                @if (HostEnvironment.EnvironmentName == "Development") { <a asp-controller="ErasureRequests" asp-action="Index" class="c-btn c-btn--ghost c-btn--sm">Request account erasure</a> }
                 <a href="/Legal/Grievance" class="c-btn c-btn--ghost c-btn--sm">Grievance</a>
             </div>
         </div>

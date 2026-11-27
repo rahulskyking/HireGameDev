@@ -1,0 +1,18 @@
+@model IReadOnlyList<HireGameDev.Web.Controllers.ErasureRequestRow>
+@{ ViewData["Title"] = "Account erasure requests"; }
+<section class="p-sg-stack">
+    <h1>Account erasure requests</h1>
+    <p>Oldest 100 unreviewed requests. Marking reviewed only removes a request from this list; it does not delete data or confirm completion. Follow the manual privacy process and contact the account holder as appropriate. Do not include personal details in the audit reason.</p>
+    @if (Model.Count == 0) { <p>No unreviewed requests.</p> }
+    @foreach (var request in Model)
+    {
+        <article class="c-card">
+            <p>Requested: @request.RequestedAt.ToString("u")<br />Account: @request.Email<br />User ID: @request.UserId<br />Request ID: @request.RequestId</p>
+            <form asp-action="MarkReviewed" method="post">
+                <input type="hidden" name="requestId" value="@request.RequestId" />
+                <label>Review reason <input name="reason" maxlength="500" required /></label>
+                <button class="c-btn c-btn--primary" type="submit">Mark reviewed</button>
+            </form>
+        </article>
+    }
+</section>
