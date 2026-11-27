@@ -27,7 +27,15 @@ public sealed class ErasureRequestsController(AppDbContext db, IClock clock, IWe
     {
         Private(); if (!environment.IsDevelopment()) return NotFound();
         if (!await db.Users.AsNoTracking().AnyAsync(u => u.Id == Actor && u.IsActive && u.DeletedAt == null, ct)) return Forbid();
-        return View();
+        var requests = await db.AuditLogs.AsNoTracking()
+            .Where(a => a.ActorUserId == Actor && a.ActorType == AuditActorType.User &&
+                a.EntityType == "erasure_request" && a.Action == "account.erasure_requested")
+            .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id)
+            .Select(a => new ErasureRequestStatus(a.CreatedAt,
+                db.AuditLogs.Any(r => r.EntityType == "erasure_request" && r.EntityId == a.EntityId &&
+                    r.Action == "account.erasure_request_reviewed" && r.ActorType == AuditActorType.Admin)))
+            .Take(10).ToListAsync(ct);
+        return View(requests);
     }
 
     [HttpPost(""), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
@@ -77,3 +85,5 @@ public sealed class ErasureRequestsController(AppDbContext db, IClock clock, IWe
 }
 
 public sealed record ErasureRequestRow(string RequestId, Guid UserId, string? Email, DateTimeOffset RequestedAt);
+
+public sealed record ErasureRequestStatus(DateTimeOffset RequestedAt, bool Reviewed);

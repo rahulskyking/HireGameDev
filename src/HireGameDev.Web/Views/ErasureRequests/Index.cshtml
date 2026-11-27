@@ -1,8 +1,21 @@
+@model IReadOnlyList<HireGameDev.Web.Controllers.ErasureRequestStatus>
 @{ ViewData["Title"] = "Request account erasure"; }
 <section class="p-sg-section">
     <h1>Request account erasure</h1>
     <p>Your request will be recorded for manual review. Submitting it does not delete or disable your account or stop you using it.</p>
     <p>Review must consider application records, Studio ownership, legal holds, backups and any copies already downloaded. Do not include sensitive details in this request.</p>
+    @if (Model.Count > 0)
+    {
+        <h2>Your recent requests</h2>
+        <p>Showing up to 10 most recent requests. Reviewed means an administrator reviewed the request; it does not mean your account or data has been deleted.</p>
+        <ul>
+            @foreach (var request in Model)
+            {
+                <li>@request.RequestedAt.ToString("u") — @(request.Reviewed ? "Reviewed" : "Awaiting review")</li>
+            }
+        </ul>
+        <p>To follow up on a request, contact the <a href="/Legal/Grievance">Grievance Officer</a>. A new submission creates a separate request.</p>
+    }
     <form asp-action="Submit" method="post">
         <label><input type="checkbox" name="confirmed" value="true" required /> I want to request account erasure for review.</label>
         <div><button class="c-btn c-btn--primary" type="submit">Submit request</button></div>
