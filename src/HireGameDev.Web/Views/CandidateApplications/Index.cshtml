@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "My applications";
     var statusFilter = ViewData["StatusFilter"] as ApplicationStatus?;
+    var usage = ViewData["ApplicationUsage"] as HireGameDev.Application.Abstractions.Plans.CandidateApplicationUsage;
 }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <div class="ap ap-desk">
@@ -10,6 +11,7 @@
     <header class="ap-hero"><div><span class="ap-hero-kicker">● &nbsp; YOUR CAREER SPACE</span><h1>Every application.<br /><em>One place.</em></h1><p>Your next opportunity is in motion. Follow each application from submission to the next step.</p></div><div class="ap-hero-aside"><span>KEEP EXPLORING</span><strong>Find work<br />you love. ↗</strong><a asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a></div></header>
     @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }
     <div class="ap-workspace"><aside class="ap-rail"><span class="ap-rail-label">YOUR JOURNEY</span><h2>Keep track.</h2><p>See where each application stands and open it for the full timeline.</p>
+        @if (usage is not null) { <div class="ap-rail-note"><strong>@usage.Used / @usage.Limit applications used</strong><p>In the last @usage.WindowDays days. Withdrawn applications still count.</p>@if (usage.NextAvailableAt.HasValue) { <p>Next available: @usage.NextAvailableAt.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC.</p> }</div> }
         <form asp-action="Index" method="get" class="ap-filter--rail">
             <label for="status">Application status</label>
             <select class="c-select" id="status" name="status"><option value="">All statuses</option>@foreach (var status in Enum.GetValues<ApplicationStatus>()) { <option value="@status" selected="@(statusFilter == status)">@status</option> }</select>

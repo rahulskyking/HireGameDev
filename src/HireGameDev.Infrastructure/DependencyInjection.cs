@@ -8,6 +8,7 @@ using HireGameDev.Application.Abstractions.Consent;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Abstractions.Media;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Plans;
 using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Settings;
@@ -240,6 +241,10 @@ public static class DependencyInjection
         services.AddScoped<IApplicationReviewService, ApplicationReviewService>();
         services.AddScoped<IJobCardFitService, JobCardFitService>();
         services.AddScoped<ICandidateJobApplicationStateQuery, CandidateJobApplicationStateQuery>();
+        services.AddOptions<ApplicationQuotaOptions>().Bind(configuration.GetSection(ApplicationQuotaOptions.SectionName))
+            .Validate(x => x.Limit is >= 1 and <= 10000 && x.WindowDays is >= 1 and <= 365, "Application quota must have a valid positive limit and window.")
+            .ValidateOnStart();
+        services.AddScoped<ICandidateApplicationUsageService, CandidateApplicationUsageService>();
         services.AddScoped<IApplicationSubmissionService, ApplicationSubmissionService>();
         services.AddScoped<IApplicationWithdrawalService, ApplicationWithdrawalService>();
         // No production registration: deletion policy, legal holds and backups are not ready.

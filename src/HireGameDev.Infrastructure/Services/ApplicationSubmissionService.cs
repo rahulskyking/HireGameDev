@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Applications;
+using HireGameDev.Application.Abstractions.Plans;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Applications;
 using HireGameDev.Domain.Entities;
@@ -11,6 +12,7 @@ using HireGameDev.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace HireGameDev.Infrastructure.Services;
@@ -29,10 +31,12 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
     private readonly IApplicationReviewService _review;
     private readonly IClock _clock;
     private readonly IDataProtector _protector;
+    private readonly ApplicationQuotaOptions _applicationQuota;
 
-    public ApplicationSubmissionService(AppDbContext db, IApplicationReviewService review, IClock clock, IDataProtectionProvider dataProtection)
+    public ApplicationSubmissionService(AppDbContext db, IApplicationReviewService review, IClock clock, IDataProtectionProvider dataProtection, IOptions<ApplicationQuotaOptions>? applicationQuota = null)
     {
         _db = db; _review = review; _clock = clock;
+        _applicationQuota = applicationQuota?.Value ?? new ApplicationQuotaOptions();
         _protector = dataProtection.CreateProtector("HireGameDev.Applications.Review.v1");
     }
 
@@ -111,6 +115,11 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
             var now = _clock.UtcNow.ToUniversalTime();
             if (job.Status != JobStatus.Active || !job.ExpiresAt.HasValue || job.ExpiresAt <= now || job.ApplicationsCount >= job.ApplicationCap)
                 return await AbortAsync(transaction, Error.Conflict("Applications.NotEligible", "You cannot submit a new application for this job."), cancellationToken);
+            // The existing candidate row lock serializes submissions across jobs and web instances.
+            // Use the authoritative successful application rows, including withdrawn ones.
+            var usage = await CandidateApplicationQuota.ReadAsync(_db, candidate.Id, now, _applicationQuota, cancellationToken);
+            if (!usage.CanSubmit)
+                return await AbortAsync(transaction, Error.RateLimited("Applications.RollingLimit", $"Application limit reached. You can apply again after {usage.NextAvailableAt:u}."), cancellationToken);
             var applicationId = Guid.NewGuid();
             _db.Applications.Add(new JobApplication { Id = applicationId, CandidateId = candidate.Id, JobId = job.Id, Status = ApplicationStatus.Submitted, SubmittedAt = now, UpdatedAt = now, ConsentVersion = ConsentVersion, ConsentedAt = now });
             _db.ApplicationSnapshots.Add(new ApplicationSnapshot { ApplicationId = applicationId, SnapshotVersion = fresh.Value.Version,

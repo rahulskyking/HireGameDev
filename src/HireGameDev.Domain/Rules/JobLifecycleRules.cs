@@ -16,5 +16,5 @@ public static class JobLifecycleRules
 
     public static bool CanEdit(Job job) => job.Status is JobStatus.Draft or JobStatus.Paused;
     public static bool CanDelete(Job job) => job.Status == JobStatus.Draft && job.FirstPublishedAt is null;
-    public static bool ConsumesActiveSlot(JobStatus status) => status is JobStatus.Active or JobStatus.Full;
+    public static bool ConsumesActiveSlot(JobStatus status) => status is JobStatus.Active or JobStatus.Paused or JobStatus.Full;
 }

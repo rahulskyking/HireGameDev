@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using HireGameDev.Application.Abstractions.Applications;
+using HireGameDev.Application.Abstractions.Plans;
 using HireGameDev.Application.Features.Applications;
 using HireGameDev.Web.Authorization;
 using HireGameDev.Web.Models.Applications;
@@ -16,7 +17,7 @@ namespace HireGameDev.Web.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CandidateApplicationsController(IApplicationSubmissionService submission, ICandidateApplicationListService list,
     ICandidateApplicationDetailService detail, IApplicationWithdrawalService withdrawal, IWebHostEnvironment environment,
-    IWithdrawnApplicationSnapshotDeletionService? snapshotDeletion = null) : Controller
+    IWithdrawnApplicationSnapshotDeletionService? snapshotDeletion = null, ICandidateApplicationUsageService? applicationUsage = null) : Controller
 {
     private bool Enabled => ApplicationFeature.Enabled(environment);
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
@@ -31,6 +32,11 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
         var result = await list.ListAsync(Actor, page, 25, cancellationToken, status);
         if (result.IsFailure) return result.Error.Code is "Applications.InvalidPage" or "Applications.InvalidStatus" ? BadRequest() : StatusCode(503);
         ViewData["StatusFilter"] = status;
+        if (applicationUsage is not null)
+        {
+            var usage = await applicationUsage.GetAsync(Actor, cancellationToken);
+            if (usage.IsSuccess) ViewData["ApplicationUsage"] = usage.Value;
+        }
         return View(result.Value);
     }
 
@@ -49,6 +55,11 @@ public sealed class CandidateApplicationsController(IApplicationSubmissionServic
         if (!ModelState.IsValid || screeningAnswer?.Length > 2000) return BadRequest();
         var result = await submission.PrepareAsync(Actor, jobId, screeningAnswer, cancellationToken);
         if (result.IsFailure) return View("Retry", new ApplicationRetryPage(jobId, SafeSlug(jobSlug), screeningAnswer, result.Error.Message));
+        if (applicationUsage is not null)
+        {
+            var usage = await applicationUsage.GetAsync(Actor, cancellationToken);
+            if (usage.IsSuccess) ViewData["ApplicationUsage"] = usage.Value;
+        }
         return View(new ApplicationReviewPage(jobId, SafeSlug(jobSlug), screeningAnswer, result.Value));
     }
 

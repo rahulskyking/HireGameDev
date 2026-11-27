@@ -430,8 +430,10 @@ internal sealed class JobLifecycleService : IJobLifecycleService
     private async Task<Error?> CheckActivationLimitsAsync(Job job, bool publication, DateTimeOffset now, CancellationToken ct)
     {
         var occupied = await _db.Jobs.CountAsync(x => x.StudioId == job.StudioId && x.Id != job.Id &&
-            (x.Status == JobStatus.Active || x.Status == JobStatus.Full) && x.ExpiresAt > now, ct);
-        if (occupied >= _limits.FreeActiveJobs) return Error.RateLimited("Jobs.ActiveLimit", "Active job limit reached. Existing jobs are unchanged.");
+            (x.Status == JobStatus.Active || x.Status == JobStatus.Paused || x.Status == JobStatus.Full) && x.ExpiresAt > now, ct);
+        // Resuming/reopening an unexpired job does not consume another slot, including after a downgrade.
+        var alreadyOccupiesSlot = JobLifecycleRules.ConsumesActiveSlot(job.Status) && job.ExpiresAt > now;
+        if (!alreadyOccupiesSlot && occupied >= _limits.FreeActiveJobs) return Error.RateLimited("Jobs.ActiveLimit", "Job slot limit reached. Existing jobs are unchanged.");
         var duplicate = await new JobDuplicateDetector(_db, _clock, Options.Create(_limits))
             .CheckAsync(new JobPublishContext(job.Id, job.StudioId, (await SnapshotAsync(job, ct)).Content), ct);
         if (duplicate is not null) return Error.Conflict(duplicate.Code, duplicate.Message);
