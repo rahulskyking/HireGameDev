@@ -66,6 +66,7 @@
     foreach (var job in results.Items)
     {
         var returnToJob = PublicJobUi.PageUrl(Model.Search, results.Page) + "#job-" + job.Id;
+        var application = Model.Applications is not null && Model.Applications.TryGetValue(job.Id, out var foundApplication) ? foundApplication : null;
         var fit = Model.FitScores is not null && Model.FitScores.TryGetValue(job.Id, out var foundFit) ? foundFit : null;
         <article class="jb-job" id="job-@job.Id"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><div class="jb-job-meta"><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time>
         @if (Model.SavedJobIds is not null)
@@ -85,7 +86,7 @@
             </a>
         }
         </div></div>
-        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (Model.ShowMatches) { if (fit is not null) { <partial name="_JobCardMatch" model="fit" /> } else { <div class="jb-card-fit"><div class="jb-match-copy"><strong>Match unavailable</strong><small>See job for details</small></div></div> } }
+        <h2><a asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>@if (application is not null) { <partial name="_CandidateJobApplicationState" model="application" /> } else if (Model.ShowMatches) { if (fit is not null) { <partial name="_JobCardMatch" model="fit" /> } else { <div class="jb-card-fit"><div class="jb-match-copy"><strong>Match unavailable</strong><small>See job for details</small></div></div> } }
         <footer><strong>@PublicJobUi.Salary(job)</strong><a asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer></article>
     }
     if (results.TotalPages > 1)

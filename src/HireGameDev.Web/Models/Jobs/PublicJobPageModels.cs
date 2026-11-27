@@ -10,8 +10,9 @@ public sealed record PublicJobBrowsePage(PublicJobSearch Search, PublicJobSearch
     IReadOnlyList<CityLookupItem> Cities, IReadOnlyList<SkillLookupItem> Skills,
     string CanonicalUrl, string RegistrationUrl,
     IReadOnlyDictionary<Guid, HireGameDev.Application.Features.Applications.ApplicationFitScore>? FitScores = null,
-    bool ShowMatches = false, IReadOnlySet<Guid>? SavedJobIds = null);
-public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false);
+    bool ShowMatches = false, IReadOnlySet<Guid>? SavedJobIds = null,
+    IReadOnlyDictionary<Guid, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState>? Applications = null);
+public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState? Application = null);
 
 public static class PublicJobUi
 {

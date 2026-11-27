@@ -14,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null, ICandidateJobApplicationStateQuery? applicationStates = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -48,9 +48,15 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var saved = await savedStates.GetSavedIdsAsync(savedUserId, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
             if (saved.IsSuccess) savedIds = saved.Value;
         }
+        IReadOnlyDictionary<Guid, CandidateJobApplicationState>? applications = null;
+        if (showMatches && applicationStates is not null && results is not null && ViewerUserId() is Guid actor)
+        {
+            var states = await applicationStates.GetAsync(actor, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
+            if (states.IsSuccess) applications = states.Value;
+        }
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
-            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds));
+            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds, applications));
     }
 
     [HttpGet("jobs/{slug}")]
@@ -85,7 +91,13 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var review = await applicationReview.ReviewAsync(candidateId, job.Summary.Id, null, cancellationToken);
             if (review.IsSuccess) fit = ApplicationFitScore.Create(review.Value.Candidate, review.Value.Job);
         }
-        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit, showFit && fit is null));
+        CandidateJobApplicationState? application = null;
+        if (showFit && applicationStates is not null && ViewerUserId() is Guid actor)
+        {
+            var states = await applicationStates.GetAsync(actor, new[] { job.Summary.Id }, cancellationToken);
+            if (states.IsSuccess) states.Value.TryGetValue(job.Summary.Id, out application);
+        }
+        return View(new PublicJobDetailPage(job, portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, path), RegistrationUrl(path), isSaved, fit, showFit && fit is null && application is null, application));
     }
 
     private IActionResult? CanonicalPortal(string path)

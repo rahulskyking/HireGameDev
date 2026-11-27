@@ -1,0 +1,5 @@
+@model HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState
+<div class="jb-application-state">
+    <div><strong>@(Model.Status == ApplicationStatus.Withdrawn ? "Application withdrawn" : "Applied")</strong><span>Status: @Model.Status</span></div>
+    <a asp-controller="CandidateApplications" asp-action="Detail" asp-route-applicationId="@Model.ApplicationId">View application →</a>
+</div>

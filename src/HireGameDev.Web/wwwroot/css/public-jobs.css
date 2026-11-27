@@ -107,3 +107,7 @@
 .jb-match-progress { stroke:var(--accent-ink); stroke-linecap:round; }
 .jb-card-fit .jb-match-ring strong { position:relative; font-size:.72rem; }
 .jb-card-fit .jb-match-copy { display:grid; gap:3px; }
+.jb-application-state { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:.82rem; }
+.jb-application-state div { display:grid; gap:3px; }
+.jb-application-state span { color:var(--text-muted); }
+.jb-application-state a { font-weight:600; }

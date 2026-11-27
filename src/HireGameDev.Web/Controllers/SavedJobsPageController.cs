@@ -9,7 +9,7 @@ namespace HireGameDev.Web.Controllers;
 
 [Authorize(Policy = AuthorizationPolicies.CandidateOnly)]
 [Route("candidate/saved")]
-public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFitService? cardFits = null, IWebHostEnvironment? environment = null) : Controller
+public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFitService? cardFits = null, IWebHostEnvironment? environment = null, ICandidateJobApplicationStateQuery? applicationStates = null) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
@@ -22,6 +22,11 @@ public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFi
             var visibleIds = result.Value.Items.Where(x => x.Job is not null).Select(x => x.JobId).ToArray();
             ViewData["FitScores"] = await cardFits.GetAsync(Actor(), visibleIds, cancellationToken);
             ViewData["ShowMatches"] = true;
+            if (applicationStates is not null)
+            {
+                var states = await applicationStates.GetAsync(Actor(), visibleIds, cancellationToken);
+                if (states.IsSuccess) ViewData["ApplicationStates"] = states.Value;
+            }
         }
         return View(result.Value);
     }
