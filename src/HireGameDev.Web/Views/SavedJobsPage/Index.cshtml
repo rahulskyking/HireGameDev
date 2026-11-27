@@ -26,12 +26,12 @@
         <div class="jb-job-top"><div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div><time datetime="@entry.SavedAt.ToString("O")">Saved @entry.SavedAt.ToString("dd MMM yyyy")</time></div>
         <h2><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2>
         <div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>
-        @{ var application = applications is not null && applications.TryGetValue(job.Id, out var foundApplication) ? foundApplication : null; }
-        @if (application is not null) { <partial name="_CandidateJobApplicationState" model="application" /> }
+        var application = applications is not null && applications.TryGetValue(job.Id, out var foundApplication) ? foundApplication : null;
+        if (application is not null) { <partial name="_CandidateJobApplicationState" model="application" /> }
         else if (showMatches)
         {
             var fit = fits is not null && fits.TryGetValue(job.Id, out var score) ? score : null;
-            @if (fit is not null) { <partial name="_JobCardMatch" model="fit" /> }
+            if (fit is not null) { <partial name="_JobCardMatch" model="fit" /> }
             else { <div class="jb-card-fit"><div class="jb-match-copy"><strong>Match unavailable</strong><small>See job for details</small></div></div> }
         }
         <footer><strong>@PublicJobUi.Salary(job)</strong><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer>
