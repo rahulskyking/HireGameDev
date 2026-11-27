@@ -244,6 +244,7 @@ public static class DependencyInjection
         {
             services.AddScoped<IRecommendationPolicyService, RecommendationPolicyService>();
             services.AddScoped<ICandidateJobRecommendationService, CandidateJobRecommendationService>();
+            services.AddScoped<IStudioCandidateRecommendationService, StudioCandidateRecommendationService>();
         }
         services.AddScoped<ICandidateJobApplicationStateQuery, CandidateJobApplicationStateQuery>();
         services.AddOptions<ApplicationQuotaOptions>().Bind(configuration.GetSection(ApplicationQuotaOptions.SectionName))

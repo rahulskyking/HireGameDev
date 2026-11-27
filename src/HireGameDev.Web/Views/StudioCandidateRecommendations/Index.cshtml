@@ -1,0 +1,19 @@
+@model HireGameDev.Application.Abstractions.Applications.StudioCandidateRecommendationsPage
+@{ ViewData["Title"] = "Recommended candidates"; }
+@section Styles { <meta name="robots" content="noindex, nofollow" /><link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" /> }
+<div class="jb">
+    <a class="jb-back" asp-controller="StudioJobs" asp-action="Manage" asp-route-id="@Model.JobId" asp-route-studioId="@Model.StudioId">← Back to job</a>
+    <header class="jb-hero"><div><span class="jb-eyebrow">Discoverable profiles</span><h1>People for this role.</h1><p>Suggestions for @Model.JobTitle. These candidates have not necessarily applied.</p></div></header>
+    <section class="jb-stack" aria-label="Recommended candidates">
+        <p class="jb-muted">A limited selection from up to 50 discoverable profiles with a matching listed skill. Only scores of at least 60% with at least 70% criteria coverage are shown. This is not a complete list or a hiring decision. Details reflect the current profile, not an application snapshot.</p>
+        @if (Model.Items.Count == 0) { <div class="jb-panel jb-empty"><h2>No suggestions right now.</h2><p>Other suitable candidates may be available. Check applicants for this job separately.</p><a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId">View applicants</a></div> }
+        @foreach (var candidate in Model.Items)
+        {
+            <article class="jb-job"><h2>@candidate.Name</h2><p>@candidate.Headline</p>
+                <partial name="_JobCardMatch" model="candidate.Fit" />
+                <div class="jb-reasons"><strong>Why this profile?</strong><ul>@foreach (var criterion in candidate.Fit.Criteria.Where(x => x.Fraction == 1m).Take(3)) { <li>@criterion.Label: @criterion.Explanation</li> }</ul></div>
+            </article>
+        }
+        <p class="jb-muted">This initial view does not provide contact details or messaging. Application access remains separate.</p>
+    </section>
+</div>
