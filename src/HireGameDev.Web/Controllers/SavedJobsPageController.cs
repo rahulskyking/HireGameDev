@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Web.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ namespace HireGameDev.Web.Controllers;
 
 [Authorize(Policy = AuthorizationPolicies.CandidateOnly)]
 [Route("candidate/saved")]
-public sealed class SavedJobsPageController(ISavedJobService service) : Controller
+public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFitService? cardFits = null, IWebHostEnvironment? environment = null) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
@@ -16,6 +17,12 @@ public sealed class SavedJobsPageController(ISavedJobService service) : Controll
         Private();
         var result = await service.ListAsync(Actor(), page, 20, cancellationToken);
         if (result.IsFailure) return Forbid();
+        if (environment?.IsDevelopment() == true && cardFits is not null)
+        {
+            var visibleIds = result.Value.Items.Where(x => x.Job is not null).Select(x => x.JobId).ToArray();
+            ViewData["FitScores"] = await cardFits.GetAsync(Actor(), visibleIds, cancellationToken);
+            ViewData["ShowMatches"] = true;
+        }
         return View(result.Value);
     }
 
@@ -31,12 +38,14 @@ public sealed class SavedJobsPageController(ISavedJobService service) : Controll
 
     [HttpPost("{jobId:guid}/remove")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null)
+    public async Task<IActionResult> Remove(Guid jobId, string? slug, CancellationToken cancellationToken, string? returnUrl = null, int? page = null)
     {
         Private();
         var result = await service.RemoveAsync(Actor(), jobId, cancellationToken);
         TempData["SavedJobMessage"] = result.IsSuccess ? "Job removed from your saved list." : "Your saved list could not be updated.";
-        return SafeBrowseRedirect(returnUrl) ?? (string.IsNullOrEmpty(slug) ? RedirectToAction(nameof(Index)) : SafeJobRedirect(slug));
+        return SafeBrowseRedirect(returnUrl) ?? (string.IsNullOrEmpty(slug)
+            ? RedirectToAction(nameof(Index), new { page = page is > 0 and <= 100000 ? page : 1 })
+            : SafeJobRedirect(slug));
     }
     // Only return to the jobs listing, never an arbitrary supplied URL.
     private IActionResult? SafeBrowseRedirect(string? returnUrl) =>

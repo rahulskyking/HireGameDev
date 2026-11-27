@@ -1,7 +1,12 @@
 @using HireGameDev.Application.Features.Jobs
 @using HireGameDev.Web.Models.Jobs
+@using HireGameDev.Application.Features.Applications
 @model SavedJobPage
-@{ ViewData["Title"] = "Saved jobs"; }
+@{
+    ViewData["Title"] = "Saved jobs";
+    var fits = ViewData["FitScores"] as IReadOnlyDictionary<Guid, ApplicationFitScore>;
+    var showMatches = ViewData["ShowMatches"] is true;
+}
 @section Styles {
 <meta name="robots" content="noindex, nofollow" />
 <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
@@ -9,14 +14,26 @@
 <div class="jb"><header class="jb-hero"><div><span class="jb-eyebrow">Your private list</span><h1>Saved jobs</h1><p>Keep track of roles you want to revisit. Only you can see this list.</p></div></header>
 @if (TempData["SavedJobMessage"] is string message) { <div class="jb-note" role="status">@message</div> }
 <section class="jb-stack" aria-label="Saved jobs">
+<div class="jb-results-head"><h2>@Model.TotalCount saved @(Model.TotalCount == 1 ? "job" : "jobs")</h2><a asp-controller="PublicJobs" asp-action="Index">Explore more jobs →</a></div>
+@if (showMatches && Model.Items.Count > 0) { <p class="jb-muted">Matches use your current profile and assessed criteria. They are not hiring decisions.</p> }
 @if (Model.Items.Count == 0) { <div class="jb-panel jb-empty"><h2>No saved jobs here yet.</h2><p>Explore open roles and save the ones you want to revisit.</p><a class="c-btn c-btn--secondary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></div> }
 @foreach (var entry in Model.Items)
 {
     <article class="jb-job">
     @if (entry.Job is { } job)
-    { <div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div><h2><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2><div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode</span><span>@PublicJobUi.Experience(job)</span></div><strong>@PublicJobUi.Salary(job)</strong> }
+    {
+        <div class="jb-job-top"><div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div><time datetime="@entry.SavedAt.ToString("O")">Saved @entry.SavedAt.ToString("dd MMM yyyy")</time></div>
+        <h2><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug">@job.Title</a></h2>
+        <div class="jb-tags"><span>@PublicJobUi.Type(job.JobType)</span><span>@job.WorkMode@(job.CityName is null ? "" : " · " + job.CityName)</span><span>@PublicJobUi.Experience(job)</span>@if (job.FresherFriendly) { <span>Fresher-friendly</span> }</div>
+        @if (showMatches)
+        {
+            var fit = fits is not null && fits.TryGetValue(job.Id, out var score) ? score : null;
+            <div class="jb-card-fit">@if (fit?.Percentage is int percentage) { <span><strong>@percentage% match</strong><small>@fit.Coverage% of criteria assessed@(fit.Coverage < 50 ? " · Limited data" : "")</small></span> } else { <span><strong>Match unavailable</strong><small>See job for details</small></span> }</div>
+        }
+        <footer><strong>@PublicJobUi.Salary(job)</strong><a asp-controller="PublicJobs" asp-action="Detail" asp-route-slug="@job.Slug" aria-label="View @job.Title">View role →</a></footer>
+    }
     else { <h2>Listing unavailable</h2><p>This saved listing is no longer available.</p> }
-    <form asp-action="Remove" asp-route-jobId="@entry.JobId" method="post"><button type="submit" class="c-btn c-btn--secondary" aria-label="@(entry.Job is null ? "Remove unavailable listing" : $"Remove {entry.Job.Title} from saved jobs")">Remove from saved jobs</button></form>
+    <form asp-action="Remove" asp-route-jobId="@entry.JobId" method="post"><input type="hidden" name="page" value="@Model.Page" /><button type="submit" class="c-btn c-btn--secondary" aria-label="@(entry.Job is null ? "Remove unavailable listing" : $"Remove {entry.Job.Title} from saved jobs")">Remove from saved jobs</button></form>
     </article>
 }
 @if (Model.TotalPages > 1) { <nav class="jb-pagination" aria-label="Saved jobs pages"><span>Page @Model.Page of @Model.TotalPages</span><div>@if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)">← Previous</a> } @if (Model.Page < Model.TotalPages) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)">Next →</a> }</div></nav> }
