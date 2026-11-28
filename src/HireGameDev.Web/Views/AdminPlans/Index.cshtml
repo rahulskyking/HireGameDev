@@ -2,25 +2,67 @@
 @{ ViewData["Title"] = "Plans & entitlements"; }
 @section Styles { <link rel="stylesheet" href="~/css/plan-admin.css" asp-append-version="true" /> }
 <div class="plans">
-    <a class="plans-back" asp-controller="Admin" asp-action="Index">← Admin console</a>
-    <header class="plans-header"><div><p class="plans-eyebrow">ADMIN / SUBSCRIPTIONS</p><h1>Plans &amp; entitlements<span>.</span></h1><p>Development-only controls to manage access, set allowances and assign a Studio tier.</p></div><span class="plans-status" data-on="@Model.PremiumEnabled.ToString().ToLowerInvariant()">● PREMIUM @(Model.PremiumEnabled ? "ON" : "OFF")</span></header>
-    @if (TempData["PlanMessage"] is string message) { <div class="plans-notice" role="status">@message</div> }
-    <section class="plans-panel plans-switch">
-        <div><p class="plans-eyebrow">GLOBAL CONTROL</p><h2>Premium switch</h2><p>Off: Free accounts have no subscription quotas. Safety, verification and privacy controls remain. A manually assigned Studio tier still applies.</p><p>On: configured Free allowances apply. Billing and automatic payment activation are not available yet.</p></div>
-        <form asp-action="Premium" method="post" class="plans-form"><label class="plans-toggle" for="premium-state"><input id="premium-state" type="checkbox" name="enabled" value="true" role="switch" checked="@Model.PremiumEnabled" /><span>Premium controls</span></label><input type="hidden" name="enabled" value="false" /><label for="premium-reason">Reason</label><input class="c-input" id="premium-reason" name="reason" maxlength="500" required /><button class="c-btn c-btn--primary" type="submit">Save switch</button></form>
+    <a class="plans-back" asp-controller="Admin" asp-action="Index">← Back to admin console</a>
+    <header class="plans-header">
+        <div><p class="plans-eyebrow">ADMINISTRATION <span>/</span> SUBSCRIPTIONS</p><h1>Plans &amp; entitlements<span>.</span></h1><p>Control how plans work, configure tiers and manage individual Studio access.</p></div>
+        <div class="plans-header-meta"><span class="plans-status" data-on="@Model.PremiumEnabled.ToString().ToLowerInvariant()"><span aria-hidden="true">●</span> Premium @(Model.PremiumEnabled ? "on" : "off")</span><span>Development only</span></div>
+    </header>
+    <div id="plan-feedback" class="plans-feedback">
+        @if (TempData["PlanMessage"] is string message) { <div class="plans-notice" role="status">✓ &nbsp;@message</div> }
+        @if (TempData["PlanError"] is string error) { <div class="plans-notice plans-notice--error" role="alert">@error <span> Your changes were not saved.</span></div> }
+    </div>
+    <section class="plans-panel plans-switch" id="premium-control" aria-labelledby="premium-heading">
+        <div>
+            <p class="plans-eyebrow">01 / GLOBAL CONTROL</p><h2 id="premium-heading">Premium controls</h2>
+            <p>Choose whether configured Free plan quotas apply across the marketplace. Changes take effect after saving.</p>
+            <div class="plans-switch-explainer"><div><strong>Off</strong><span>Free accounts have no subscription quotas.</span></div><div><strong>On</strong><span>Configured Free allowances apply.</span></div></div>
+            <p class="plans-hint">Manual Studio assignments apply in either state. Privacy, verification and safety limits remain in place.</p>
+        </div>
+        <form asp-action="Premium" method="post" class="plans-form plans-switch-form">
+            <div class="plans-switch-head"><div><strong>Premium switch</strong><small>Currently @(Model.PremiumEnabled ? "on" : "off")</small></div><label class="plans-toggle" for="premium-state"><input id="premium-state" type="checkbox" name="enabled" value="true" role="switch" checked="@Model.PremiumEnabled" aria-describedby="premium-switch-help" /><span class="plans-toggle-label">Enable Premium controls</span></label></div>
+            <input type="hidden" name="enabled" value="false" />
+            <p class="plans-hint" id="premium-switch-help">Enabling this does not turn on billing or paid purchases.</p>
+            <label for="premium-reason">Reason for change</label><input class="c-input" id="premium-reason" name="reason" maxlength="500" required placeholder="Why are you changing this?" />
+            <button class="c-btn c-btn--primary" type="submit">Save switch</button>
+        </form>
     </section>
-    <section><div class="plans-section-head"><div><p class="plans-eyebrow">PLAN CONFIGURATION</p><h2>Four tiers. One place.</h2></div><a asp-action="Catalog">View all settings →</a></div><div class="plans-tier-grid">
-        @foreach (var tier in new[] { "free", "plus", "pro", "elite" }) { <a class="plans-tier" asp-action="Catalog" asp-fragment="@tier"><span>@tier.ToUpperInvariant()</span><strong>@(char.ToUpperInvariant(tier[0]) + tier.Substring(1))</strong><small>Candidate &amp; Studio settings ↗</small></a> }
-    </div><p class="plans-hint">Only implemented quotas are enforced. Analytics, boosts, featured placements and other Premium features remain in preparation; changing their values does not activate them.</p></section>
-    <section class="plans-panel"><div class="plans-section-head"><div><p class="plans-eyebrow">STUDIO OVERRIDES</p><h2>Assign a Studio tier</h2><p>Manual assignments apply even when Premium is off. This is not a purchase. Choose Free to remove an override.</p></div></div>
-        <form asp-action="Index" method="get" class="plans-search"><label for="studio-search">Find a Studio</label><input id="studio-search" name="q" value="@Model.Query" class="c-input" maxlength="100" placeholder="Search by name" /><button class="c-btn c-btn--secondary" type="submit">Search</button></form>
-        <p class="plans-hint">Showing up to 200 Studios. Search to narrow the list.</p>
-        <form asp-action="StudioAssignment" method="post" class="plans-form plans-assignment"><label for="studio-id">Studio</label><select class="c-select" id="studio-id" name="studioId" required><option value="">Choose a Studio</option>@foreach (var studio in Model.Studios) { <option value="@studio.Id">@studio.Name — @(Model.Assignments.TryGetValue(studio.Id, out var assigned) ? assigned : "Free / no override")</option> }</select><label for="studio-plan">Tier</label><select class="c-select" id="studio-plan" name="plan"><option value="free">Free (remove override)</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="elite">Elite</option></select><label for="studio-reason">Reason</label><input class="c-input" id="studio-reason" name="reason" maxlength="500" required /><button class="c-btn c-btn--primary" type="submit">Save assignment</button></form>
+    <section aria-labelledby="tiers-heading">
+        <div class="plans-section-head"><div><p class="plans-eyebrow">02 / CONFIGURATION</p><h2 id="tiers-heading">Explore the tiers</h2><p>Review Candidate and Studio settings for each plan.</p></div><a class="plans-text-link" asp-action="Catalog">View all settings ↗</a></div>
+        <div class="plans-tier-grid">
+            @foreach (var tier in new[] { "free", "plus", "pro", "elite" })
+            {
+                var description = tier switch { "free" => "A useful starting point", "plus" => "Room to do more", "pro" => "Our best-value tier", _ => "For higher usage" };
+                <a class="plans-tier" data-tier="@tier" asp-action="Catalog" asp-fragment="@tier"><span class="plans-tier-top"><span>@tier.ToUpperInvariant()</span><span aria-hidden="true">↗</span></span><strong>@(char.ToUpperInvariant(tier[0]) + tier.Substring(1))</strong><small>@description</small><span class="plans-tier-action">Configure plan →</span></a>
+            }
+        </div>
+        <p class="plans-hint plans-footnote">Some features are still planned. Changing a planned setting does not make the feature available.</p>
     </section>
-    <section class="plans-panel"><p class="plans-eyebrow">FREE ALLOWANCES</p><h2>Current Free limits</h2><p>Used only while the Premium switch is on. Existing content is not removed when a limit changes.</p>
-        <div class="plans-two">@foreach (var limit in Model.Limits) { var label = limit.Audience == "candidate" ? "Applications / 30 days" : "Occupied job slots"; <form asp-action="Limit" method="post" class="plans-form"><input type="hidden" name="audience" value="@limit.Audience" /><input type="hidden" name="plan" value="free" /><label for="limit-@limit.Audience">@label</label><input class="c-input" id="limit-@limit.Audience" name="limit" type="number" min="1" max="10000" value="@limit.Limit" required /><label for="reason-@limit.Audience">Reason</label><input class="c-input" id="reason-@limit.Audience" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Update limit</button></form> }</div>
-        <h3>Filtered searches / rolling 24 hours</h3><p>Blank means no search quota. Studio usage is shared across members. Unfiltered browsing and signed-out job search remain open.</p>
-        <form asp-action="SearchLimits" method="post" class="plans-form plans-two"><div><label for="candidateDaily">Candidate searches</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.CandidateDaily" placeholder="No limit" /></div><div><label for="studioDaily">Studio searches</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.StudioDaily" placeholder="No limit" /></div><div><label for="searchReason">Reason</label><input class="c-input" id="searchReason" name="reason" maxlength="500" required /></div><div><button class="c-btn c-btn--secondary" type="submit">Update search limits</button></div></form>
+    <section class="plans-panel" id="studio-assignments" aria-labelledby="studio-heading">
+        <div class="plans-section-head"><div><p class="plans-eyebrow">03 / STUDIO ACCESS</p><h2 id="studio-heading">Assign a Studio tier</h2><p>Manually set a tier for one Studio. This works even when Premium is off and does not record a payment.</p></div><span class="plans-chip">MANUAL OVERRIDE</span></div>
+        <form asp-action="Index" asp-fragment="studio-assignments" method="get" class="plans-search" role="search"><div><label for="studio-search">Find a Studio</label><input id="studio-search" name="q" value="@Model.Query" class="c-input" maxlength="100" placeholder="Search by Studio name" /></div><button class="c-btn c-btn--secondary" type="submit">Search</button>@if (!string.IsNullOrEmpty(Model.Query)) { <a asp-action="Index" asp-fragment="studio-assignments">Clear search</a> }</form>
+        <p class="plans-hint">@if (Model.Studios.Count == 0) { <span>No matching Studios found. Try another search.</span> } else { <span>Showing @Model.Studios.Count Studio@(Model.Studios.Count == 1 ? "" : "s") (up to 200). Search to narrow the list.</span> }</p>
+        <form asp-action="StudioAssignment" method="post" class="plans-form plans-assignment">
+            <div><label for="studio-id">Studio</label><select class="c-select" id="studio-id" name="studioId" required><option value="">Select a Studio</option>@foreach (var studio in Model.Studios) { <option value="@studio.Id">@studio.Name (@studio.Slug) — @(Model.Assignments.TryGetValue(studio.Id, out var assigned) ? assigned.ToUpperInvariant() + " override" : "no override")</option> }</select></div>
+            <div><label for="studio-plan">New tier</label><select class="c-select" id="studio-plan" name="plan" required><option value="">Select a tier</option><option value="free">Free — remove override</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="elite">Elite</option></select></div>
+            <div class="plans-full"><label for="studio-reason">Reason for assignment</label><input class="c-input" id="studio-reason" name="reason" maxlength="500" required placeholder="Add a short reason" /><small class="plans-hint">Choosing Free removes the manual override; the global switch then determines Free quotas.</small></div>
+            <button class="c-btn c-btn--primary" type="submit" disabled="@(Model.Studios.Count == 0)">Save assignment</button>
+        </form>
     </section>
-    <div class="plans-footer"><a asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings →</a><a asp-controller="ErasureRequests" asp-action="Review">Privacy reviews →</a></div>
+    <section class="plans-panel" id="free-limits" aria-labelledby="free-heading">
+        <div class="plans-section-head"><div><p class="plans-eyebrow">04 / FREE PLAN</p><h2 id="free-heading">Current Free allowances</h2><p>These limits apply when Premium controls are on. Changing a limit never removes existing content.</p></div><span class="plans-chip">@(Model.PremiumEnabled ? "APPLYING" : "NOT APPLYING")</span></div>
+        <div class="plans-two plans-limit-grid">
+            @foreach (var limit in Model.Limits)
+            {
+                var label = limit.Audience == "candidate" ? "Applications" : "Occupied job slots";
+                var hint = limit.Audience == "candidate" ? "Successful applications in a rolling 30 days. Withdrawals still count." : "Unexpired Active, Paused and Full jobs use a slot.";
+                <form asp-action="Limit" method="post" class="plans-form plans-limit-card"><input type="hidden" name="audience" value="@limit.Audience" /><input type="hidden" name="plan" value="free" /><p class="plans-eyebrow">@limit.Audience.ToUpperInvariant()</p><h3>@label</h3><p class="plans-hint">@hint</p><label for="limit-@limit.Audience">Limit</label><input class="c-input" id="limit-@limit.Audience" name="limit" type="number" min="1" max="10000" value="@limit.Limit" required /><label for="reason-@limit.Audience">Reason</label><input class="c-input" id="reason-@limit.Audience" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Update @label.ToLowerInvariant()</button></form>
+            }
+        </div>
+        <div class="plans-search-limits"><h3>Filtered searches <span>/ rolling 24 hours</span></h3><p class="plans-hint">Leave a field blank for no search quota. Studio usage is shared. Unfiltered browsing and signed-out job search remain open.</p>
+            <form asp-action="SearchLimits" method="post" class="plans-form plans-assignment"><div><label for="candidateDaily">Candidate searches</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.CandidateDaily" placeholder="No limit" /></div><div><label for="studioDaily">Studio searches</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.StudioDaily" placeholder="No limit" /></div><div class="plans-full"><label for="searchReason">Reason</label><input class="c-input" id="searchReason" name="reason" maxlength="500" required /></div><button class="c-btn c-btn--secondary" type="submit">Update search limits</button></form>
+        </div>
+        <p class="plans-hint">Saved jobs, Studio postings and seats are configured in the <a asp-action="Catalog" asp-fragment="free">Free tier settings</a>.</p>
+    </section>
+    <aside class="plans-note"><strong>Billing is not connected yet.</strong><span>Purchases, automatic payment activation and several Premium features are still in preparation. Manual tier assignments are not payments.</span></aside>
+    <footer class="plans-footer"><a asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings ↗</a><a asp-controller="ErasureRequests" asp-action="Review">Privacy reviews ↗</a></footer>
 </div>

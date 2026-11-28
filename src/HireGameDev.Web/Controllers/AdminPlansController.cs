@@ -34,7 +34,7 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         q = q?.Trim();
         if (q?.Length > 100) return BadRequest();
         var studios = await db.StudioProfiles.AsNoTracking().Where(s => s.DeletedAt == null && (string.IsNullOrEmpty(q) || EF.Functions.ILike(s.Name, "%" + q + "%")))
-            .OrderBy(s => s.Name).ThenBy(s => s.Id).Select(s => new StudioPlanOption(s.Id, s.Name)).Take(200).ToArrayAsync(ct);
+            .OrderBy(s => s.Name).ThenBy(s => s.Id).Select(s => new StudioPlanOption(s.Id, s.Name, s.Slug)).Take(200).ToArrayAsync(ct);
         var assignments = (await plans.GetManualStudioPlansAsync(ct)).ToDictionary(x => x.StudioId, x => x.Plan);
         return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct), draft.IsSuccess ? draft.Value : null,
             await plans.PremiumEnabledAsync(ct), studios, assignments, q));
@@ -45,9 +45,9 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     public async Task<IActionResult> Premium(bool enabled, string reason, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) { TempData["PlanError"] = "Enter a reason before saving the Premium switch."; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         var result = await plans!.SetPremiumEnabledAsync(Actor, enabled, reason, ct);
-        if (result.IsFailure) return BadRequest(result.Error.Message);
+        if (result.IsFailure) { TempData["PlanError"] = result.Error.Message; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         TempData["PlanMessage"] = enabled ? "Premium controls enabled. Billing remains unavailable." : "Premium controls disabled. Manual Studio assignments still apply.";
         return RedirectToAction(nameof(Index));
     }
@@ -56,9 +56,9 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     public async Task<IActionResult> StudioAssignment(Guid studioId, string plan, string reason, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) { TempData["PlanError"] = "Choose a Studio and tier, and enter a reason."; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         var result = await plans!.AssignAsync(Actor, "studio", studioId, plan, reason, ct);
-        if (result.IsFailure) return BadRequest(result.Error.Message);
+        if (result.IsFailure) { TempData["PlanError"] = result.Error.Message; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         TempData["PlanMessage"] = plan == "free" ? "Manual Studio assignment removed." : "Studio tier assigned manually; no payment was recorded.";
         return RedirectToAction(nameof(Index));
     }
@@ -66,9 +66,9 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     public async Task<IActionResult> Limit(string audience, string plan, int? limit, string? reason, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || plan != "free" || !limit.HasValue) return BadRequest();
+        if (!ModelState.IsValid || plan != "free" || !limit.HasValue) { TempData["PlanError"] = "Enter a valid Free limit and reason."; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         var result = await plans!.SetLimitAsync(Actor, audience, plan, limit.Value, reason, ct);
-        if (result.IsFailure) return BadRequest(result.Error.Message);
+        if (result.IsFailure) { TempData["PlanError"] = result.Error.Message; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         TempData["PlanMessage"] = "Free limit updated.";
         return RedirectToAction(nameof(Index));
     }
@@ -77,9 +77,9 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     public async Task<IActionResult> SearchLimits(int? candidateDaily, int? studioDaily, string? reason, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) { TempData["PlanError"] = "Enter valid search limits and a reason."; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         var result = await searchQuotas!.UpdateSettingsAsync(Actor, new SearchQuotaSettings(candidateDaily, studioDaily), reason, ct);
-        if (result.IsFailure) return BadRequest(result.Error.Message);
+        if (result.IsFailure) { TempData["PlanError"] = result.Error.Message; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
         TempData["PlanMessage"] = "Search limits updated.";
         return RedirectToAction(nameof(Index));
     }
@@ -96,11 +96,13 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     public async Task<IActionResult> CatalogValue(string audience, string plan, string feature, string value, long version, string reason, CancellationToken ct)
     {
         Private(); if (!Enabled || catalog is null) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid) return BadRequest();
+        var fragment = plan is "free" or "plus" or "pro" or "elite" ? plan : "top";
+        if (!ModelState.IsValid) { TempData["CatalogError"] = "Enter a valid setting and reason."; return RedirectToAction(nameof(Catalog), null, null, "catalog-feedback"); }
         var result = await catalog.UpdateAsync(Actor, audience, plan, feature, value, version, reason, ct);
-        if (result.IsFailure) return BadRequest(result.Error.Message);
+        if (result.IsFailure) { TempData["CatalogError"] = result.Error.Message; return RedirectToAction(nameof(Catalog), null, null, "catalog-feedback"); }
         TempData["CatalogMessage"] = "Setting saved. Only implemented quota features are enforced; other features remain planned.";
-        return RedirectToAction(nameof(Catalog));
+        TempData["CatalogSavedTier"] = fragment;
+        return RedirectToAction(nameof(Catalog), null, null, fragment);
     }
     [HttpPost("search-draft"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
     public async Task<IActionResult> SearchDraft(int? candidateDaily, int? studioDaily, string? reason, CancellationToken ct)
@@ -114,6 +116,6 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     }
 }
 
-public sealed record StudioPlanOption(Guid Id, string Name);
+public sealed record StudioPlanOption(Guid Id, string Name, string Slug);
 public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft,
     bool PremiumEnabled, IReadOnlyList<StudioPlanOption> Studios, IReadOnlyDictionary<Guid, string> Assignments, string? Query);
