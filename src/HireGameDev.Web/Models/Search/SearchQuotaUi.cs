@@ -16,6 +16,9 @@ public static class SearchQuotaUi
         Skills = (s.SkillIds ?? Array.Empty<int>()).Distinct().OrderBy(x => x).ToArray(), s.FresherFriendlyOnly });
     public static string Fingerprint(CandidateDiscoverySearch s) => Hash(new {
         Keyword = s.Keyword?.Trim().ToLowerInvariant() ?? "", s.Category, s.CityId, s.SkillId, s.MinimumYears, s.RemoteOnly });
+    public static bool IsFiltered(PublicJobSearch s) => !string.IsNullOrWhiteSpace(s.Keyword) || s.StudioId.HasValue ||
+        s.Category.HasValue || s.JobType.HasValue || s.WorkMode.HasValue || s.CityId.HasValue || s.ExperienceYears.HasValue ||
+        (s.SkillIds?.Count ?? 0) > 0 || s.FresherFriendlyOnly;
     public static bool IsFiltered(CandidateDiscoverySearch s) => !string.IsNullOrWhiteSpace(s.Keyword) || s.Category.HasValue || s.CityId.HasValue || s.SkillId.HasValue || s.MinimumYears.HasValue || s.RemoteOnly;
     public static IReadOnlyList<KeyValuePair<string, string>> Fields(IQueryCollection query, params string[] allowed) => query
         .Where(x => allowed.Contains(x.Key, StringComparer.OrdinalIgnoreCase))

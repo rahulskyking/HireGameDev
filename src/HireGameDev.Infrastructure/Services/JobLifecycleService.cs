@@ -448,10 +448,12 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         if (publication && _plans is not null)
         {
             var postingLimit = await _plans.GetStudioPostingLimitAsync(job.StudioId, ct);
-            var since = now.AddDays(-30);
-            var usage = await _db.JobPublicationEvents.CountAsync(x => x.StudioId == job.StudioId && x.PublishedAt > since && x.PublishedAt <= now, ct);
-            if (usage >= postingLimit)
-                return Error.RateLimited("Jobs.MonthlyPostingLimit", "Your Studio has reached its job posting allowance for the last 30 days. Closing a job does not refund a posting.");
+            var usage = await StudioPostingQuota.ReadAsync(_db, job.StudioId, postingLimit, now, ct);
+            if (usage.Used >= postingLimit)
+            {
+                var next = usage.NextAvailableAt.HasValue ? $" Next available: {usage.NextAvailableAt.Value:u}." : "";
+                return Error.RateLimited("Jobs.MonthlyPostingLimit", "Your Studio has reached its job posting allowance for the last 30 days. Closing a job does not refund a posting." + next);
+            }
         }
         if (publication && await _db.JobPublicationEvents.CountAsync(x => x.StudioId == job.StudioId && x.PublishedAt > now.AddHours(-24), ct) >= _limits.PublicationsPer24Hours)
             return Error.RateLimited("Jobs.PostingLimit", "Studio publication quota reached. Try again after the rolling window clears.");

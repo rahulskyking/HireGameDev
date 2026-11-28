@@ -16,6 +16,7 @@
     <partial name="_CandidateJobsNav" /><header class="jb-hero"><div><span class="jb-eyebrow">Your private list</span><h1>Saved jobs</h1><p>Keep track of roles you want to revisit. Only you can see this list.</p></div></header>
 @if (TempData["SavedJobMessage"] is string message) { <div class="jb-note" role="status">@message</div> }
 <section class="jb-stack" aria-label="Saved jobs">
+@if (Model.HasPlanLimit) { <p class="jb-muted">@Model.TotalCount / @(Model.SavedLimit?.ToString() ?? "unlimited") saved jobs used. Removing a saved job frees space. Saved jobs from blocked Studios are excluded.</p> }
 <div class="jb-results-head"><h2>@Model.TotalCount saved @(Model.TotalCount == 1 ? "job" : "jobs")</h2><a asp-controller="PublicJobs" asp-action="Index">Explore more jobs →</a></div>
 @if (showMatches && Model.Items.Count > 0) { <p class="jb-muted">Matches use your current profile and assessed criteria. They are not hiring decisions.</p> }
 @if (Model.Items.Count == 0) { <div class="jb-panel jb-empty"><h2>No saved jobs here yet.</h2><p>Explore open roles and save the ones you want to revisit.</p><a class="c-btn c-btn--secondary" asp-controller="PublicJobs" asp-action="Index">Explore jobs</a></div> }

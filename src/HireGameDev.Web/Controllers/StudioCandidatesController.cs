@@ -38,12 +38,12 @@ public sealed class StudioCandidatesController(IWebHostEnvironment environment, 
         if (studio is null) return Forbid();
         var result = await discovery.SearchAsync(Actor, studio.StudioId, search, ct);
         if (result.IsFailure && result.Error.Type != ErrorType.Forbidden) return BadRequest(result.Error.Message);
-        if (result.IsSuccess && searchQuotas is not null && SearchQuotaUi.IsFiltered(search))
+        if (result.IsSuccess && searchQuotas is not null)
         {
             var check = await searchQuotas.CheckAsync(Actor, "studio", studio.StudioId, SearchQuotaUi.Fingerprint(search), searchRun, ct);
             if (check.IsFailure) return Forbid();
             ViewData["SearchQuota"] = check.Value;
-            if (check.Value.Enabled && !check.Value.AuthorizedRun)
+            if (SearchQuotaUi.IsFiltered(search) && check.Value.Enabled && !check.Value.AuthorizedRun)
                 return View("SearchQuotaConfirm", new SearchQuotaConfirmPage(Url.Action(nameof(StartSearch))!,
                     SearchQuotaUi.Fields(Request.Query, "studioId", "Keyword", "Category", "CityId", "SkillId", "MinimumYears", "RemoteOnly", "searchRun")
                         .Where(x => !string.Equals(x.Key, "studioId", StringComparison.OrdinalIgnoreCase))

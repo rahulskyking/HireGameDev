@@ -133,6 +133,7 @@ internal sealed class SavedJobService(AppDbContext db, IPublicJobQueryService pu
             var visible = await publicJobs.GetBySlugAsync(row.Slug, cancellationToken, actorUserId);
             entries.Add(new SavedJobEntry(row.JobId, row.CreatedAt, visible.IsSuccess ? visible.Value.Summary : null));
         }
-        return Result.Success(new SavedJobPage(entries, total, page, pageSize, pages));
+        var savedLimit = plans is null ? null : await plans.GetCandidateSavedJobLimitAsync(candidate.Value, cancellationToken);
+        return Result.Success(new SavedJobPage(entries, total, page, pageSize, pages, plans is not null, savedLimit));
     }
 }

@@ -24,7 +24,7 @@ namespace HireGameDev.Web.Controllers;
 [Route("Studio/Jobs")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfileService studios,
-    IReferenceDataService references, IJobPublishChecker checker, AppDbContext db, IClock clock, IPlanEntitlementService? plans = null) : Controller
+    IReferenceDataService references, IJobPublishChecker checker, AppDbContext db, IClock clock, IPlanEntitlementService? plans = null, IStudioPostingUsageService? postingUsage = null) : Controller
 {
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private async Task<StudioMembershipSummary?> Membership(Guid studioId, bool write, CancellationToken ct)
@@ -51,10 +51,9 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             var now = clock.UtcNow.ToUniversalTime();
             var occupied = await db.Jobs.AsNoTracking().CountAsync(j => j.StudioId == studio.StudioId &&
                 (j.Status == JobStatus.Active || j.Status == JobStatus.Paused || j.Status == JobStatus.Full) && j.ExpiresAt > now, cancellationToken);
-            var postingLimit = await plans.GetStudioPostingLimitAsync(studio.StudioId, cancellationToken);
-            var since = now.AddDays(-30);
-            var postings = await db.JobPublicationEvents.AsNoTracking().CountAsync(x => x.StudioId == studio.StudioId && x.PublishedAt > since && x.PublishedAt <= now, cancellationToken);
-            ViewData["StudioPlanUsage"] = new StudioPlanUsage(entitlement.Plan, occupied, entitlement.Limit, postings, postingLimit);
+            var postingResult = postingUsage is null ? null : await postingUsage.GetAsync(Actor, studio.StudioId, cancellationToken);
+            ViewData["StudioPlanUsage"] = new StudioPlanUsage(entitlement.Plan, occupied, entitlement.Limit,
+                postingResult?.IsSuccess == true ? postingResult.Value : null);
         }
         return View(new JobListPage(studio, memberships, result.Value, status));
     }

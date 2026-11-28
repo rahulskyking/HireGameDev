@@ -36,12 +36,12 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         var quotaCandidate = environment?.IsDevelopment() == true && searchQuotas is not null && ViewerUserId() is Guid &&
             User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate;
         if (quotaCandidate) { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["Referrer-Policy"] = "no-referrer"; }
-        if (quotaCandidate && ModelState.IsValid && results is not null && PublicJobUi.HasFilters(search))
+        if (quotaCandidate && ModelState.IsValid && results is not null)
         {
             var check = await searchQuotas!.CheckAsync(ViewerUserId()!.Value, "candidate", null, SearchQuotaUi.Fingerprint(search), searchRun, cancellationToken);
             if (check.IsFailure) return Forbid();
             ViewData["SearchQuota"] = check.Value;
-            if (check.Value.Enabled && !check.Value.AuthorizedRun)
+            if (SearchQuotaUi.IsFiltered(search) && check.Value.Enabled && !check.Value.AuthorizedRun)
             {
                 Response.Headers["Referrer-Policy"] = "no-referrer";
                 return View("SearchQuotaConfirm", new SearchQuotaConfirmPage(Url.Action(nameof(StartSearch))!,
@@ -99,7 +99,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         search = search with { Page = 1 };
         var validation = await jobs.SearchAsync(search, cancellationToken, ViewerUserId());
         if (validation.IsFailure) return BadRequest(validation.Error.Message);
-        if (!PublicJobUi.HasFilters(search)) return Redirect(PublicJobUi.PageUrl(search, 1));
+        if (!SearchQuotaUi.IsFiltered(search)) return Redirect(PublicJobUi.PageUrl(search, 1));
         var started = await searchQuotas.StartAsync(ViewerUserId()!.Value, "candidate", null, SearchQuotaUi.Fingerprint(search), searchRun, intentId, cancellationToken);
         if (started.IsFailure)
         {
