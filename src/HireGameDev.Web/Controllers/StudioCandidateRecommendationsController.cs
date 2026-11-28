@@ -22,6 +22,6 @@ public sealed class StudioCandidateRecommendationsController(IWebHostEnvironment
         if (!ApplicationFeature.Enabled(environment) || recommendations is null) return NotFound();
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actor) || actor == Guid.Empty) return Forbid();
         var result = await recommendations.GetAsync(actor, studioId, jobId, cancellationToken);
-        return result.IsSuccess ? View(result.Value) : NotFound();
+        return result.IsSuccess ? View(result.Value) : result.Error.Type == HireGameDev.Application.Common.ErrorType.NotFound ? NotFound() : StatusCode(503);
     }
 }

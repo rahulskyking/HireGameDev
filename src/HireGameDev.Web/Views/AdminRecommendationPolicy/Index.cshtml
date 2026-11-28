@@ -1,18 +1,33 @@
-@model HireGameDev.Application.Abstractions.Applications.RecommendationPolicy
+@model HireGameDev.Web.Controllers.RecommendationPolicyAdminPage
 @{ ViewData["Title"] = "Recommendation settings"; }
 <section class="p-sg-stack">
     <a asp-controller="Admin" asp-action="Index">← Admin console</a>
-    <h1>Candidate job recommendations</h1>
-    <p>These thresholds control which relevant jobs appear on the Development recommendations page. They do not change the match score, access permissions or application eligibility. At least one listed skill must still meet the job requirement.</p>
-    <p>Changes apply to new requests; other application instances can take up to one minute to refresh their settings. These values are provisional and have not been validated for real personal data.</p>
+    <h1>Recommendation settings</h1>
+    <p>Choose separate thresholds for jobs suggested to Candidates and candidates suggested to Studios. These do not change match scores, access, discoverability, verification or application eligibility. At least one listed skill must still meet the job requirement.</p>
+    <p>Changes apply to new requests; other application instances can take up to one minute to refresh their settings. Values are provisional and have not been validated for real personal data.</p>
     @if (TempData["RecommendationPolicyMessage"] is string message) { <p role="status">@message</p> }
     <form asp-action="Update" method="post" class="c-card c-form">
-        <label class="c-label" for="minimumScore">Minimum match score (%)</label>
-        <input class="c-input" type="number" id="minimumScore" name="minimumScore" min="0" max="100" value="@Model.MinimumScore" required />
-        <label class="c-label" for="minimumCoverage">Minimum criteria coverage (%)</label>
-        <input class="c-input" type="number" id="minimumCoverage" name="minimumCoverage" min="0" max="100" value="@Model.MinimumCoverage" required />
-        <label class="c-label" for="reason">Reason for change</label>
-        <input class="c-input" id="reason" name="reason" maxlength="500" required />
-        <button class="c-btn c-btn--primary" type="submit">Save thresholds</button>
+        <h2>Jobs for Candidates</h2>
+        @if (Model.Candidate is null) { <p role="alert">The saved settings are invalid and these recommendations are unavailable. Enter valid values and a reason to restore them.</p> }
+        <input type="hidden" name="direction" value="candidate" />
+        <label class="c-label" for="candidate-score">Minimum match score (%)</label>
+        <input class="c-input" type="number" id="candidate-score" name="minimumScore" min="0" max="100" value="@(Model.Candidate?.MinimumScore)" required />
+        <label class="c-label" for="candidate-coverage">Minimum criteria coverage (%)</label>
+        <input class="c-input" type="number" id="candidate-coverage" name="minimumCoverage" min="0" max="100" value="@(Model.Candidate?.MinimumCoverage)" required />
+        <label class="c-label" for="candidate-reason">Reason for change</label>
+        <input class="c-input" id="candidate-reason" name="reason" maxlength="500" required />
+        <button class="c-btn c-btn--primary" type="submit">Save Candidate thresholds</button>
+    </form>
+    <form asp-action="Update" method="post" class="c-card c-form">
+        <h2>Candidates for Studios</h2>
+        @if (Model.Studio is null) { <p role="alert">The saved settings are invalid and these recommendations are unavailable. Enter valid values and a reason to restore them.</p> }
+        <input type="hidden" name="direction" value="studio" />
+        <label class="c-label" for="studio-score">Minimum match score (%)</label>
+        <input class="c-input" type="number" id="studio-score" name="minimumScore" min="0" max="100" value="@(Model.Studio?.MinimumScore)" required />
+        <label class="c-label" for="studio-coverage">Minimum criteria coverage (%)</label>
+        <input class="c-input" type="number" id="studio-coverage" name="minimumCoverage" min="0" max="100" value="@(Model.Studio?.MinimumCoverage)" required />
+        <label class="c-label" for="studio-reason">Reason for change</label>
+        <input class="c-input" id="studio-reason" name="reason" maxlength="500" required />
+        <button class="c-btn c-btn--primary" type="submit">Save Studio thresholds</button>
     </form>
 </section>

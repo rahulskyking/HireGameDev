@@ -40,7 +40,7 @@ internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock 
             orderby matched descending, j.PublishedAt descending, j.Id
             select new { j.Id, j.Slug }).Take(50).ToArrayAsync(cancellationToken);
         var scores = await fits.GetAsync(actorUserId, pool.Select(x => x.Id).ToArray(), cancellationToken);
-        var candidates = pool.Where(x => scores.TryGetValue(x.Id, out var score) && IsRecommendable(score, policy))
+        var candidates = pool.Where(x => scores.TryGetValue(x.Id, out var score) && policy.Allows(score))
             .OrderByDescending(x => scores[x.Id].Percentage).ThenByDescending(x => scores[x.Id].Coverage).ThenBy(x => x.Id).Take(12).ToArray();
         var visible = new List<(Guid Id, HireGameDev.Application.Features.Jobs.PublicJobCard Job)>();
         foreach (var row in candidates)
@@ -52,14 +52,11 @@ internal sealed class CandidateJobRecommendationService(AppDbContext db, IClock 
         // response has begun, so application submission must independently revalidate.
         var fresh = await fits.GetAsync(actorUserId, visible.Select(x => x.Id).ToArray(), cancellationToken);
         IReadOnlyList<CandidateJobRecommendation> result = visible
-            .Where(x => fresh.TryGetValue(x.Id, out var score) && IsRecommendable(score, policy))
+            .Where(x => fresh.TryGetValue(x.Id, out var score) && policy.Allows(score))
             .Select(x => new CandidateJobRecommendation(x.Job, fresh[x.Id]))
             .OrderByDescending(x => x.Fit.Percentage).ThenByDescending(x => x.Fit.Coverage).ThenBy(x => x.Job.Id)
             .Take(6).ToArray();
         return Result.Success(new CandidateJobRecommendationsPage(result, policy));
     }
 
-    private static bool IsRecommendable(HireGameDev.Application.Features.Applications.ApplicationFitScore fit, RecommendationPolicy policy) =>
-        fit.Percentage.HasValue && fit.Percentage.Value >= policy.MinimumScore && fit.Coverage >= policy.MinimumCoverage && fit.Criteria.Any(c =>
-            (c.Label.StartsWith("Required: ", StringComparison.Ordinal) || c.Label.StartsWith("Preferred: ", StringComparison.Ordinal)) && c.Fraction == 1m);
 }

@@ -31,20 +31,26 @@ public sealed class AdminRecommendationPolicyController(IWebHostEnvironment envi
     {
         Private(); if (!Enabled) return NotFound();
         if (!await IsActiveAdmin(ct)) return Forbid();
-        var result = await policies!.GetAsync(ct);
-        if (result.IsFailure) return StatusCode(503, "Recommendation settings are invalid; contact an administrator.");
-        return View(result.Value);
+        var candidate = await policies!.GetAsync(ct);
+        var studio = await policies.GetStudioAsync(ct);
+        // Allow an Admin to repair a malformed setting without silently using a default.
+        return View(new RecommendationPolicyAdminPage(candidate.IsSuccess ? candidate.Value : null, studio.IsSuccess ? studio.Value : null));
     }
 
     [HttpPost(""), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
-    public async Task<IActionResult> Update(int? minimumScore, int? minimumCoverage, string? reason, CancellationToken ct)
+    public async Task<IActionResult> Update(string? direction, int? minimumScore, int? minimumCoverage, string? reason, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound();
         if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || !minimumScore.HasValue || !minimumCoverage.HasValue || string.IsNullOrWhiteSpace(reason)) return BadRequest();
-        var result = await policies!.UpdateAsync(Actor, new RecommendationPolicy(minimumScore.Value, minimumCoverage.Value), reason, ct);
+        if (!ModelState.IsValid || (direction is not ("candidate" or "studio")) || !minimumScore.HasValue || !minimumCoverage.HasValue || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        var policy = new RecommendationPolicy(minimumScore.Value, minimumCoverage.Value);
+        var result = direction == "candidate"
+            ? await policies!.UpdateAsync(Actor, policy, reason, ct)
+            : await policies!.UpdateStudioAsync(Actor, policy, reason, ct);
         if (result.IsFailure) return BadRequest(result.Error.Message);
         TempData["RecommendationPolicyMessage"] = "Recommendation thresholds updated.";
         return RedirectToAction(nameof(Index));
     }
 }
+
+public sealed record RecommendationPolicyAdminPage(RecommendationPolicy? Candidate, RecommendationPolicy? Studio);

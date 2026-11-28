@@ -6,7 +6,7 @@
     <header class="jb-hero"><div><span class="jb-eyebrow">Discoverable profiles</span><h1>People for this role.</h1><p>Suggestions for @Model.JobTitle. These candidates have not necessarily applied.</p></div></header>
     <p><a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId">View applicants for this job →</a></p>
     <section class="jb-stack" aria-label="Recommended candidates">
-        <p class="jb-muted">A limited selection from up to 50 discoverable profiles with a matching listed skill. Only scores of at least 60% with at least 70% criteria coverage are shown. This is not a complete list or a hiring decision. Details reflect the current profile, not an application snapshot.</p>
+        <p class="jb-muted">A limited selection from up to 50 discoverable profiles with a matching listed skill. Only scores of at least @Model.Policy.MinimumScore% with at least @Model.Policy.MinimumCoverage% criteria coverage are shown. This is not a complete list or a hiring decision. Details reflect the current profile, not an application snapshot.</p>
         @if (Model.Items.Count == 0) { <div class="jb-panel jb-empty"><h2>No suggestions right now.</h2><p>Other suitable candidates may be available. Check applicants for this job separately.</p><a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId">View applicants</a></div> }
         @foreach (var candidate in Model.Items)
         {

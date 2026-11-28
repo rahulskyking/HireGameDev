@@ -11,7 +11,7 @@ namespace HireGameDev.Infrastructure.Services;
 
 // Development-only unsolicited discovery. No contact details, private compensation,
 // portfolio contents, application snapshots, activity or Premium state are returned.
-internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClock clock) : IStudioCandidateRecommendationService
+internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClock clock, IRecommendationPolicyService policies) : IStudioCandidateRecommendationService
 {
     public async Task<Result<StudioCandidateRecommendationsPage>> GetAsync(Guid actorUserId, Guid studioId, Guid jobId, CancellationToken cancellationToken = default)
     {
@@ -29,6 +29,9 @@ internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClo
                 job.Status == JobStatus.Active && job.ExpiresAt != null && job.ExpiresAt > now && job.ApplicationsCount < job.ApplicationCap
             select new { job.Id, job.Title }).SingleOrDefaultAsync(cancellationToken);
         if (jobInfo is null) return Result.Failure<StudioCandidateRecommendationsPage>(Unavailable());
+        var policyResult = await policies.GetStudioAsync(cancellationToken);
+        if (policyResult.IsFailure) return Result.Failure<StudioCandidateRecommendationsPage>(policyResult.Error);
+        var policy = policyResult.Value;
         // Authorization, blocks and discoverability are rechecked in the same statement as
         // profile data; the job's current requirements and profile skills come from that read.
         var rows = await (from job in db.Jobs.AsNoTracking()
@@ -70,10 +73,9 @@ internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClo
             var job = new JobApplicationSnapshot("", "", null, null, required,
                 new ApplicationMatchInputs(preferred, row.MinYears, row.WorkMode, row.JobCityId.HasValue ? row.CandidateCityId == row.JobCityId.Value : null));
             return new { row.CandidateId, row.FullName, row.Headline, Fit = ApplicationFitScore.Create(candidate, job) };
-        }).Where(x => x.Fit?.Percentage is >= 60 && x.Fit.Coverage >= 70 && x.Fit.Criteria.Any(c =>
-            (c.Label.StartsWith("Required: ", StringComparison.Ordinal) || c.Label.StartsWith("Preferred: ", StringComparison.Ordinal)) && c.Fraction == 1m))
+        }).Where(x => policy.Allows(x.Fit))
           .OrderByDescending(x => x.Fit!.Percentage).ThenByDescending(x => x.Fit!.Coverage).ThenBy(x => x.CandidateId)
           .Take(6).Select(x => new StudioCandidateRecommendation(x.FullName, x.Headline, x.Fit!)).ToArray();
-        return Result.Success(new StudioCandidateRecommendationsPage(jobId, studioId, jobInfo.Title ?? "Job", scored));
+        return Result.Success(new StudioCandidateRecommendationsPage(jobId, studioId, jobInfo.Title ?? "Job", scored, policy));
     }
 }
