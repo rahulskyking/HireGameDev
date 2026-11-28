@@ -16,7 +16,7 @@ namespace HireGameDev.Web.Controllers;
 [Route("Admin/Plans")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminPlansController(IWebHostEnvironment environment, IPortalNavigator portals, AppDbContext db,
-    IPlanEntitlementService? plans = null, ISearchAllowanceDraftService? searchDrafts = null, ISearchQuotaService? searchQuotas = null) : Controller
+    IPlanEntitlementService? plans = null, ISearchAllowanceDraftService? searchDrafts = null, ISearchQuotaService? searchQuotas = null, IPlanCatalogService? catalog = null) : Controller
 {
     private bool Enabled => environment.IsDevelopment() && portals.ResolvePortal(HttpContext) == PortalSite.Landing && plans is not null && searchDrafts is not null && searchQuotas is not null;
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
@@ -56,6 +56,24 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         return RedirectToAction(nameof(Index));
     }
 
+
+    [HttpGet("catalog")]
+    public async Task<IActionResult> Catalog(CancellationToken ct)
+    {
+        Private(); if (!Enabled || catalog is null) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        return View(await catalog.GetAsync(ct));
+    }
+
+    [HttpPost("catalog"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> CatalogValue(string audience, string plan, string feature, string value, long version, string reason, CancellationToken ct)
+    {
+        Private(); if (!Enabled || catalog is null) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        if (!ModelState.IsValid) return BadRequest();
+        var result = await catalog.UpdateAsync(Actor, audience, plan, feature, value, version, reason, ct);
+        if (result.IsFailure) return BadRequest(result.Error.Message);
+        TempData["CatalogMessage"] = "Proposed setting saved. Live limits are unchanged.";
+        return RedirectToAction(nameof(Catalog));
+    }
     [HttpPost("search-draft"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
     public async Task<IActionResult> SearchDraft(int? candidateDaily, int? studioDaily, string? reason, CancellationToken ct)
     {

@@ -244,6 +244,7 @@ public static class DependencyInjection
         if (environment.IsDevelopment())
         {
             services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
+            services.AddScoped<IPlanCatalogService, PlanCatalogService>();
             services.AddScoped<ISearchAllowanceDraftService, SearchAllowanceDraftService>();
             services.AddScoped<ISearchQuotaService, SearchQuotaService>();
             services.AddScoped<IRecommendationPolicyService, RecommendationPolicyService>();

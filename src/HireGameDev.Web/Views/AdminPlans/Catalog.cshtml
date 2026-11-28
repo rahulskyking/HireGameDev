@@ -1,0 +1,36 @@
+@model IReadOnlyList<HireGameDev.Application.Abstractions.Plans.PlanCatalogItem>
+@{ ViewData["Title"] = "Proposed plan catalog"; }
+<section class="p-sg-stack">
+    <a asp-action="Index">← Application control panel</a>
+    <h1>Proposed plan catalog</h1>
+    <p>These values are planning settings only. They do not change live quotas, enable features or activate paid plans. Use the application control panel for current Free limits.</p>
+    @if (TempData["CatalogMessage"] is string message) { <p role="status">@message</p> }
+    @foreach (var group in Model.GroupBy(x => new { x.Audience, x.Plan }))
+    {
+        <section class="c-card">
+            <h2>@group.Key.Audience — @group.Key.Plan</h2>
+            @foreach (var item in group)
+            {
+                <form asp-action="CatalogValue" method="post" class="c-form">
+                    <input type="hidden" name="audience" value="@item.Audience" />
+                    <input type="hidden" name="plan" value="@item.Plan" />
+                    <input type="hidden" name="feature" value="@item.Feature" />
+                    <input type="hidden" name="version" value="@item.Version" />
+                    <label class="c-label">@item.Label
+                        @if (item.ValueType == "choice")
+                        {
+                            <select name="value" class="c-select">@foreach (var choice in item.AllowedValues) { <option value="@choice" selected="@(choice == item.Value)">@choice</option> }</select>
+                        }
+                        else
+                        {
+                            <input name="value" class="c-input" value="@item.Value" required maxlength="32" />
+                            <small>0–10000@(item.AllowsUnlimited ? ", or unlimited" : "")</small>
+                        }
+                    </label>
+                    <label class="c-label">Reason <input name="reason" class="c-input" required maxlength="500" /></label>
+                    <button class="c-btn c-btn--secondary" type="submit">Save proposed value</button>
+                </form>
+            }
+        </section>
+    }
+</section>
