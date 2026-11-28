@@ -1,5 +1,9 @@
 using System.Security.Claims;
+using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Plans;
+using HireGameDev.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Studios;
@@ -20,7 +24,7 @@ namespace HireGameDev.Web.Controllers;
 [Route("Studio/Jobs")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfileService studios,
-    IReferenceDataService references, IJobPublishChecker checker) : Controller
+    IReferenceDataService references, IJobPublishChecker checker, AppDbContext db, IClock clock, IPlanEntitlementService? plans = null) : Controller
 {
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private async Task<StudioMembershipSummary?> Membership(Guid studioId, bool write, CancellationToken ct)
@@ -40,6 +44,15 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
         if (studio is null) return Forbid();
         var result = await jobs.ListAsync(Actor, studio.StudioId, status, page, cancellationToken);
         if (result.IsFailure) return Forbid();
+        if (plans is not null)
+        {
+            // Advisory only; activation re-reads under the transaction and quota locks.
+            var entitlement = await plans.GetAsync("studio", studio.StudioId, cancellationToken);
+            var now = clock.UtcNow.ToUniversalTime();
+            var occupied = await db.Jobs.AsNoTracking().CountAsync(j => j.StudioId == studio.StudioId &&
+                (j.Status == JobStatus.Active || j.Status == JobStatus.Paused || j.Status == JobStatus.Full) && j.ExpiresAt > now, cancellationToken);
+            ViewData["StudioPlanUsage"] = new StudioPlanUsage(entitlement.Plan, occupied, entitlement.Limit);
+        }
         return View(new JobListPage(studio, memberships, result.Value, status));
     }
 

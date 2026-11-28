@@ -10,7 +10,7 @@ public sealed class ApplicationQuotaOptions
     public int WindowDays { get; set; } = 30;
 }
 
-public sealed record CandidateApplicationUsage(int Used, int Limit, int WindowDays, DateTimeOffset? NextAvailableAt)
+public sealed record CandidateApplicationUsage(int Used, int Limit, int WindowDays, DateTimeOffset? NextAvailableAt, string? Plan = null)
 {
     public bool CanSubmit => Used < Limit;
 }

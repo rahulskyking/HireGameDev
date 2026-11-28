@@ -1,6 +1,7 @@
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Plans;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Jobs;
@@ -22,15 +23,17 @@ internal sealed class JobLifecycleService : IJobLifecycleService
     private readonly IJobPublishChecker _checker;
     private readonly IAuditLogger _audit;
     private readonly JobLifecycleOptions _limits;
+    private readonly IPlanEntitlementService? _plans;
 
     public JobLifecycleService(AppDbContext db, IClock clock, IJobPublishChecker checker,
-        IAuditLogger audit, IOptions<JobLifecycleOptions> options)
+        IAuditLogger audit, IOptions<JobLifecycleOptions> options, IPlanEntitlementService? plans = null)
     {
         _db = db;
         _clock = clock;
         _checker = checker;
         _audit = audit;
         _limits = options.Value;
+        _plans = plans;
     }
 
     public async Task<Result<StudioJobList>> ListAsync(Guid actorUserId, Guid studioId, JobStatus? status = null,
@@ -370,6 +373,7 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         await using var transaction = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
         try
         {
+            if (_plans is not null) await _plans.LockForConsumptionAsync(ct);
             // Consistent lock order: Studio first, Job second. Quotas are studio-wide, across all recruiters/instances.
             if (_db.Database.IsNpgsql()) await LockAsync("SELECT 1 FROM studio_profiles WHERE id = @id FOR UPDATE", studioId, null, ct);
             var trackedStudio = _db.ChangeTracker.Entries<StudioProfile>().SingleOrDefault(x => x.Entity.Id == studioId);
@@ -433,7 +437,8 @@ internal sealed class JobLifecycleService : IJobLifecycleService
             (x.Status == JobStatus.Active || x.Status == JobStatus.Paused || x.Status == JobStatus.Full) && x.ExpiresAt > now, ct);
         // Resuming/reopening an unexpired job does not consume another slot, including after a downgrade.
         var alreadyOccupiesSlot = JobLifecycleRules.ConsumesActiveSlot(job.Status) && job.ExpiresAt > now;
-        if (!alreadyOccupiesSlot && occupied >= _limits.FreeActiveJobs) return Error.RateLimited("Jobs.ActiveLimit", "Job slot limit reached. Existing jobs are unchanged.");
+        var slotLimit = _plans is null ? _limits.FreeActiveJobs : (await _plans.GetAsync("studio", job.StudioId, ct)).Limit;
+        if (!alreadyOccupiesSlot && occupied >= slotLimit) return Error.RateLimited("Jobs.ActiveLimit", "Job slot limit reached. Existing jobs are unchanged.");
         var duplicate = await new JobDuplicateDetector(_db, _clock, Options.Create(_limits))
             .CheckAsync(new JobPublishContext(job.Id, job.StudioId, (await SnapshotAsync(job, ct)).Content), ct);
         if (duplicate is not null) return Error.Conflict(duplicate.Code, duplicate.Message);

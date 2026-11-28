@@ -10,7 +10,7 @@ namespace HireGameDev.Infrastructure.Services;
 
 // Read is advisory for the UI. Submission calls the same calculation while holding the
 // per-candidate lock and must commit its application before releasing that lock.
-internal sealed class CandidateApplicationUsageService(AppDbContext db, IClock clock, IOptions<ApplicationQuotaOptions> options) : ICandidateApplicationUsageService
+internal sealed class CandidateApplicationUsageService(AppDbContext db, IClock clock, IOptions<ApplicationQuotaOptions> options, IPlanEntitlementService? plans = null) : ICandidateApplicationUsageService
 {
     public async Task<Result<CandidateApplicationUsage>> GetAsync(Guid actorUserId, CancellationToken cancellationToken = default)
     {
@@ -20,7 +20,10 @@ internal sealed class CandidateApplicationUsageService(AppDbContext db, IClock c
                 u.AccountType == AccountType.Candidate && c.DeletedAt == null
             select (Guid?)c.Id).SingleOrDefaultAsync(cancellationToken);
         if (!candidate.HasValue) return Result.Failure<CandidateApplicationUsage>(Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."));
-        return Result.Success(await CandidateApplicationQuota.ReadAsync(db, candidate.Value, clock.UtcNow.ToUniversalTime(), options.Value, cancellationToken));
+        var entitlement = plans is null ? null : await plans.GetAsync("candidate", candidate.Value, cancellationToken);
+        var quota = entitlement is null ? options.Value : new ApplicationQuotaOptions { Limit = entitlement.Limit, WindowDays = 30 };
+        var usage = await CandidateApplicationQuota.ReadAsync(db, candidate.Value, clock.UtcNow.ToUniversalTime(), quota, cancellationToken);
+        return Result.Success(usage with { Plan = entitlement?.Plan });
     }
 }
 

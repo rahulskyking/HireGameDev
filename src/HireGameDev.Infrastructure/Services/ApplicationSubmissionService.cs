@@ -32,11 +32,13 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
     private readonly IClock _clock;
     private readonly IDataProtector _protector;
     private readonly ApplicationQuotaOptions _applicationQuota;
+    private readonly IPlanEntitlementService? _plans;
 
-    public ApplicationSubmissionService(AppDbContext db, IApplicationReviewService review, IClock clock, IDataProtectionProvider dataProtection, IOptions<ApplicationQuotaOptions>? applicationQuota = null)
+    public ApplicationSubmissionService(AppDbContext db, IApplicationReviewService review, IClock clock, IDataProtectionProvider dataProtection, IOptions<ApplicationQuotaOptions>? applicationQuota = null, IPlanEntitlementService? plans = null)
     {
         _db = db; _review = review; _clock = clock;
         _applicationQuota = applicationQuota?.Value ?? new ApplicationQuotaOptions();
+        _plans = plans;
         _protector = dataProtection.CreateProtector("HireGameDev.Applications.Review.v1");
     }
 
@@ -70,6 +72,7 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         try
         {
+            if (_plans is not null) await _plans.LockForConsumptionAsync(cancellationToken);
             var studioId = await _db.Jobs.AsNoTracking().Where(j => j.Id == command.JobId)
                 .Select(j => (Guid?)j.StudioId).SingleOrDefaultAsync(cancellationToken);
             if (!studioId.HasValue || !await LockRowAsync("SELECT id FROM studio_profiles WHERE id = @id FOR SHARE", studioId.Value, cancellationToken))
@@ -117,7 +120,13 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
                 return await AbortAsync(transaction, Error.Conflict("Applications.NotEligible", "You cannot submit a new application for this job."), cancellationToken);
             // The existing candidate row lock serializes submissions across jobs and web instances.
             // Use the authoritative successful application rows, including withdrawn ones.
-            var usage = await CandidateApplicationQuota.ReadAsync(_db, candidate.Id, now, _applicationQuota, cancellationToken);
+            var quota = _applicationQuota;
+            if (_plans is not null)
+            {
+                var entitlement = await _plans.GetAsync("candidate", candidate.Id, cancellationToken);
+                quota = new ApplicationQuotaOptions { Limit = entitlement.Limit, WindowDays = 30 };
+            }
+            var usage = await CandidateApplicationQuota.ReadAsync(_db, candidate.Id, now, quota, cancellationToken);
             if (!usage.CanSubmit)
                 return await AbortAsync(transaction, Error.RateLimited("Applications.RollingLimit", $"Application limit reached. You can apply again after {usage.NextAvailableAt:u}."), cancellationToken);
             var applicationId = Guid.NewGuid();

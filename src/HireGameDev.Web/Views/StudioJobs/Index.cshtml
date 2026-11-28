@@ -2,6 +2,7 @@
 @model HireGameDev.Web.Models.Jobs.JobListPage
 @{
     ViewData["Title"] = "Studio Jobs";
+    var planUsage = ViewData["StudioPlanUsage"] as HireGameDev.Web.Models.Jobs.StudioPlanUsage;
     var canWrite = Model.Studio.MemberRole is StudioMemberRole.Owner or StudioMemberRole.Recruiter;
 }
 @section Styles { <link rel="stylesheet" href="~/css/studio-jobs.css" asp-append-version="true" /> }
@@ -12,6 +13,7 @@
         <div class="desk-hero-action">@if (canWrite) { <a class="desk-primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId"><span>＋</span> Create a job</a> }<span>@(canWrite ? "Start with a draft, publish when ready." : "You have view-only access.")</span></div>
     </header>
     @if (Model.Memberships.Count > 1) { <nav class="desk-workspaces" aria-label="Workspaces"><span>WORKSPACE</span>@foreach (var membership in Model.Memberships) { <a asp-action="Index" asp-route-studioId="@membership.StudioId" aria-current="@(membership.StudioId == Model.Studio.StudioId ? "page" : null)">@membership.Name</a> }</nav> }
+    @if (planUsage is not null) { <div class="jw-note"><strong>@planUsage.Plan plan · @planUsage.Occupied / @planUsage.Limit job slots occupied</strong><p>Unexpired active, paused and full jobs use slots. Publishing is checked again when you act.</p></div> }
     @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status">@message</div> }
     @if (Model.Studio.VerificationStatus != StudioVerificationStatus.Verified) { <div class="jw-notice"><strong>Prepare now. Publish once verified.</strong><p>You can save drafts while your Studio is @Model.Studio.VerificationStatus.ToString().ToLowerInvariant().</p><a asp-controller="Studio" asp-action="Verification" asp-route-studioId="@Model.Studio.StudioId">View Studio verification →</a></div> }
     <div class="desk-layout">
