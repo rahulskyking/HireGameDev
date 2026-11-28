@@ -51,7 +51,10 @@ public sealed class StudioJobsController(IJobLifecycleService jobs, IStudioProfi
             var now = clock.UtcNow.ToUniversalTime();
             var occupied = await db.Jobs.AsNoTracking().CountAsync(j => j.StudioId == studio.StudioId &&
                 (j.Status == JobStatus.Active || j.Status == JobStatus.Paused || j.Status == JobStatus.Full) && j.ExpiresAt > now, cancellationToken);
-            ViewData["StudioPlanUsage"] = new StudioPlanUsage(entitlement.Plan, occupied, entitlement.Limit);
+            var postingLimit = await plans.GetStudioPostingLimitAsync(studio.StudioId, cancellationToken);
+            var since = now.AddDays(-30);
+            var postings = await db.JobPublicationEvents.AsNoTracking().CountAsync(x => x.StudioId == studio.StudioId && x.PublishedAt > since && x.PublishedAt <= now, cancellationToken);
+            ViewData["StudioPlanUsage"] = new StudioPlanUsage(entitlement.Plan, occupied, entitlement.Limit, postings, postingLimit);
         }
         return View(new JobListPage(studio, memberships, result.Value, status));
     }

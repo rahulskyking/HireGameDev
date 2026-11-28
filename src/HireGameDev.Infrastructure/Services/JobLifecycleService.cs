@@ -442,6 +442,17 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         var duplicate = await new JobDuplicateDetector(_db, _clock, Options.Create(_limits))
             .CheckAsync(new JobPublishContext(job.Id, job.StudioId, (await SnapshotAsync(job, ct)).Content), ct);
         if (duplicate is not null) return Error.Conflict(duplicate.Code, duplicate.Message);
+        // The rolling plan quota is separate from the shorter publication abuse guard.
+        // Publish and renewal create durable events in this same transaction. Studio row
+        // and shared policy locks held by MutateAsync serialize usage across members.
+        if (publication && _plans is not null)
+        {
+            var postingLimit = await _plans.GetStudioPostingLimitAsync(job.StudioId, ct);
+            var since = now.AddDays(-30);
+            var usage = await _db.JobPublicationEvents.CountAsync(x => x.StudioId == job.StudioId && x.PublishedAt > since && x.PublishedAt <= now, ct);
+            if (usage >= postingLimit)
+                return Error.RateLimited("Jobs.MonthlyPostingLimit", "Your Studio has reached its job posting allowance for the last 30 days. Closing a job does not refund a posting.");
+        }
         if (publication && await _db.JobPublicationEvents.CountAsync(x => x.StudioId == job.StudioId && x.PublishedAt > now.AddHours(-24), ct) >= _limits.PublicationsPer24Hours)
             return Error.RateLimited("Jobs.PostingLimit", "Studio publication quota reached. Try again after the rolling window clears.");
         return null;

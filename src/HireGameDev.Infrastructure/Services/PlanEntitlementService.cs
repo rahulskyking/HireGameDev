@@ -44,6 +44,19 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         }, cancellationToken);
     }
 
+    public async Task<int> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default)
+    {
+        if (studioId == Guid.Empty) throw new ArgumentException("Invalid Studio.", nameof(studioId));
+        return await WithConnectionAsync(async () => {
+            await using var cmd = Command("SELECT value FROM plan_catalog_values WHERE audience = 'studio' AND plan_code = 'free' AND feature = 'postings'");
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken) || !int.TryParse(reader.GetString(0), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var limit) || limit is < 0 or > 10000)
+                throw new InvalidOperationException("Free Studio posting limit is missing or invalid.");
+            if (await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Duplicate Studio posting limit.");
+            return limit;
+        }, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<PlanLimit>> GetLimitsAsync(CancellationToken cancellationToken = default) => await WithConnectionAsync(async () => {
         await using var cmd = Command("SELECT audience, code, quota_limit FROM plan_definitions WHERE code = 'free' ORDER BY audience");
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);

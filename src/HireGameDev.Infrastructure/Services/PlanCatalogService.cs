@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HireGameDev.Infrastructure.Services;
 
-// This catalog is deliberately disconnected from live entitlements until all enforcement paths are migrated.
+// Only Free Studio postings are connected to live enforcement; the rest remain proposals.
 internal sealed class PlanCatalogService(AppDbContext db, IAuditLogger audit) : IPlanCatalogService
 {
     private const long PolicyLock = 487430901671L;

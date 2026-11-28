@@ -71,7 +71,9 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         if (!ModelState.IsValid) return BadRequest();
         var result = await catalog.UpdateAsync(Actor, audience, plan, feature, value, version, reason, ct);
         if (result.IsFailure) return BadRequest(result.Error.Message);
-        TempData["CatalogMessage"] = "Proposed setting saved. Live limits are unchanged.";
+        TempData["CatalogMessage"] = audience == "studio" && plan == "free" && feature == "postings"
+            ? "Free Studio posting limit updated."
+            : "Proposed setting saved. Live limits are unchanged.";
         return RedirectToAction(nameof(Catalog));
     }
     [HttpPost("search-draft"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
