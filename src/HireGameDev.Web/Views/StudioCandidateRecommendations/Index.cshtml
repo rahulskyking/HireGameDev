@@ -13,6 +13,7 @@
             <article class="jb-job"><h2>@candidate.Name</h2><p>@candidate.Headline</p>
                 <partial name="_JobCardMatch" model="candidate.Fit" />
                 <div class="jb-reasons"><strong>Why this profile?</strong><ul>@foreach (var criterion in candidate.Fit.Criteria.Where(x => x.Fraction == 1m).Take(3)) { <li>@criterion.Label: @criterion.Explanation</li> }</ul></div>
+                <a asp-action="Detail" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId" asp-route-candidateId="@candidate.CandidateId" aria-label="View profile match for @candidate.Name">View profile match →</a>
             </article>
         }
         <p class="jb-muted">This initial view does not provide contact details or messaging. Application access remains separate.</p>

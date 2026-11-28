@@ -1,0 +1,22 @@
+@model HireGameDev.Application.Abstractions.Applications.StudioCandidateDetail
+@{ ViewData["Title"] = "Candidate profile match"; }
+@section Styles {
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" />
+}
+<div class="jb">
+    <a asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId">← Back to suggested candidates</a>
+    <header class="jb-hero"><div><span class="jb-eyebrow">Live discoverable profile · @Model.JobTitle</span><h1>@Model.Name</h1><p>@Model.Headline</p></div></header>
+    <p class="jb-muted">This is a current profile, not an application. Details and access may change. Contact information and compensation are not shown here.</p>
+    <section class="jb-panel" aria-labelledby="profile-overview"><h2 id="profile-overview">Profile overview</h2>
+        <div class="jb-tags"><span>@Model.Category</span><span>@Model.Seniority</span><span>@Model.YearsExperience.ToString("0.#") years' experience</span>@if (Model.OpenToRemote) { <span>Open to remote</span> }@if (Model.WillingToRelocate) { <span>Willing to relocate</span> }</div>
+        @if (!string.IsNullOrWhiteSpace(Model.Bio)) { <p style="white-space: pre-line">@Model.Bio</p> }
+    </section>
+    <partial name="_ApplicationFitScore" model="Model.Fit" />
+    <section class="jb-panel" aria-labelledby="profile-skills"><h2 id="profile-skills">Listed skills</h2><p class="jb-muted">Self-reported by the Candidate.</p>
+        @if (Model.Skills.Count == 0) { <p>No skills listed.</p> }
+        else { <ul>@foreach (var skill in Model.Skills) { <li>@skill.Name · @skill.Proficiency</li> }</ul> }
+    </section>
+    <p><a asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@Model.JobId" asp-route-studioId="@Model.StudioId">View applicants for this job →</a></p>
+</div>

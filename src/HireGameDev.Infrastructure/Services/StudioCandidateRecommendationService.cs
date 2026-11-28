@@ -46,7 +46,8 @@ internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClo
                 job.Status == JobStatus.Active && job.ExpiresAt != null && job.ExpiresAt > now && job.ApplicationsCount < job.ApplicationCap &&
                 candidate.IsDiscoverable && candidate.Completeness >= CandidateProfileRules.DiscoverableCompletenessThreshold && candidate.DeletedAt == null &&
                 candidate.Availability != CandidateAvailability.NotLooking && user.IsActive && user.DeletedAt == null && user.AccountType == AccountType.Candidate &&
-                !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && b.StudioId == studio.Id) &&
+                !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && db.StudioMembers.Any(m =>
+                    m.UserId == actor.Id && m.StudioId == b.StudioId && db.StudioProfiles.Any(s => s.Id == m.StudioId && s.DeletedAt == null))) &&
                 !db.Applications.Any(a => a.CandidateId == candidate.Id && a.JobId == job.Id)
             let matched = (from js in db.JobSkills
                 join cs in db.CandidateSkills on js.SkillId equals cs.SkillId
@@ -75,7 +76,62 @@ internal sealed class StudioCandidateRecommendationService(AppDbContext db, IClo
             return new { row.CandidateId, row.FullName, row.Headline, Fit = ApplicationFitScore.Create(candidate, job) };
         }).Where(x => policy.Allows(x.Fit))
           .OrderByDescending(x => x.Fit!.Percentage).ThenByDescending(x => x.Fit!.Coverage).ThenBy(x => x.CandidateId)
-          .Take(6).Select(x => new StudioCandidateRecommendation(x.FullName, x.Headline, x.Fit!)).ToArray();
+          .Take(6).Select(x => new StudioCandidateRecommendation(x.CandidateId, x.FullName, x.Headline, x.Fit!)).ToArray();
         return Result.Success(new StudioCandidateRecommendationsPage(jobId, studioId, jobInfo.Title ?? "Job", scored, policy));
     }
+
+    public async Task<Result<StudioCandidateDetail>> GetDetailAsync(Guid actorUserId, Guid studioId, Guid jobId, Guid candidateId, CancellationToken cancellationToken = default)
+    {
+        static Error Unavailable() => Error.NotFound("Recommendations.Unavailable", "This profile is unavailable.");
+        if (actorUserId == Guid.Empty || studioId == Guid.Empty || jobId == Guid.Empty || candidateId == Guid.Empty)
+            return Result.Failure<StudioCandidateDetail>(Unavailable());
+        var now = clock.UtcNow.ToUniversalTime();
+        // All authorization and discoverability checks are part of the same statement that
+        // reads the allowlisted profile. The URL and a previous list response grant no access.
+        var row = await (from job in db.Jobs.AsNoTracking()
+            join studio in db.StudioProfiles.AsNoTracking() on job.StudioId equals studio.Id
+            join member in db.StudioMembers.AsNoTracking() on studio.Id equals member.StudioId
+            join actor in db.Users.AsNoTracking() on member.UserId equals actor.Id
+            from candidate in db.CandidateProfiles.AsNoTracking()
+            join user in db.Users.AsNoTracking() on candidate.UserId equals user.Id
+            where job.Id == jobId && studio.Id == studioId && candidate.Id == candidateId && actor.Id == actorUserId &&
+                actor.IsActive && actor.DeletedAt == null && actor.AccountType == AccountType.Studio &&
+                (member.MemberRole == StudioMemberRole.Owner || member.MemberRole == StudioMemberRole.Recruiter || member.MemberRole == StudioMemberRole.Viewer) &&
+                studio.VerificationStatus == StudioVerificationStatus.Verified && studio.SuspendedAt == null && studio.DeletedAt == null &&
+                job.Status == JobStatus.Active && job.ExpiresAt != null && job.ExpiresAt > now && job.ApplicationsCount < job.ApplicationCap &&
+                candidate.IsDiscoverable && candidate.Completeness >= CandidateProfileRules.DiscoverableCompletenessThreshold && candidate.DeletedAt == null &&
+                candidate.Availability != CandidateAvailability.NotLooking && user.IsActive && user.DeletedAt == null && user.AccountType == AccountType.Candidate &&
+                !db.CandidateStudioBlocks.Any(b => b.CandidateId == candidate.Id && db.StudioMembers.Any(m =>
+                    m.UserId == actor.Id && m.StudioId == b.StudioId && db.StudioProfiles.Any(s => s.Id == m.StudioId && s.DeletedAt == null))) &&
+                !db.Applications.Any(a => a.CandidateId == candidate.Id && a.JobId == job.Id) &&
+                (from js in db.JobSkills join cs in db.CandidateSkills on js.SkillId equals cs.SkillId
+                    where js.JobId == job.Id && cs.CandidateId == candidate.Id && (int)cs.Proficiency >= (int)js.MinProficiency select cs.SkillId).Any()
+            select new { JobId = job.Id, StudioId = studio.Id, CandidateId = candidate.Id, ActorId = actor.Id,
+                JobTitle = job.Title, candidate.FullName, candidate.Headline, candidate.PrimaryCategory, candidate.Seniority,
+                candidate.YearsExperience, candidate.OpenToRemote, candidate.WillingToRelocate, candidate.Bio,
+                CandidateCityId = candidate.CityId, JobCityId = job.CityId, job.MinYears, job.WorkMode,
+                CandidateSkills = (from cs in db.CandidateSkills.AsNoTracking() join skill in db.Skills.AsNoTracking() on cs.SkillId equals skill.Id
+                    where cs.CandidateId == candidate.Id orderby cs.SkillId
+                    select new { skill.Name, cs.Proficiency, cs.YearsUsed, cs.LastUsedYear, cs.IsPrimary }).ToList(),
+                JobSkills = (from js in db.JobSkills.AsNoTracking() join skill in db.Skills.AsNoTracking() on js.SkillId equals skill.Id
+                    where js.JobId == job.Id orderby js.SkillId
+                    select new { skill.Name, js.IsRequired, js.MinProficiency }).ToList()
+            }).AsSingleQuery().SingleOrDefaultAsync(cancellationToken);
+        if (row is null) return Result.Failure<StudioCandidateDetail>(Unavailable());
+        var policyResult = await policies.GetStudioAsync(cancellationToken);
+        if (policyResult.IsFailure) return Result.Failure<StudioCandidateDetail>(policyResult.Error);
+        var skills = row.CandidateSkills.Select(s => new ApplicationSkillSnapshot(s.Name, s.Proficiency, s.YearsUsed, s.LastUsedYear, s.IsPrimary)).ToArray();
+        var candidateSnapshot = new CandidateApplicationSnapshot("", "", default, "", default, row.YearsExperience, null, default,
+            row.OpenToRemote, false, null, null, null, skills, Array.Empty<ApplicationExperienceSnapshot>(),
+            Array.Empty<ApplicationEducationSnapshot>(), Array.Empty<ApplicationPortfolioSnapshot>(), Array.Empty<ApplicationGameSnapshot>());
+        var required = row.JobSkills.Where(s => s.IsRequired).Select(s => new ApplicationJobSkillSnapshot(s.Name, s.MinProficiency)).ToArray();
+        var preferred = row.JobSkills.Where(s => !s.IsRequired).Select(s => new ApplicationJobSkillSnapshot(s.Name, s.MinProficiency)).ToArray();
+        var jobSnapshot = new JobApplicationSnapshot("", "", null, null, required,
+            new ApplicationMatchInputs(preferred, row.MinYears, row.WorkMode, row.JobCityId.HasValue ? row.CandidateCityId == row.JobCityId.Value : null));
+        var fit = ApplicationFitScore.Create(candidateSnapshot, jobSnapshot);
+        if (!policyResult.Value.Allows(fit)) return Result.Failure<StudioCandidateDetail>(Unavailable());
+        return Result.Success(new StudioCandidateDetail(jobId, studioId, row.JobTitle ?? "Job", row.FullName, row.Headline,
+            row.PrimaryCategory, row.Seniority, row.YearsExperience, row.OpenToRemote, row.WillingToRelocate, row.Bio, skills, fit!));
+    }
+
 }

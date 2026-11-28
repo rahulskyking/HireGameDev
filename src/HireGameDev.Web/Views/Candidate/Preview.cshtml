@@ -4,7 +4,8 @@
     var c = Model.Completeness;
     ViewData["Title"] = $"{p.FullName} · Studio View Preview";
 
-    var isStudioDiscoverable = CandidateProfileRules.IsDiscoverableByStudios(p.IsDiscoverable, c.TotalScore);
+    var isStudioDiscoverable = CandidateProfileRules.IsDiscoverableByStudios(p.IsDiscoverable, c.TotalScore)
+        && p.Availability != CandidateAvailability.NotLooking;
     var showCurrentCtcToStudio = CandidateProfileRules.ShouldDisplayCurrentCtcToStudio(p.CurrentCtcLpa, p.ShowCurrentCtc);
     var isPhoneVisibleToStudio = CandidateProfileRules.IsPhoneVisibleToStudio(isShortlisted: false);
 
@@ -34,19 +35,23 @@
                         Studio View Preview &middot;
                         @if (isStudioDiscoverable)
                         {
-                            <span>Live in Studio Search (&ge; 70% complete)</span>
+                            <span>Discoverability enabled (&ge; 70% complete)</span>
                         }
                         else if (!p.IsDiscoverable)
                         {
                             <span>Discoverability Paused</span>
                         }
+                        else if (p.Availability == CandidateAvailability.NotLooking)
+                        {
+                            <span>Not shown in suggestions while not looking</span>
+                        }
                         else
                         {
-                            <span>Not Yet in Studio Search (@c.TotalScore% / 70% required)</span>
+                            <span>Not yet eligible for suggestions (@c.TotalScore% / 70% required)</span>
                         }
                     </span>
                     <p style="margin: 4px 0 0 0;">
-                        This page renders your profile <strong>exactly as a verified game studio sees it</strong>.
+                        This preview shows information intended for verified studios. Available Studio views may show a smaller selection; eligibility also depends on the job and your privacy settings.
                         Phone and direct email remain locked until you are shortlisted, NDA credits stay redacted,
                         @if (Model.BlockedStudiosCount > 0)
                         {
