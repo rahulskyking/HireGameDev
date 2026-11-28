@@ -1,0 +1,61 @@
+@model HireGameDev.Web.Controllers.StudioCandidateDiscoveryViewModel
+@{
+    ViewData["Title"] = "Discover candidates";
+    var search = Model.Search;
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+@section Styles {
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="~/css/candidate-discovery.css" asp-append-version="true" />
+}
+<div class="td">
+    <div class="td-top"><a asp-controller="Studio" asp-action="EditProfile" asp-route-studioId="@Model.Studio.StudioId">← Studio workspace</a><span>HIRING / DISCOVER</span></div>
+    <header class="td-hero"><div><span class="td-kicker"><span class="td-dot"></span> @Model.Studio.Name · TALENT DISCOVERY</span><h1>Find the people<br /><em>behind the games.</em></h1><p>Explore discoverable profiles, narrow in on relevant skills, and find your next teammate.</p><a asp-controller="StudioJobs" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">Compare candidates to a job ↗</a></div><div class="td-hero-mark" aria-hidden="true"><span>PEOPLE</span><strong>01<span> / </span>∞</strong><small>GREAT GAMES START HERE</small></div></header>
+    @if (Model.Memberships.Count > 1)
+    {
+        <nav class="td-workspaces" aria-label="Choose studio"><span>WORKSPACE</span>@foreach (var membership in Model.Memberships) { <a asp-action="Index" asp-route-studioId="@membership.StudioId" aria-current="@(membership.StudioId == Model.Studio.StudioId ? "page" : null)">@membership.Name</a> }</nav>
+    }
+    @if (Model.Results is null)
+    {
+        <section class="td-empty"><h2>Studio verification required.</h2><p>Candidate discovery is available to members of verified, active Studios. Check your Studio's verification and account status.</p><a class="c-btn c-btn--secondary" asp-controller="Studio" asp-action="Verification" asp-route-studioId="@Model.Studio.StudioId">View verification →</a></section>
+    }
+    else
+    {
+        <div class="td-layout">
+            <aside class="td-filters"><div class="td-section-label">FIND YOUR FIT <span>↗</span></div><h2>Refine your search.</h2><p>Start broad, then focus on what matters for your team.</p>
+                <form asp-action="Index" method="get" class="td-form" role="search"><input type="hidden" name="studioId" value="@Model.Studio.StudioId" />
+                    <label for="keyword">Name or headline</label><input class="c-input" id="keyword" name="Keyword" value="@search.Keyword" minlength="2" maxlength="80" placeholder="e.g. gameplay programmer" />
+                    <label for="category">Discipline</label><select class="c-select" id="category" name="Category"><option value="">All disciplines</option>@foreach (var category in Enum.GetValues<DisciplineCategory>()) { <option value="@category" selected="@(search.Category == category)">@category</option> }</select>
+                    <label for="skill">Listed skill</label><select class="c-select" id="skill" name="SkillId"><option value="">Any skill</option>@foreach (var skill in Model.Skills) { <option value="@skill.Id" selected="@(search.SkillId == skill.Id)">@skill.Name</option> }</select>
+                    <label for="city">City</label><select class="c-select" id="city" name="CityId"><option value="">Any city</option>@foreach (var city in Model.Cities) { <option value="@city.Id" selected="@(search.CityId == city.Id)">@city.Name, @city.StateCode</option> }</select>
+                    <label for="years">Minimum experience (years)</label><input class="c-input" id="years" name="MinimumYears" type="number" min="0" max="99.9" step="0.1" value="@(search.MinimumYears?.ToString(System.Globalization.CultureInfo.InvariantCulture))" placeholder="Any experience" />
+                    <label class="td-check"><input type="checkbox" name="RemoteOnly" value="true" checked="@search.RemoteOnly" /> Open to remote</label>
+                    <button type="submit" class="td-button">Find candidates →</button><a class="td-clear" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">Clear filters</a>
+                </form>
+                <div class="td-privacy"><strong>Respecting privacy</strong><p>Only discoverable profiles you can currently access appear. Contact details stay private.</p></div>
+            </aside>
+            <section class="td-results" aria-label="Candidate results"><div class="td-results-head"><div><span class="td-section-label">DISCOVER / PEOPLE</span><h2>Meet the talent<span>.</span></h2><p>Profiles are self-reported and may change. No match score is shown without a job.</p></div><span class="td-results-count">PAGE @Model.Results.Page</span></div>
+                @if (Model.Results.Items.Count == 0)
+                {
+                    <div class="td-empty"><span>↗</span><h2>No profiles found.</h2><p>Try fewer filters or explore a different skill.</p><a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">Clear filters →</a></div>
+                }
+                else
+                {
+                    <div class="td-cards">@foreach (var candidate in Model.Results.Items)
+                    {
+                        <article class="td-card"><div class="td-avatar" aria-hidden="true">@(string.IsNullOrWhiteSpace(candidate.Name) ? "C" : candidate.Name.Trim().Substring(0, 1).ToUpperInvariant())</div><div class="td-card-main"><div class="td-card-meta"><span class="td-status">@(candidate.Availability == CandidateAvailability.ActivelyLooking ? "Actively looking" : "Open to offers")</span><span>@candidate.Category</span></div><h3><a asp-action="Detail" asp-route-candidateId="@candidate.Id" asp-route-studioId="@Model.Studio.StudioId" asp-route-returnUrl="@returnUrl">@candidate.Name</a></h3><p>@candidate.Headline</p><div class="td-tags"><span>@candidate.Seniority</span><span>@candidate.YearsExperience.ToString("0.#") yrs</span>@if (!string.IsNullOrWhiteSpace(candidate.City)) { <span>@candidate.City</span> }@if (candidate.OpenToRemote) { <span>Open to remote</span> }</div></div><a class="td-open" asp-action="Detail" asp-route-candidateId="@candidate.Id" asp-route-studioId="@Model.Studio.StudioId" asp-route-returnUrl="@returnUrl" aria-label="View profile of @candidate.Name">View <span>↗</span></a></article>
+                    }</div>
+                }
+                @if (Model.Results.Page > 1 || Model.Results.HasMore)
+                {
+                    <nav class="td-pagination" aria-label="Candidate pages">
+                        @if (Model.Results.Page > 1) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-Page="@(Model.Results.Page - 1)">← Previous</a> }
+                        <span>Page @Model.Results.Page</span>
+                        @if (Model.Results.HasMore) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-Page="@(Model.Results.Page + 1)">Next →</a> }
+                    </nav>
+                }
+                <p class="td-disclaimer">Discoverability and blocks are checked on every request. Suggestions for a particular job are available from its management page. Discovery is limited to the first 100 pages.</p>
+            </section>
+        </div>
+    }
+</div>

@@ -1,3 +1,4 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment DiscoveryEnvironment
 @model StudioWorkspaceNavViewModel
 @{
     var activeStudioId = Model.ActiveStudioId;
@@ -45,6 +46,7 @@
 {
     <nav class="c-btn-group" aria-label="Studio workspace sections">
         <a asp-controller="StudioJobs" asp-action="Index" asp-route-studioId="@activeStudioId.Value" class="c-btn c-btn--sm c-btn--secondary">Jobs</a>
+        @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(DiscoveryEnvironment)) { <a asp-controller="StudioCandidates" asp-action="Index" asp-route-studioId="@activeStudioId.Value" class="c-btn c-btn--sm c-btn--secondary">Discover candidates</a> }
         <a asp-controller="Studio"
            asp-action="EditProfile"
            asp-route-studioId="@activeStudioId.Value"

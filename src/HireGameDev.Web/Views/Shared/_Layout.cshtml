@@ -128,6 +128,7 @@
                 @if (hasStudioRole)
                 {
                     <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio/Jobs"))">Jobs &amp; applicants</a>
+                    @if (HostEnvironment.IsDevelopment()) { <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/studio/candidates"))">Discover candidates</a> }
                 }
 
                 @if (isAuthenticated)
@@ -261,6 +262,7 @@
                     {
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio"))">Studio Workspace</a>
                         <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/Studio/Jobs"))">Jobs &amp; applicants</a>
+                        @if (HostEnvironment.IsDevelopment()) { <a class="c-nav-link" href="@(PortalNavigator.BuildPortalUrl(PortalSite.Studio, Context, "/studio/candidates"))">Discover candidates</a> }
                     }
 
                     @if (isAuthenticated)

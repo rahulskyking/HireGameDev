@@ -5,6 +5,7 @@ using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Application.Abstractions.Auth;
 using HireGameDev.Application.Abstractions.Candidates;
 using HireGameDev.Application.Abstractions.Consent;
+using HireGameDev.Application.Abstractions.Discovery;
 using HireGameDev.Application.Abstractions.Email;
 using HireGameDev.Application.Abstractions.Media;
 using HireGameDev.Application.Abstractions.Jobs;
@@ -247,6 +248,7 @@ public static class DependencyInjection
             services.AddScoped<IRecommendationPolicyService, RecommendationPolicyService>();
             services.AddScoped<ICandidateJobRecommendationService, CandidateJobRecommendationService>();
             services.AddScoped<IStudioCandidateRecommendationService, StudioCandidateRecommendationService>();
+            services.AddScoped<IStudioCandidateDiscoveryService, StudioCandidateDiscoveryService>();
         }
         services.AddScoped<ICandidateJobApplicationStateQuery, CandidateJobApplicationStateQuery>();
         services.AddOptions<ApplicationQuotaOptions>().Bind(configuration.GetSection(ApplicationQuotaOptions.SectionName))

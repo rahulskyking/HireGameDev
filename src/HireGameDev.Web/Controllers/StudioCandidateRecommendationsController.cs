@@ -4,10 +4,13 @@ using HireGameDev.Web.Authorization;
 using HireGameDev.Web.Models.Applications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using HireGameDev.Web.RateLimiting;
 
 namespace HireGameDev.Web.Controllers;
 
 [Authorize(Policy = AuthorizationPolicies.StudioMember)]
+[EnableRateLimiting(RateLimitPolicies.CandidateDiscoveryRead)]
 [Route("studio/recommended-candidates")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioCandidateRecommendationsController(IWebHostEnvironment environment, IStudioCandidateRecommendationService? recommendations = null) : Controller

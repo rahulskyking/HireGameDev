@@ -12,6 +12,7 @@
         <div><div class="desk-kicker"><span class="desk-dot"></span> @Model.Studio.Name · HIRING WORKSPACE</div><h1>Make your next<br /><em>great hire.</em></h1><p>Manage your open roles and the people applying to them, all in one place.</p></div>
         <div class="desk-hero-action">@if (canWrite) { <a class="desk-primary" asp-action="Create" asp-route-studioId="@Model.Studio.StudioId"><span>＋</span> Create a job</a> }<span>@(canWrite ? "Start with a draft, publish when ready." : "You have view-only access.")</span></div>
     </header>
+    @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <p><a asp-controller="StudioCandidates" asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">Discover candidates →</a></p> }
     @if (Model.Memberships.Count > 1) { <nav class="desk-workspaces" aria-label="Workspaces"><span>WORKSPACE</span>@foreach (var membership in Model.Memberships) { <a asp-action="Index" asp-route-studioId="@membership.StudioId" aria-current="@(membership.StudioId == Model.Studio.StudioId ? "page" : null)">@membership.Name</a> }</nav> }
     @if (planUsage is not null) { <div class="jw-note"><strong>@planUsage.Plan plan · @planUsage.Occupied / @planUsage.Limit job slots occupied</strong><p>Unexpired active, paused and full jobs use slots. Publishing is checked again when you act.</p></div> }
     @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status">@message</div> }
