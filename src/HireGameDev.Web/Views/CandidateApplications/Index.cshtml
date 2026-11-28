@@ -7,6 +7,7 @@
 }
 @section Styles { <link rel="stylesheet" href="~/css/applications.css" asp-append-version="true" /> }
 <div class="ap ap-desk">
+    <partial name="_CandidateJobsNav" />
     <div class="ap-topline"><a asp-controller="PublicJobs" asp-action="Index">← Explore jobs</a><span>YOUR CAREER / APPLICATIONS</span></div>
     <header class="ap-hero"><div><span class="ap-hero-kicker">● &nbsp; YOUR CAREER SPACE</span><h1>Every application.<br /><em>One place.</em></h1><p>Your next opportunity is in motion. Follow each application from submission to the next step.</p></div><div class="ap-hero-aside"><span>KEEP EXPLORING</span><strong>Find work<br />you love. ↗</strong><a asp-controller="PublicJobs" asp-action="Index">Explore jobs →</a></div></header>
     @if (TempData["ApplicationMessage"] is string message) { <p class="ap-note" role="status">@message</p> }

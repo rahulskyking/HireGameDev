@@ -1,0 +1,20 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment JobsNavEnvironment
+@inject HireGameDev.Web.Portals.IPortalNavigator JobsNavPortals
+@{
+    var path = Context.Request.Path;
+    var jobsNavIsCandidate = User.Identity?.IsAuthenticated == true &&
+        string.Equals(User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value, HireGameDevRoleNames.Candidate, StringComparison.OrdinalIgnoreCase);
+}
+@if (jobsNavIsCandidate)
+{
+    <nav class="c-btn-group candidate-jobs-nav" aria-label="Candidate jobs navigation">
+        <a class="c-btn c-btn--sm c-btn--secondary" href="@(JobsNavPortals.BuildPortalUrl(PortalSite.Jobs, Context, "/"))" aria-current="@((path == "/jobs" || (JobsNavPortals.ResolvePortal(Context) == PortalSite.Jobs && path == "/")) ? "page" : null)">Explore jobs</a>
+        <a class="c-btn c-btn--sm c-btn--secondary" href="@(JobsNavPortals.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/saved"))" aria-current="@(path.StartsWithSegments("/candidate/saved") ? "page" : null)">Saved jobs</a>
+        @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(JobsNavEnvironment))
+        {
+            <a class="c-btn c-btn--sm c-btn--secondary" href="@(JobsNavPortals.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/recommended-jobs"))" aria-current="@(path.StartsWithSegments("/candidate/recommended-jobs") ? "page" : null)">Recommended jobs</a>
+            <a class="c-btn c-btn--sm c-btn--secondary" href="@(JobsNavPortals.BuildPortalUrl(PortalSite.Jobs, Context, "/candidate/applications"))" aria-current="@(path.StartsWithSegments("/candidate/applications") ? "page" : null)">My applications</a>
+        }
+        <a class="c-btn c-btn--sm c-btn--secondary" href="@(JobsNavPortals.BuildPortalUrl(PortalSite.Jobs, Context, "/Candidate/Profile"))">My profile</a>
+    </nav>
+}

@@ -12,7 +12,8 @@
 <meta name="robots" content="noindex, nofollow" />
 <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
 }
-<div class="jb"><header class="jb-hero"><div><span class="jb-eyebrow">Your private list</span><h1>Saved jobs</h1><p>Keep track of roles you want to revisit. Only you can see this list.</p></div></header>
+<div class="jb">
+    <partial name="_CandidateJobsNav" /><header class="jb-hero"><div><span class="jb-eyebrow">Your private list</span><h1>Saved jobs</h1><p>Keep track of roles you want to revisit. Only you can see this list.</p></div></header>
 @if (TempData["SavedJobMessage"] is string message) { <div class="jb-note" role="status">@message</div> }
 <section class="jb-stack" aria-label="Saved jobs">
 <div class="jb-results-head"><h2>@Model.TotalCount saved @(Model.TotalCount == 1 ? "job" : "jobs")</h2><a asp-controller="PublicJobs" asp-action="Index">Explore more jobs →</a></div>

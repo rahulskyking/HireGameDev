@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="~/css/public-jobs.css" asp-append-version="true" />
 }
 <div class="jb">
+    <partial name="_CandidateJobsNav" />
 <header class="jb-hero"><div><span class="jb-eyebrow">Built for the people who build games</span><h1>Your next role.<br /><span>Your kind of industry.</span></h1><p>Discover game development opportunities from verified Studios. Real roles. Transparent pay. No signup to explore.</p></div><div class="jb-hero-mark" aria-hidden="true">PLAY.<br />BUILD.<br /><span>BELONG.</span></div></header>
 @if (User.Identity?.IsAuthenticated == true && User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value == HireGameDevRoleNames.Candidate)
 { <p class="jb-muted">Your blocked Studios are excluded while signed in. <a asp-controller="Candidate" asp-action="Settings">Manage your preferences</a>. Public browsing stays open when signed out.</p> }

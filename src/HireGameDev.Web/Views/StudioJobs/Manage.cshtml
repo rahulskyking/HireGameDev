@@ -31,7 +31,7 @@
         <div><span class="desk-kicker"><span class="desk-dot"></span> JOB MANAGEMENT / SAVED VERSION</span><h1>@(string.IsNullOrWhiteSpace(job.Content.Title) ? "Untitled draft" : job.Content.Title)</h1><p>@job.Content.JobType · @job.Content.WorkMode · @job.Content.SeniorityMin – @job.Content.SeniorityMax</p><span class="jw-badge" data-status="@effectiveStatus">@effectiveStatus</span></div>
         @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment)) { <a class="desk-primary" asp-controller="StudioApplications" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@job.StudioId">View applicants ↗</a> }
     </header>
-    @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment) && effectiveStatus == JobStatus.Active)
+    @if (HireGameDev.Web.Models.Applications.ApplicationFeature.Enabled(Environment) && effectiveStatus == JobStatus.Active && job.ApplicationsCount < job.ApplicationCap)
     { <p><a asp-controller="StudioCandidateRecommendations" asp-action="Index" asp-route-jobId="@job.Id" asp-route-studioId="@job.StudioId">Find matching candidates →</a></p> }
     @if (TempData["StatusMessage"] is string message) { <div class="jw-notice jw-notice--success" role="status"><strong>@message</strong>@if (job.Status == JobStatus.Active && !expired) { <p>This saved job is Active. Find it under the Active tab in your job list.</p> }</div> }
     @if (Model.Error is not null || findings.Any(x => x.Severity != JobFindingSeverity.Warning))

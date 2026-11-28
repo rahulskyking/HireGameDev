@@ -265,7 +265,12 @@ hr {
   display: none;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+
+.c-navbar__links .c-nav-link { white-space: nowrap; flex-shrink: 0; }
 
 @media (min-width: 768px) {
   .c-navbar__links {
@@ -451,16 +456,11 @@ hr {
   text-transform: uppercase;
 }
 
-/* Mobile Menu Drawer (<= 767px) */
+/* Navigation drawer is also available on wider screens when links overflow. */
 .c-mobile-toggle {
   display: inline-flex;
 }
 
-@media (min-width: 768px) {
-  .c-mobile-toggle {
-    display: none;
-  }
-}
 
 .c-mobile-drawer {
   display: none;
@@ -473,10 +473,16 @@ hr {
   display: block;
 }
 
-@media (min-width: 768px) {
-  .c-mobile-drawer {
-    display: none !important;
-  }
+.c-mobile-drawer.is-open {
+  max-height: calc(100vh - var(--navbar-height));
+  overflow-y: auto;
+}
+
+.c-mobile-drawer__links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
 }
 
 .c-mobile-drawer__nav {
@@ -494,7 +500,7 @@ hr {
   gap: var(--space-2);
 }
 
-/* 8. Candidate 4-Tab Mobile Bottom Bar (<= 767px, Confirmed 4A) */
+/* 8. Candidate mobile quick navigation */
 .c-bottom-nav {
   position: fixed;
   inset-inline: 0;
@@ -507,7 +513,8 @@ hr {
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 768px) {
@@ -742,3 +749,6 @@ hr {
   display: inline;
   margin: 0;
 }
+
+.candidate-jobs-nav { margin: 0 0 var(--space-4); }
+.candidate-jobs-nav a[aria-current='page'] { border-color: var(--accent); font-weight: 700; }
