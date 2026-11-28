@@ -29,8 +29,9 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock_shared({PolicyLock})", cancellationToken);
     }
 
-    public Task<IReadOnlyList<ManualStudioPlan>> GetManualStudioPlansAsync(CancellationToken cancellationToken = default) => WithConnectionAsync<IReadOnlyList<ManualStudioPlan>>(async () => {
-        await using var cmd = Command("SELECT studio_id, plan_code FROM manual_studio_plans");
+    public Task<IReadOnlyList<ManualStudioPlan>> GetManualStudioPlansAsync(IReadOnlyCollection<Guid> studioIds, CancellationToken cancellationToken = default) => WithConnectionAsync<IReadOnlyList<ManualStudioPlan>>(async () => {
+        await using var cmd = Command("SELECT studio_id, plan_code FROM manual_studio_plans WHERE studio_id = ANY(@ids)");
+        Add(cmd, "ids", studioIds.ToArray());
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var items = new List<ManualStudioPlan>();
         while (await reader.ReadAsync(cancellationToken)) items.Add(new(reader.GetGuid(0), reader.GetString(1)));

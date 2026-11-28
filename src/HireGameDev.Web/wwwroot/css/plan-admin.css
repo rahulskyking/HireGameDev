@@ -104,3 +104,24 @@
   .plans-tier-section { scroll-margin-top: 1rem; }
 }
 @media (prefers-reduced-motion: reduce) { .plans-tier, .plans-toggle input, .plans-toggle input::after, .plans-chevron { transition: none; } }
+
+.plans-studio-list { margin-top: 1.25rem; border-bottom: 1px solid var(--border); }
+.plans-studio { border-top: 1px solid var(--border); }
+.plans-studio summary { display: flex; align-items: center; gap: 1rem; padding: 1.1rem .25rem; list-style: none; cursor: pointer; }
+.plans-studio summary::-webkit-details-marker { display: none; }
+.plans-studio-info { flex: 1; min-width: 0; }
+.plans-studio-info strong, .plans-studio-info small, .plans-studio-current small { display: block; overflow-wrap: anywhere; }
+.plans-studio-info small, .plans-studio-current small { color: var(--text-muted); font-size: .75rem; margin-top: .25rem; }
+.plans-studio-current { text-align: right; }
+.plans-studio[open] .plans-chevron { transform: rotate(180deg); }
+.plans-studio-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 0 0 1rem; }
+.plans-studio-form label { margin-bottom: .35rem; }
+.plans-empty { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 1.5rem; margin-top: 1rem; }
+.plans-empty p { color: var(--text-muted); margin-bottom: 0; }
+.plans-pages { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-top: 1.2rem; color: var(--text-muted); font-size: .875rem; }
+.plans-pages div { display: flex; gap: 1.25rem; font-weight: 700; }
+@media (max-width: 700px) {
+  .plans-studio-form { grid-template-columns: 1fr; }
+  .plans-studio summary { gap: .6rem; }
+  .plans-studio-current { max-width: 45%; }
+}

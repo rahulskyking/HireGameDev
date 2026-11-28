@@ -38,15 +38,9 @@
         <p class="plans-hint plans-footnote">Some features are still planned. Changing a planned setting does not make the feature available.</p>
     </section>
     <section class="plans-panel" id="studio-assignments" aria-labelledby="studio-heading">
-        <div class="plans-section-head"><div><p class="plans-eyebrow">03 / STUDIO ACCESS</p><h2 id="studio-heading">Assign a Studio tier</h2><p>Manually set a tier for one Studio. This works even when Premium is off and does not record a payment.</p></div><span class="plans-chip">MANUAL OVERRIDE</span></div>
-        <form asp-action="Index" asp-fragment="studio-assignments" method="get" class="plans-search" role="search"><div><label for="studio-search">Find a Studio</label><input id="studio-search" name="q" value="@Model.Query" class="c-input" maxlength="100" placeholder="Search by Studio name" /></div><button class="c-btn c-btn--secondary" type="submit">Search</button>@if (!string.IsNullOrEmpty(Model.Query)) { <a asp-action="Index" asp-fragment="studio-assignments">Clear search</a> }</form>
-        <p class="plans-hint">@if (Model.Studios.Count == 0) { <span>No matching Studios found. Try another search.</span> } else { <span>Showing @Model.Studios.Count Studio@(Model.Studios.Count == 1 ? "" : "s") (up to 200). Search to narrow the list.</span> }</p>
-        <form asp-action="StudioAssignment" method="post" class="plans-form plans-assignment">
-            <div><label for="studio-id">Studio</label><select class="c-select" id="studio-id" name="studioId" required><option value="">Select a Studio</option>@foreach (var studio in Model.Studios) { <option value="@studio.Id">@studio.Name (@studio.Slug) — @(Model.Assignments.TryGetValue(studio.Id, out var assigned) ? assigned.ToUpperInvariant() + " override" : "no override")</option> }</select></div>
-            <div><label for="studio-plan">New tier</label><select class="c-select" id="studio-plan" name="plan" required><option value="">Select a tier</option><option value="free">Free — remove override</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="elite">Elite</option></select></div>
-            <div class="plans-full"><label for="studio-reason">Reason for assignment</label><input class="c-input" id="studio-reason" name="reason" maxlength="500" required placeholder="Add a short reason" /><small class="plans-hint">Choosing Free removes the manual override; the global switch then determines Free quotas.</small></div>
-            <button class="c-btn c-btn--primary" type="submit" disabled="@(Model.Studios.Count == 0)">Save assignment</button>
-        </form>
+        <div class="plans-section-head"><div><p class="plans-eyebrow">03 / STUDIO ACCESS</p><h2 id="studio-heading">Assign Studio packages</h2><p>Find a Studio, see its current tier and assign a package directly. Manual assignments work even when Premium is off.</p></div><span class="plans-chip">MANUAL OVERRIDES</span></div>
+        <a class="c-btn c-btn--primary" asp-action="Studios">Manage Studio packages →</a>
+        <p class="plans-hint">Assignments are not purchases. Only implemented Studio quotas are enforced; Premium benefits and billing are still in preparation.</p>
     </section>
     <section class="plans-panel" id="free-limits" aria-labelledby="free-heading">
         <div class="plans-section-head"><div><p class="plans-eyebrow">04 / FREE PLAN</p><h2 id="free-heading">Current Free allowances</h2><p>These limits apply when Premium controls are on. Changing a limit never removes existing content.</p></div><span class="plans-chip">@(Model.PremiumEnabled ? "APPLYING" : "NOT APPLYING")</span></div>

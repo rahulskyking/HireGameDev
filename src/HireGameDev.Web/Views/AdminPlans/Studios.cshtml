@@ -1,0 +1,46 @@
+@model HireGameDev.Web.Controllers.StudioPlanAssignmentsPage
+@{ ViewData["Title"] = "Studio packages"; }
+@section Styles { <link rel="stylesheet" href="~/css/plan-admin.css" asp-append-version="true" /> }
+<div class="plans">
+    <a class="plans-back" asp-action="Index">← Back to plans &amp; entitlements</a>
+    <header class="plans-header">
+        <div><p class="plans-eyebrow">ADMINISTRATION <span>/</span> STUDIO ACCESS</p><h1>Studio packages<span>.</span></h1><p>Find a Studio and assign its package directly.</p></div>
+        <div class="plans-header-meta"><span class="plans-status" data-on="@Model.PremiumEnabled.ToString().ToLowerInvariant()"><span aria-hidden="true">●</span> Premium @(Model.PremiumEnabled ? "on" : "off")</span><span>Development only</span></div>
+    </header>
+    @if (TempData["StudioPlanMessage"] is string message) { <div class="plans-notice" role="status">✓ &nbsp;@message</div> }
+    @if (TempData["StudioPlanError"] is string error) { <div class="plans-notice plans-notice--error" role="alert">@error</div> }
+    <aside class="plans-note"><strong>Manual assignments</strong><span>Plus, Pro or Elite applies to that Studio even when the global switch is off. Selecting Free removes the override. Assignments are not payments; billing and some Premium features are not available yet. Only searches, job slots, postings and seats currently use the assigned tier.</span></aside>
+    <section class="plans-panel" aria-labelledby="studios-heading">
+        <div class="plans-section-head"><div><p class="plans-eyebrow">STUDIO DIRECTORY</p><h2 id="studios-heading">Choose a Studio</h2><p>Open a Studio to assign or change its package.</p></div><a class="plans-text-link" asp-action="Catalog">Review package limits ↗</a></div>
+        <form asp-action="Studios" method="get" class="plans-search" role="search"><div><label for="studio-search">Search by Studio name or slug</label><input class="c-input" id="studio-search" name="q" value="@Model.Query" maxlength="100" placeholder="e.g. Studio name" /></div><button class="c-btn c-btn--secondary" type="submit">Search</button>@if (!string.IsNullOrEmpty(Model.Query)) { <a asp-action="Studios">Clear search</a> }</form>
+        <p class="plans-hint" role="status">@Model.TotalCount matching Studio@(Model.TotalCount == 1 ? "" : "s") · Page @Model.Page of @Model.TotalPages</p>
+        @if (Model.Studios.Count == 0)
+        {
+            <div class="plans-empty"><strong>No Studios found.</strong><p>Try a different name or clear the search.</p></div>
+        }
+        else
+        {
+            <div class="plans-studio-list">
+            @foreach (var studio in Model.Studios)
+            {
+                var hasOverride = Model.Assignments.TryGetValue(studio.Id, out var assigned);
+                var current = hasOverride ? assigned!.ToUpperInvariant() : "FREE";
+                var fieldId = "studio-" + studio.Id.ToString("N");
+                <details class="plans-studio">
+                    <summary><span class="plans-studio-info"><strong>@studio.Name</strong><small>@studio.Slug</small></span><span class="plans-studio-current"><span class="plans-chip">@current</span><small>@(hasOverride ? "Manual assignment" : (Model.PremiumEnabled ? "Free limits apply" : "No subscription quota"))</small></span><span class="plans-chevron" aria-hidden="true">⌄</span></summary>
+                    <form asp-action="StudioAssignment" method="post" class="plans-form plans-studio-form">
+                        <input type="hidden" name="studioId" value="@studio.Id" /><input type="hidden" name="q" value="@Model.Query" /><input type="hidden" name="page" value="@Model.Page" />
+                        <div><label for="@(fieldId)-tier">New package</label><select id="@(fieldId)-tier" class="c-select" name="plan" required><option value="">Select a package</option><option value="free">Free — remove override</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="elite">Elite</option></select></div>
+                        <div><label for="@(fieldId)-reason">Reason for change</label><input id="@(fieldId)-reason" name="reason" class="c-input" maxlength="500" required placeholder="Add a short reason" /></div>
+                        <div class="plans-full"><p class="plans-hint">The change applies after saving. Existing jobs and team members are not removed if the new limit is lower.</p><button class="c-btn c-btn--primary" type="submit">Save package for @studio.Name</button></div>
+                    </form>
+                </details>
+            }
+            </div>
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="plans-pages" aria-label="Studio pages"><span>Page @Model.Page of @Model.TotalPages</span><div>@if (Model.Page > 1) { <a asp-action="Studios" asp-route-q="@Model.Query" asp-route-page="@(Model.Page - 1)">← Previous</a> } @if (Model.Page < Model.TotalPages) { <a asp-action="Studios" asp-route-q="@Model.Query" asp-route-page="@(Model.Page + 1)">Next →</a> }</div></nav>
+            }
+        }
+    </section>
+</div>

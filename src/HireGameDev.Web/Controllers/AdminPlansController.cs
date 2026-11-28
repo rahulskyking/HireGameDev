@@ -26,20 +26,33 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         where u.Id == Actor && u.IsActive && u.DeletedAt == null && r.NormalizedName == HireGameDevRoleNames.Admin.ToUpperInvariant() select u.Id).AnyAsync(ct);
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(CancellationToken ct, string? q = null)
+    public async Task<IActionResult> Index(CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
         var limits = await plans!.GetLimitsAsync(ct);
         var draft = await searchDrafts!.GetAsync(ct);
-        q = q?.Trim();
-        if (q?.Length > 100) return BadRequest();
-        var studios = await db.StudioProfiles.AsNoTracking().Where(s => s.DeletedAt == null && (string.IsNullOrEmpty(q) || EF.Functions.ILike(s.Name, "%" + q + "%")))
-            .OrderBy(s => s.Name).ThenBy(s => s.Id).Select(s => new StudioPlanOption(s.Id, s.Name, s.Slug)).Take(200).ToArrayAsync(ct);
-        var assignments = (await plans.GetManualStudioPlansAsync(ct)).ToDictionary(x => x.StudioId, x => x.Plan);
-        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct), draft.IsSuccess ? draft.Value : null,
-            await plans.PremiumEnabledAsync(ct), studios, assignments, q));
+        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct),
+            draft.IsSuccess ? draft.Value : null, await plans.PremiumEnabledAsync(ct)));
     }
 
+    [HttpGet("studios")]
+    public async Task<IActionResult> Studios(string? q, int page = 1, CancellationToken ct = default)
+    {
+        Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        q = q?.Trim();
+        if (q?.Length > 100 || !ModelState.IsValid) return BadRequest();
+        var query = db.StudioProfiles.AsNoTracking().Where(s => s.DeletedAt == null);
+        if (!string.IsNullOrEmpty(q)) query = query.Where(s => EF.Functions.ILike(s.Name, "%" + q + "%") || EF.Functions.ILike(s.Slug, "%" + q + "%"));
+        var total = await query.CountAsync(ct);
+        const int pageSize = 25;
+        var pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Clamp(page, 1, pages);
+        var studios = await query.OrderBy(s => s.Name).ThenBy(s => s.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(s => new StudioPlanOption(s.Id, s.Name, s.Slug)).ToArrayAsync(ct);
+        var assignments = (await plans!.GetManualStudioPlansAsync(studios.Select(s => s.Id).ToArray(), ct)).ToDictionary(x => x.StudioId, x => x.Plan);
+        return View(new StudioPlanAssignmentsPage(studios, assignments, await plans.PremiumEnabledAsync(ct), q, page, pages, total));
+    }
 
     [HttpPost("premium"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
     public async Task<IActionResult> Premium(bool enabled, string reason, CancellationToken ct)
@@ -53,14 +66,25 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     }
 
     [HttpPost("studio-assignment"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
-    public async Task<IActionResult> StudioAssignment(Guid studioId, string plan, string reason, CancellationToken ct)
+    public async Task<IActionResult> StudioAssignment(Guid studioId, string plan, string reason, string? q, int page, CancellationToken ct)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) { TempData["PlanError"] = "Choose a Studio and tier, and enter a reason."; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
+        // Only local route parameters are used after submission; cap them before redirecting.
+        q = q?.Trim(); if (q?.Length > 100) q = null;
+        page = Math.Clamp(page, 1, 100000);
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["StudioPlanError"] = "Choose a tier and provide a reason. No change was saved.";
+            return RedirectToAction(nameof(Studios), new { q, page });
+        }
         var result = await plans!.AssignAsync(Actor, "studio", studioId, plan, reason, ct);
-        if (result.IsFailure) { TempData["PlanError"] = result.Error.Message; return RedirectToAction(nameof(Index), null, null, "plan-feedback"); }
-        TempData["PlanMessage"] = plan == "free" ? "Manual Studio assignment removed." : "Studio tier assigned manually; no payment was recorded.";
-        return RedirectToAction(nameof(Index));
+        if (result.IsFailure)
+        {
+            TempData["StudioPlanError"] = result.Error.Message;
+            return RedirectToAction(nameof(Studios), new { q, page });
+        }
+        TempData["StudioPlanMessage"] = plan == "free" ? "Studio override removed. Free rules now apply." : $"Studio assigned {plan.ToUpperInvariant()} manually. No payment was recorded.";
+        return RedirectToAction(nameof(Studios), new { q, page });
     }
     [HttpPost("limit"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
     public async Task<IActionResult> Limit(string audience, string plan, int? limit, string? reason, CancellationToken ct)
@@ -117,5 +141,6 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
 }
 
 public sealed record StudioPlanOption(Guid Id, string Name, string Slug);
-public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft,
-    bool PremiumEnabled, IReadOnlyList<StudioPlanOption> Studios, IReadOnlyDictionary<Guid, string> Assignments, string? Query);
+public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft, bool PremiumEnabled);
+public sealed record StudioPlanAssignmentsPage(IReadOnlyList<StudioPlanOption> Studios, IReadOnlyDictionary<Guid, string> Assignments,
+    bool PremiumEnabled, string? Query, int Page, int TotalPages, int TotalCount);

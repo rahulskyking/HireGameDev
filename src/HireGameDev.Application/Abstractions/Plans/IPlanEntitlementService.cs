@@ -16,7 +16,7 @@ public interface IPlanEntitlementService
     Task<int?> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default);
     Task<int?> GetStudioSeatLimitAsync(Guid studioId, CancellationToken cancellationToken = default);
     Task<int?> GetSearchLimitAsync(string audience, Guid subject, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ManualStudioPlan>> GetManualStudioPlansAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ManualStudioPlan>> GetManualStudioPlansAsync(IReadOnlyCollection<Guid> studioIds, CancellationToken cancellationToken = default);
     Task<bool> PremiumEnabledAsync(CancellationToken cancellationToken = default);
     Task<Result> SetPremiumEnabledAsync(Guid actor, bool enabled, string reason, CancellationToken cancellationToken = default);
     Task<int?> GetCandidateSavedJobLimitAsync(Guid candidateId, CancellationToken cancellationToken = default);
