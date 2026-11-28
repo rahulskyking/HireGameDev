@@ -1,0 +1,14 @@
+@model HireGameDev.Web.Models.Search.SearchQuotaConfirmPage
+@{ ViewData["Title"] = "Start search"; }
+<section class="p-sg-stack c-card">
+    <h1>Start this search?</h1>
+    <p>This is a new or changed search. It will use one of your @Model.Limit searches in the rolling 24-hour period. You have used @Model.Used.</p>
+    <p>Refreshing or moving between pages of your current search does not use another search.</p>
+    <form action="@Model.PostUrl" method="post" class="c-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="intentId" value="@Guid.NewGuid()" />
+        @foreach (var field in Model.Fields) { <input type="hidden" name="@field.Key" value="@field.Value" /> }
+        <button class="c-btn c-btn--primary" type="submit">Start search</button>
+    </form>
+
+</section>

@@ -4,6 +4,9 @@
 @{
     ViewData["Title"] = "Game development jobs in India";
     var results = Model.Results;
+    var searchQuotaEnabled = ViewData["SearchQuotaEnabled"] is true;
+    var searchRun = ViewData["SearchRun"] as Guid?;
+    var searchQuota = ViewData["SearchQuota"] as HireGameDev.Application.Abstractions.Plans.SearchQuotaCheck;
     var filtered = PublicJobUi.HasFilters(Model.Search) || (results?.Page ?? 1) > 1 || User.Identity?.IsAuthenticated == true;
 }
 @section Styles {
@@ -19,7 +22,9 @@
 { <p class="jb-muted">Your blocked Studios are excluded while signed in. <a asp-controller="Candidate" asp-action="Settings">Manage your preferences</a>. Public browsing stays open when signed out.</p> }
 <div class="jb-layout">
 <details class="jb-filters" open id="job-filters"><summary>Search &amp; filters <span>⌄</span></summary>
-<form asp-controller="PublicJobs" asp-action="Index" method="get" class="jb-filter-form" role="search" aria-label="Find game development jobs">
+<form asp-controller="PublicJobs" asp-action="@(searchQuotaEnabled ? "StartSearch" : "Index")" method="@(searchQuotaEnabled ? "post" : "get")" class="jb-filter-form" role="search" aria-label="Find game development jobs">
+@if (searchQuotaEnabled) { <input type="hidden" name="intentId" value="@Guid.NewGuid()" /> }
+@if (searchQuotaEnabled && searchRun.HasValue) { <input type="hidden" name="searchRun" value="@searchRun" /> }
 @if (Model.Search.StudioId.HasValue) { <input type="hidden" name="StudioId" value="@Model.Search.StudioId" /> <div class="jb-note"><strong>Showing jobs from one Studio</strong><p>Other filters apply to this Studio’s open roles.</p><a href="@(PublicJobUi.PageUrl(Model.Search with { StudioId = null }, 1))">Browse all Studios</a></div> }
 <div class="jb-field"><label for="Keyword">Search jobs</label><input class="c-input" id="Keyword" name="Keyword" value="@Model.Search.Keyword" maxlength="100" placeholder="Role, Studio or skill" aria-describedby="keyword-help" /><small id="keyword-help">Search title, description, Studio name or listed skills.</small></div>
 <div class="jb-field"><label for="Category">Discipline</label><select class="c-select" id="Category" name="Category"><option value="">All disciplines</option>@foreach (var value in Enum.GetValues<DisciplineCategory>()) { <option value="@value" selected="@(Model.Search.Category == value)">@value</option> }</select></div>
@@ -33,6 +38,7 @@
 <button class="c-btn c-btn--primary" type="submit">Find my next role →</button><a class="jb-clear" asp-action="Index">Clear all filters</a>
 </form></details>
 <section class="jb-stack" aria-labelledby="job-results-heading">
+@if (searchQuota?.Enabled == true) { <p class="jb-muted">@searchQuota.Used / @searchQuota.Limit searches used in the last 24 hours. Refreshing and paging this search do not use another.</p> }
 @if (TempData["SavedJobMessage"] is string savedMessage) { <div class="jb-note" role="status">@savedMessage <a asp-controller="SavedJobsPage" asp-action="Index">View saved jobs</a></div> }
 @if (User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirst(HireGameDevClaimTypes.AccountType)?.Value == HireGameDevRoleNames.Candidate && Model.Results is not null && Model.SavedJobIds is null)
 { <p class="jb-muted">Saving from this page is unavailable. You can still open a job to save it.</p> }
@@ -77,7 +83,7 @@
 {
     foreach (var job in results.Items)
     {
-        var returnToJob = PublicJobUi.PageUrl(Model.Search, results.Page) + "#job-" + job.Id;
+        var returnToJob = PublicJobUi.PageUrl(Model.Search, results.Page, searchRun) + "#job-" + job.Id;
         var application = Model.Applications is not null && Model.Applications.TryGetValue(job.Id, out var foundApplication) ? foundApplication : null;
         var fit = Model.FitScores is not null && Model.FitScores.TryGetValue(job.Id, out var foundFit) ? foundFit : null;
         <article class="jb-job" id="job-@job.Id"><div class="jb-job-top"><div class="jb-studio">@if (job.Studio.LogoUrl is not null) { <img src="@job.Studio.LogoUrl" alt="" width="44" height="44" loading="lazy" /> } else { <span class="jb-monogram" aria-hidden="true">@job.Studio.Name.FirstOrDefault()</span> }<div><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@job.Studio.Slug">@job.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div></div><div class="jb-job-meta"><time datetime="@job.PublishedAt.ToString("O")">@job.PublishedAt.ToString("dd MMM yyyy")</time>
@@ -104,8 +110,8 @@
     if (results.TotalPages > 1)
     {
         <nav class="jb-pagination" aria-label="Search results pages"><span>Page @results.Page of @results.TotalPages</span><div>
-        @if (results.Page > 1) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page - 1)" rel="prev">← Previous</a> }
-        @if (results.Page < results.TotalPages) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page + 1)" rel="next">Next →</a> }
+        @if (results.Page > 1) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page - 1, searchRun)" rel="prev">← Previous</a> }
+        @if (results.Page < results.TotalPages) { <a href="@PublicJobUi.PageUrl(Model.Search, results.Page + 1, searchRun)" rel="next">Next →</a> }
         </div></nav>
     }
 }

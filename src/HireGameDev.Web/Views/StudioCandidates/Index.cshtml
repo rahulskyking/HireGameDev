@@ -2,6 +2,9 @@
 @{
     ViewData["Title"] = "Discover candidates";
     var search = Model.Search;
+    var searchQuotaEnabled = ViewData["SearchQuotaEnabled"] is true;
+    var searchRun = ViewData["SearchRun"] as Guid?;
+    var searchQuota = ViewData["SearchQuota"] as HireGameDev.Application.Abstractions.Plans.SearchQuotaCheck;
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 }
 @section Styles {
@@ -23,7 +26,9 @@
     {
         <div class="td-layout">
             <aside class="td-filters"><div class="td-section-label">FIND YOUR FIT <span>↗</span></div><h2>Refine your search.</h2><p>Start broad, then focus on what matters for your team.</p>
-                <form asp-action="Index" method="get" class="td-form" role="search"><input type="hidden" name="studioId" value="@Model.Studio.StudioId" />
+                <form asp-action="@(searchQuotaEnabled ? "StartSearch" : "Index")" method="@(searchQuotaEnabled ? "post" : "get")" class="td-form" role="search"><input type="hidden" name="studioId" value="@Model.Studio.StudioId" />
+                    @if (searchQuotaEnabled) { <input type="hidden" name="intentId" value="@Guid.NewGuid()" /> }
+@if (searchQuotaEnabled && searchRun.HasValue) { <input type="hidden" name="searchRun" value="@searchRun" /> }
                     <label for="keyword">Name or headline</label><input class="c-input" id="keyword" name="Keyword" value="@search.Keyword" minlength="2" maxlength="80" placeholder="e.g. gameplay programmer" />
                     <label for="category">Discipline</label><select class="c-select" id="category" name="Category"><option value="">All disciplines</option>@foreach (var category in Enum.GetValues<DisciplineCategory>()) { <option value="@category" selected="@(search.Category == category)">@category</option> }</select>
                     <label for="skill">Listed skill</label><select class="c-select" id="skill" name="SkillId"><option value="">Any skill</option>@foreach (var skill in Model.Skills) { <option value="@skill.Id" selected="@(search.SkillId == skill.Id)">@skill.Name</option> }</select>
@@ -34,7 +39,7 @@
                 </form>
                 <div class="td-privacy"><strong>Respecting privacy</strong><p>Only discoverable profiles you can currently access appear. Contact details stay private.</p></div>
             </aside>
-            <section class="td-results" aria-label="Candidate results"><div class="td-results-head"><div><span class="td-section-label">DISCOVER / PEOPLE</span><h2>Meet the talent<span>.</span></h2><p>Profiles are self-reported and may change. No match score is shown without a job.</p></div><span class="td-results-count">PAGE @Model.Results.Page</span></div>
+            <section class="td-results" aria-label="Candidate results">@if (searchQuota?.Enabled == true) { <p class="td-muted">@searchQuota.Used / @searchQuota.Limit Studio searches used in the last 24 hours. Refreshing and paging this search do not use another.</p> }<div class="td-results-head"><div><span class="td-section-label">DISCOVER / PEOPLE</span><h2>Meet the talent<span>.</span></h2><p>Profiles are self-reported and may change. No match score is shown without a job.</p></div><span class="td-results-count">PAGE @Model.Results.Page</span></div>
                 @if (Model.Results.Items.Count == 0)
                 {
                     <div class="td-empty"><span>↗</span><h2>No profiles found.</h2><p>Try fewer filters or explore a different skill.</p><a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId">Clear filters →</a></div>
@@ -49,9 +54,9 @@
                 @if (Model.Results.Page > 1 || Model.Results.HasMore)
                 {
                     <nav class="td-pagination" aria-label="Candidate pages">
-                        @if (Model.Results.Page > 1) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-Page="@(Model.Results.Page - 1)">← Previous</a> }
+                        @if (Model.Results.Page > 1) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-searchRun="@searchRun" asp-route-Page="@(Model.Results.Page - 1)">← Previous</a> }
                         <span>Page @Model.Results.Page</span>
-                        @if (Model.Results.HasMore) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-Page="@(Model.Results.Page + 1)">Next →</a> }
+                        @if (Model.Results.HasMore) { <a asp-action="Index" asp-route-studioId="@Model.Studio.StudioId" asp-route-Keyword="@search.Keyword" asp-route-Category="@search.Category" asp-route-CityId="@search.CityId" asp-route-SkillId="@search.SkillId" asp-route-MinimumYears="@search.MinimumYears" asp-route-RemoteOnly="@search.RemoteOnly" asp-route-searchRun="@searchRun" asp-route-Page="@(Model.Results.Page + 1)">Next →</a> }
                     </nav>
                 }
                 <p class="td-disclaimer">Discoverability and blocks are checked on every request. Suggestions for a particular job are available from its management page. Discovery is limited to the first 100 pages.</p>

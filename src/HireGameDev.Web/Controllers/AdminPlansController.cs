@@ -16,9 +16,9 @@ namespace HireGameDev.Web.Controllers;
 [Route("Admin/Plans")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminPlansController(IWebHostEnvironment environment, IPortalNavigator portals, AppDbContext db,
-    IPlanEntitlementService? plans = null, ISearchAllowanceDraftService? searchDrafts = null) : Controller
+    IPlanEntitlementService? plans = null, ISearchAllowanceDraftService? searchDrafts = null, ISearchQuotaService? searchQuotas = null) : Controller
 {
-    private bool Enabled => environment.IsDevelopment() && portals.ResolvePortal(HttpContext) == PortalSite.Landing && plans is not null && searchDrafts is not null;
+    private bool Enabled => environment.IsDevelopment() && portals.ResolvePortal(HttpContext) == PortalSite.Landing && plans is not null && searchDrafts is not null && searchQuotas is not null;
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["Referrer-Policy"] = "no-referrer"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
     private Task<bool> IsActiveAdmin(CancellationToken ct) => (from u in db.Users.AsNoTracking()
@@ -31,7 +31,7 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
         var limits = await plans!.GetLimitsAsync(ct);
         var draft = await searchDrafts!.GetAsync(ct);
-        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), draft.IsSuccess ? draft.Value : null));
+        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct), draft.IsSuccess ? draft.Value : null));
     }
 
     [HttpPost("limit"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
@@ -42,6 +42,17 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         var result = await plans!.SetLimitAsync(Actor, audience, plan, limit.Value, reason, ct);
         if (result.IsFailure) return BadRequest(result.Error.Message);
         TempData["PlanMessage"] = "Free limit updated.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("search-limits"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> SearchLimits(int? candidateDaily, int? studioDaily, string? reason, CancellationToken ct)
+    {
+        Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        var result = await searchQuotas!.UpdateSettingsAsync(Actor, new SearchQuotaSettings(candidateDaily, studioDaily), reason, ct);
+        if (result.IsFailure) return BadRequest(result.Error.Message);
+        TempData["PlanMessage"] = "Search limits updated.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -57,4 +68,4 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     }
 }
 
-public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchAllowanceDraft? SearchDraft);
+public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft);

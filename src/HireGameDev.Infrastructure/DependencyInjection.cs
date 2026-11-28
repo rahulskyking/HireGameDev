@@ -245,6 +245,7 @@ public static class DependencyInjection
         {
             services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
             services.AddScoped<ISearchAllowanceDraftService, SearchAllowanceDraftService>();
+            services.AddScoped<ISearchQuotaService, SearchQuotaService>();
             services.AddScoped<IRecommendationPolicyService, RecommendationPolicyService>();
             services.AddScoped<ICandidateJobRecommendationService, CandidateJobRecommendationService>();
             services.AddScoped<IStudioCandidateRecommendationService, StudioCandidateRecommendationService>();

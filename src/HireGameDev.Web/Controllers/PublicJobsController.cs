@@ -1,5 +1,8 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Jobs;
+using HireGameDev.Application.Abstractions.Plans;
+using HireGameDev.Web.Authorization;
+using HireGameDev.Web.Models.Search;
 using HireGameDev.Application.Abstractions.Applications;
 using HireGameDev.Application.Features.Applications;
 using HireGameDev.Application.Abstractions.ReferenceData;
@@ -9,15 +12,17 @@ using HireGameDev.Web.Models.Jobs;
 using HireGameDev.Web.Portals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using HireGameDev.Web.RateLimiting;
 
 namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null, ICandidateJobApplicationStateQuery? applicationStates = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null, ICandidateJobApplicationStateQuery? applicationStates = null, ISearchQuotaService? searchQuotas = null) : Controller
 {
     [HttpGet("jobs")]
-    public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken, Guid? searchRun = null)
     {
         var redirect = CanonicalPortal("/jobs" + Request.QueryString);
         if (redirect is not null) return redirect;
@@ -27,6 +32,27 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var result = await jobs.SearchAsync(search, cancellationToken, viewerUserId: ViewerUserId());
             if (result.IsSuccess) results = result.Value;
             else ModelState.AddModelError("", result.Error.Message);
+        }
+        var quotaCandidate = environment?.IsDevelopment() == true && searchQuotas is not null && ViewerUserId() is Guid &&
+            User.IsInRole(HireGameDevRoleNames.Candidate) && User.FindFirstValue(HireGameDevClaimTypes.AccountType) == HireGameDevRoleNames.Candidate;
+        if (quotaCandidate) { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["Referrer-Policy"] = "no-referrer"; }
+        if (quotaCandidate && ModelState.IsValid && results is not null && PublicJobUi.HasFilters(search))
+        {
+            var check = await searchQuotas!.CheckAsync(ViewerUserId()!.Value, "candidate", null, SearchQuotaUi.Fingerprint(search), searchRun, cancellationToken);
+            if (check.IsFailure) return Forbid();
+            ViewData["SearchQuota"] = check.Value;
+            if (check.Value.Enabled && !check.Value.AuthorizedRun)
+            {
+                Response.Headers["Referrer-Policy"] = "no-referrer";
+                return View("SearchQuotaConfirm", new SearchQuotaConfirmPage(Url.Action(nameof(StartSearch))!,
+                    SearchQuotaUi.Fields(Request.Query, "Keyword", "StudioId", "Category", "JobType", "WorkMode", "CityId", "ExperienceYears", "SkillIds", "FresherFriendlyOnly", "Sort", "PageSize", "searchRun"), check.Value.Used, check.Value.Limit!.Value));
+            }
+        }
+        if (quotaCandidate && searchQuotas is not null)
+        {
+            var limits = await searchQuotas.GetSettingsAsync(cancellationToken);
+            ViewData["SearchQuotaEnabled"] = limits.CandidateDaily.HasValue;
+            ViewData["SearchRun"] = searchRun;
         }
         if (!ModelState.IsValid)
         {
@@ -58,6 +84,30 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
             portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds, applications));
+    }
+
+    [Authorize(Policy = AuthorizationPolicies.CandidateOnly)]
+    [HttpPost("jobs/search"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateDiscoveryRead)]
+    public async Task<IActionResult> StartSearch([FromForm] PublicJobSearch search, Guid? searchRun, Guid intentId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "private, no-store"; Response.Headers["Referrer-Policy"] = "no-referrer";
+        if (environment?.IsDevelopment() != true || searchQuotas is null || !ViewerUserId().HasValue) return NotFound();
+        // Controller-level AllowAnonymous is needed for public browse and overrides action
+        // authorization metadata, so explicitly require a Candidate here as well.
+        if (!User.IsInRole(HireGameDevRoleNames.Candidate) || User.FindFirstValue(HireGameDevClaimTypes.AccountType) != HireGameDevRoleNames.Candidate) return Forbid();
+        if (!ModelState.IsValid) return BadRequest();
+        search = search with { Page = 1 };
+        var validation = await jobs.SearchAsync(search, cancellationToken, ViewerUserId());
+        if (validation.IsFailure) return BadRequest(validation.Error.Message);
+        if (!PublicJobUi.HasFilters(search)) return Redirect(PublicJobUi.PageUrl(search, 1));
+        var started = await searchQuotas.StartAsync(ViewerUserId()!.Value, "candidate", null, SearchQuotaUi.Fingerprint(search), searchRun, intentId, cancellationToken);
+        if (started.IsFailure)
+        {
+            if (started.Error.Type == HireGameDev.Application.Common.ErrorType.RateLimited)
+            { Response.StatusCode = 429; return View("SearchQuotaReached", new SearchQuotaReachedPage(started.Error.Message, "/jobs")); }
+            return started.Error.Type == HireGameDev.Application.Common.ErrorType.Conflict ? Conflict(started.Error.Message) : Forbid();
+        }
+        return Redirect(PublicJobUi.PageUrl(search, 1, started.Value.RunId));
     }
 
     [HttpGet("jobs/{slug}")]

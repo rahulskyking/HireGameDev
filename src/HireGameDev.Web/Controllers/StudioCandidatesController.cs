@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using HireGameDev.Application.Abstractions.Discovery;
+using HireGameDev.Application.Abstractions.Plans;
+using HireGameDev.Web.Models.Search;
 using HireGameDev.Application.Abstractions.ReferenceData;
 using HireGameDev.Application.Abstractions.Studios;
 using HireGameDev.Application.Common;
@@ -19,13 +21,13 @@ namespace HireGameDev.Web.Controllers;
 [Route("studio/candidates")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class StudioCandidatesController(IWebHostEnvironment environment, IStudioProfileService studios,
-    IReferenceDataService references, IStudioCandidateDiscoveryService? discovery = null) : Controller
+    IReferenceDataService references, IStudioCandidateDiscoveryService? discovery = null, ISearchQuotaService? searchQuotas = null) : Controller
 {
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["Referrer-Policy"] = "no-referrer"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(Guid? studioId, [FromQuery] CandidateDiscoverySearch search, CancellationToken ct)
+    public async Task<IActionResult> Index(Guid? studioId, [FromQuery] CandidateDiscoverySearch search, CancellationToken ct, Guid? searchRun = null)
     {
         Private(); if (!ApplicationFeature.Enabled(environment) || discovery is null) return NotFound();
         if (Actor == Guid.Empty) return Forbid();
@@ -36,8 +38,49 @@ public sealed class StudioCandidatesController(IWebHostEnvironment environment, 
         if (studio is null) return Forbid();
         var result = await discovery.SearchAsync(Actor, studio.StudioId, search, ct);
         if (result.IsFailure && result.Error.Type != ErrorType.Forbidden) return BadRequest(result.Error.Message);
+        if (result.IsSuccess && searchQuotas is not null && SearchQuotaUi.IsFiltered(search))
+        {
+            var check = await searchQuotas.CheckAsync(Actor, "studio", studio.StudioId, SearchQuotaUi.Fingerprint(search), searchRun, ct);
+            if (check.IsFailure) return Forbid();
+            ViewData["SearchQuota"] = check.Value;
+            if (check.Value.Enabled && !check.Value.AuthorizedRun)
+                return View("SearchQuotaConfirm", new SearchQuotaConfirmPage(Url.Action(nameof(StartSearch))!,
+                    SearchQuotaUi.Fields(Request.Query, "studioId", "Keyword", "Category", "CityId", "SkillId", "MinimumYears", "RemoteOnly", "searchRun")
+                        .Where(x => !string.Equals(x.Key, "studioId", StringComparison.OrdinalIgnoreCase))
+                        .Append(new KeyValuePair<string, string>("studioId", studio.StudioId.ToString())).ToArray(), check.Value.Used, check.Value.Limit!.Value));
+        }
+        if (result.IsSuccess && searchQuotas is not null)
+        {
+            var limits = await searchQuotas.GetSettingsAsync(ct);
+            ViewData["SearchQuotaEnabled"] = limits.StudioDaily.HasValue;
+            ViewData["SearchRun"] = searchRun;
+        }
         return View(new StudioCandidateDiscoveryViewModel(studio, memberships, search, result.IsSuccess ? result.Value : null,
             await references.GetActiveCitiesAsync(ct), await references.GetActiveSkillsAsync(cancellationToken: ct)));
+    }
+
+    [HttpPost("search"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartSearch(Guid studioId, [FromForm] CandidateDiscoverySearch search, Guid? searchRun, Guid intentId, CancellationToken ct)
+    {
+        Private(); if (!ApplicationFeature.Enabled(environment) || discovery is null || searchQuotas is null) return NotFound();
+        if (Actor == Guid.Empty) return Forbid();
+        if (!ModelState.IsValid) return BadRequest();
+        search = search with { Page = 1 };
+        var validation = await discovery.SearchAsync(Actor, studioId, search, ct);
+        if (validation.IsFailure) return validation.Error.Type == ErrorType.Forbidden ? Forbid() : BadRequest(validation.Error.Message);
+        Guid? run = null;
+        if (SearchQuotaUi.IsFiltered(search))
+        {
+            var started = await searchQuotas.StartAsync(Actor, "studio", studioId, SearchQuotaUi.Fingerprint(search), searchRun, intentId, ct);
+            if (started.IsFailure)
+            {
+                if (started.Error.Type == ErrorType.RateLimited)
+                { Response.StatusCode = 429; return View("SearchQuotaReached", new SearchQuotaReachedPage(started.Error.Message, Url.Action(nameof(Index), new { studioId })!)); }
+                return started.Error.Type == ErrorType.Conflict ? Conflict(started.Error.Message) : Forbid();
+            }
+            run = started.Value.RunId;
+        }
+        return RedirectToAction(nameof(Index), new { studioId, search.Keyword, search.Category, search.CityId, search.SkillId, search.MinimumYears, search.RemoteOnly, searchRun = run });
     }
 
     [HttpGet("{candidateId:guid}")]

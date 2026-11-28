@@ -33,7 +33,7 @@ public static class PublicJobUi
     public static string Experience(PublicJobCard job) => Number(job.MinYears) +
         (job.MaxYears.HasValue ? "–" + Number(job.MaxYears.Value) : "+") + " years";
     private static string Number(decimal number) => number.ToString("0.##", CultureInfo.InvariantCulture);
-    public static string PageUrl(PublicJobSearch search, int page)
+    public static string PageUrl(PublicJobSearch search, int page, Guid? searchRun = null)
     {
         var values = new List<KeyValuePair<string, string?>>();
         void Add(string name, object? value) { if (value is not null) values.Add(new(name, Convert.ToString(value, CultureInfo.InvariantCulture))); }
@@ -45,6 +45,7 @@ public static class PublicJobUi
         if (search.Sort != PublicJobSort.Newest) Add("Sort", search.Sort);
         if (search.PageSize != 20) Add("PageSize", search.PageSize);
         if (page > 1) Add("Page", page);
+        if (searchRun.HasValue) Add("searchRun", searchRun.Value);
         return "/jobs" + QueryString.Create(values);
     }
 }

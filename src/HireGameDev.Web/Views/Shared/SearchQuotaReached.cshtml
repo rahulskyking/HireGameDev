@@ -1,0 +1,8 @@
+@model HireGameDev.Web.Models.Search.SearchQuotaReachedPage
+@{ ViewData["Title"] = "Search limit reached"; }
+<section class="p-sg-stack c-card">
+    <h1>Daily search limit reached</h1>
+    <p>@Model.Message</p>
+    <p>Existing search pages remain accessible while they are current. You can also return to unfiltered browsing.</p>
+    <a class="c-btn c-btn--secondary" href="@Model.BackUrl">Back to browsing →</a>
+</section>

@@ -17,15 +17,15 @@
             </form>
         }
     </section>
-    <section class="c-card"><h2>Daily searches <span class="c-badge c-badge--warning">Draft · not enforced</span></h2>
-        <p><strong>Search counting and enforcement are not implemented.</strong> You can save proposed limits here, but they do not restrict searches or track usage. Blank means no number has been chosen, not an active unlimited plan.</p>
-        <p>The intended window is rolling 24 hours. New or changed searches should count; refreshing and paging the same search should not. Guest job browsing currently remains public.</p>
-        @if (Model.SearchDraft is null) { <p role="alert">The saved draft is invalid. Enter valid values and a reason to replace it.</p> }
-        <form asp-action="SearchDraft" method="post" class="c-form">
-            <label class="c-label" for="candidateDaily">Candidate searches per 24 hours (proposed)</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@(Model.SearchDraft?.CandidateDaily)" placeholder="Not set" />
-            <label class="c-label" for="studioDaily">Studio searches per 24 hours (proposed)</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@(Model.SearchDraft?.StudioDaily)" placeholder="Not set" />
-            <label class="c-label" for="draftReason">Reason</label><input class="c-input" id="draftReason" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Save search limit draft</button>
+    <section class="c-card"><h2>Daily searches <span class="c-badge c-badge--success">Active when configured</span></h2>
+        <p>Each new or changed filtered search counts once in a rolling 24 hours. Refresh and pagination of the current search do not count again. A Studio shares its allowance across members. Blank disables the quota for that account type; no numbers have been assumed.</p>
+        <p>Unfiltered browsing and signed-out public job searches do not count. Search quotas are not a replacement for abuse controls. Changes and audit entries are saved together.</p>
+        <form asp-action="SearchLimits" method="post" class="c-form">
+            <label class="c-label" for="candidateDaily">Candidate searches per 24 hours</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@(Model.SearchLimits.CandidateDaily)" placeholder="Disabled" />
+            <label class="c-label" for="studioDaily">Studio searches per 24 hours</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@(Model.SearchLimits.StudioDaily)" placeholder="Disabled" />
+            <label class="c-label" for="searchReason">Reason</label><input class="c-input" id="searchReason" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Update search limits</button>
         </form>
+        @if (Model.SearchDraft is not null && (Model.SearchDraft.CandidateDaily.HasValue || Model.SearchDraft.StudioDaily.HasValue)) { <p>Earlier draft (not automatically activated): Candidate @(Model.SearchDraft.CandidateDaily?.ToString() ?? "not set"), Studio @(Model.SearchDraft.StudioDaily?.ToString() ?? "not set").</p> }
     </section>
     <section class="c-card"><h2>Future plans <span class="c-badge c-badge--neutral">Not active</span></h2><p>Plus, Pro and Elite are reserved for a later release. No paid plan can be assigned or purchased, and paid placement is disabled. Existing stored assignments and schedules are retained but have no effect.</p></section>
     <section class="c-card"><h2>Other controls</h2><p>Recommendation thresholds and privacy reviews have separate controls; they do not override the Free allowances.</p><div class="c-btn-group"><a class="c-btn c-btn--secondary" asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings</a><a class="c-btn c-btn--secondary" asp-controller="ErasureRequests" asp-action="Review">Review erasure requests</a></div></section>
