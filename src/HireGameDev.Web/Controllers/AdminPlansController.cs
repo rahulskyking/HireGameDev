@@ -35,6 +35,30 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
             draft.IsSuccess ? draft.Value : null, await plans.PremiumEnabledAsync(ct)));
     }
 
+    // Support the conventional controller/action URL as well as the canonical
+    // attribute route. The destination repeats all normal authorization checks.
+    [HttpGet("/AdminPlans")]
+    [HttpGet("/AdminPlans/Index")]
+    public IActionResult IndexAlias()
+    {
+        Private(); if (!Enabled) return NotFound();
+        return LocalRedirect(Url.Content("~/Admin/Plans") + Request.QueryString);
+    }
+
+    [HttpGet("/AdminPlans/Catalog")]
+    public IActionResult CatalogAlias()
+    {
+        Private(); if (!Enabled) return NotFound();
+        return LocalRedirect(Url.Content("~/Admin/Plans/catalog") + Request.QueryString);
+    }
+
+    [HttpGet("/AdminPlans/Studios")]
+    public IActionResult StudiosAlias()
+    {
+        Private(); if (!Enabled) return NotFound();
+        return LocalRedirect(Url.Content("~/Admin/Plans/studios") + Request.QueryString);
+    }
+
     [HttpGet("studios")]
     public async Task<IActionResult> Studios(string? q, int page = 1, CancellationToken ct = default)
     {
