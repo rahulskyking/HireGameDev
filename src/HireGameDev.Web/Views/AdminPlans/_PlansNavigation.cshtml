@@ -1,0 +1,12 @@
+@{
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<nav class="plans-nav" aria-label="Subscription administration">
+    <span class="plans-nav-label">SUBSCRIPTIONS</span>
+    <div class="plans-nav-links">
+        <a asp-controller="AdminPlans" asp-action="Index" aria-current="@(string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase) ? "page" : null)">Overview</a>
+        <a asp-controller="AdminPlans" asp-action="Catalog" aria-current="@(string.Equals(action, "Catalog", StringComparison.OrdinalIgnoreCase) ? "page" : null)">Plan settings</a>
+        <a asp-controller="AdminPlans" asp-action="Studios" aria-current="@(string.Equals(action, "Studios", StringComparison.OrdinalIgnoreCase) ? "page" : null)">Studio packages</a>
+        <a asp-controller="Admin" asp-action="Index">Admin console ↗</a>
+    </div>
+</nav>

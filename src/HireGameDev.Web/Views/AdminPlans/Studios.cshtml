@@ -3,6 +3,7 @@
 @section Styles { <link rel="stylesheet" href="~/css/plan-admin.css" asp-append-version="true" /> }
 <div class="plans">
     <a class="plans-back" asp-action="Index">← Back to plans &amp; entitlements</a>
+    <partial name="_PlansNavigation" />
     <header class="plans-header">
         <div><p class="plans-eyebrow">ADMINISTRATION <span>/</span> STUDIO ACCESS</p><h1>Studio packages<span>.</span></h1><p>Find a Studio and assign its package directly.</p></div>
         <div class="plans-header-meta"><span class="plans-status" data-on="@Model.PremiumEnabled.ToString().ToLowerInvariant()"><span aria-hidden="true">●</span> Premium @(Model.PremiumEnabled ? "on" : "off")</span><span>Development only</span></div>
