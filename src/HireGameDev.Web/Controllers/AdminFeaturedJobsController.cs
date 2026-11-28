@@ -17,7 +17,8 @@ namespace HireGameDev.Web.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminFeaturedJobsController(IWebHostEnvironment environment, IPortalNavigator portals, AppDbContext db, IFeaturedJobPlacementService? placements = null) : Controller
 {
-    private bool Enabled => environment.IsDevelopment() && portals.ResolvePortal(HttpContext) == PortalSite.Landing && placements is not null;
+    private const bool PaidPlacementsEnabled = false; // Explicit launch decision required before enabling.
+    private bool Enabled => PaidPlacementsEnabled && environment.IsDevelopment() && portals.ResolvePortal(HttpContext) == PortalSite.Landing && placements is not null;
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
     private void Private() { Response.Headers.CacheControl = "private, no-store"; Response.Headers.Vary = "Cookie"; Response.Headers["Referrer-Policy"] = "no-referrer"; Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
     private Task<bool> IsActiveAdmin(CancellationToken ct) => (from u in db.Users.AsNoTracking() join ur in db.UserRoles.AsNoTracking() on u.Id equals ur.UserId

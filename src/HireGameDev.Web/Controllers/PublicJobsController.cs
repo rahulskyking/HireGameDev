@@ -14,7 +14,7 @@ namespace HireGameDev.Web.Controllers;
 
 [AllowAnonymous]
 public sealed class PublicJobsController(IPublicJobQueryService jobs, IReferenceDataService references,
-    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null, ICandidateJobApplicationStateQuery? applicationStates = null, IFeaturedJobPlacementService? placements = null) : Controller
+    IPortalNavigator portals, ISavedJobService? savedJobs = null, IApplicationReviewService? applicationReview = null, IWebHostEnvironment? environment = null, IJobCardFitService? cardFits = null, ISavedJobStateQuery? savedStates = null, ICandidateJobApplicationStateQuery? applicationStates = null) : Controller
 {
     [HttpGet("jobs")]
     public async Task<IActionResult> Index([FromQuery] PublicJobSearch search, CancellationToken cancellationToken)
@@ -54,14 +54,10 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var states = await applicationStates.GetAsync(actor, results.Items.Select(x => x.Id).ToArray(), cancellationToken);
             if (states.IsSuccess) applications = states.Value;
         }
-        // Placement is separate from result ranking, filters and matching, and only appears
-        // on the unfiltered first page. The service rechecks current public visibility.
-        PublicJobCard? featured = null;
-        if (environment?.IsDevelopment() == true && placements is not null && results is not null && search.Page == 1 && results.Page == 1 && !PublicJobUi.HasFilters(search))
-            featured = await placements.GetForViewerAsync(ViewerUserId(), cancellationToken);
+        // Paid placements are disabled for the Free-only release; stored schedules are untouched.
         return View(new PublicJobBrowsePage(search, results, await references.GetActiveCitiesAsync(cancellationToken),
             await references.GetActiveSkillsAsync(cancellationToken: cancellationToken),
-            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds, applications, featured));
+            portals.BuildPortalUrl(PortalSite.Jobs, HttpContext, canonicalPath), RegistrationUrl(canonicalPath), fits, showMatches, savedIds, applications));
     }
 
     [HttpGet("jobs/{slug}")]

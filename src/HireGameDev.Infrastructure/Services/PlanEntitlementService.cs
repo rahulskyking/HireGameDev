@@ -32,11 +32,10 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
     public async Task<PlanEntitlement> GetAsync(string audience, Guid profileId, CancellationToken cancellationToken = default)
     {
         if (!Valid(audience, "free") || profileId == Guid.Empty) throw new ArgumentException("Invalid plan target.");
-        var sql = audience == "candidate"
-            ? "SELECT p.code, p.quota_limit FROM plan_definitions p WHERE p.audience = 'candidate' AND p.code = COALESCE((SELECT a.plan_code FROM candidate_plan_assignments a WHERE a.candidate_id = @id), 'free')"
-            : "SELECT p.code, p.quota_limit FROM plan_definitions p WHERE p.audience = 'studio' AND p.code = COALESCE((SELECT a.plan_code FROM studio_plan_assignments a WHERE a.studio_id = @id), 'free')";
+        // Free-only initial release: retain historical assignments but do not activate them.
+        const string sql = "SELECT p.code, p.quota_limit FROM plan_definitions p WHERE p.audience = @audience AND p.code = 'free'";
         return await WithConnectionAsync(async () => {
-            await using var cmd = Command(sql); Add(cmd, "id", profileId);
+            await using var cmd = Command(sql); Add(cmd, "audience", audience);
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Plan definition is missing.");
             var result = new PlanEntitlement(reader.GetString(0), reader.GetInt32(1));
@@ -46,17 +45,17 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
     }
 
     public async Task<IReadOnlyList<PlanLimit>> GetLimitsAsync(CancellationToken cancellationToken = default) => await WithConnectionAsync(async () => {
-        await using var cmd = Command("SELECT audience, code, quota_limit FROM plan_definitions ORDER BY audience, code");
+        await using var cmd = Command("SELECT audience, code, quota_limit FROM plan_definitions WHERE code = 'free' ORDER BY audience");
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var plans = new List<PlanLimit>();
         while (await reader.ReadAsync(cancellationToken)) plans.Add(new(reader.GetString(0), reader.GetString(1), reader.GetInt32(2)));
-        if (plans.Count != 4 || plans.Any(x => !Valid(x.Audience, x.Plan) || x.Limit is < 1 or > 10000)) throw new InvalidOperationException("Plan definitions are incomplete or invalid.");
+        if (plans.Count != 2 || plans.Any(x => !Valid(x.Audience, x.Plan) || x.Plan != "free" || x.Limit is < 1 or > 10000)) throw new InvalidOperationException("Plan definitions are incomplete or invalid.");
         return plans;
     }, cancellationToken);
 
     public async Task<Result> SetLimitAsync(Guid actor, string audience, string plan, int limit, string? reason, CancellationToken cancellationToken = default)
     {
-        if (actor == Guid.Empty || !Valid(audience, plan) || limit is < 1 or > 10000 || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500) return Result.Failure(Invalid());
+        if (actor == Guid.Empty || !Valid(audience, plan) || plan != "free" || limit is < 1 or > 10000 || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500) return Result.Failure(Invalid());
         return await MutateAsync(actor, async () => {
             var before = (await GetLimitsAsync(cancellationToken)).Single(x => x.Audience == audience && x.Plan == plan).Limit;
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE plan_definitions SET quota_limit = {limit}, updated_at = now() WHERE audience = {audience} AND code = {plan}", cancellationToken);
@@ -65,29 +64,10 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         }, cancellationToken);
     }
 
-    public async Task<Result> AssignAsync(Guid actor, string audience, Guid profileId, string plan, string? reason, CancellationToken cancellationToken = default)
-    {
-        if (actor == Guid.Empty || profileId == Guid.Empty || !Valid(audience, plan) || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500) return Result.Failure(Invalid());
-        return await MutateAsync(actor, async () => {
-            // Target lock coordinates with other profile operations. The policy lock comes first.
-            if (audience == "candidate")
-                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM candidate_profiles WHERE id = {profileId} FOR UPDATE", cancellationToken);
-            else
-                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM studio_profiles WHERE id = {profileId} FOR UPDATE", cancellationToken);
-            var exists = audience == "candidate"
-                ? await (from c in db.CandidateProfiles.AsNoTracking() join u in db.Users.AsNoTracking() on c.UserId equals u.Id
-                    where c.Id == profileId && c.DeletedAt == null && u.IsActive && u.DeletedAt == null && u.AccountType == AccountType.Candidate select c.Id).AnyAsync(cancellationToken)
-                : await db.StudioProfiles.AsNoTracking().AnyAsync(s => s.Id == profileId && s.DeletedAt == null, cancellationToken);
-            if (!exists) return Result.Failure(Error.NotFound("Plans.TargetNotFound", "The active profile was not found."));
-            var before = await GetAsync(audience, profileId, cancellationToken);
-            if (audience == "candidate")
-                await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO candidate_plan_assignments(candidate_id, plan_code) VALUES ({profileId}, {plan}) ON CONFLICT (candidate_id) DO UPDATE SET plan_code = EXCLUDED.plan_code, updated_at = now()", cancellationToken);
-            else
-                await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO studio_plan_assignments(studio_id, plan_code) VALUES ({profileId}, {plan}) ON CONFLICT (studio_id) DO UPDATE SET plan_code = EXCLUDED.plan_code, updated_at = now()", cancellationToken);
-            audit.Enqueue(new AuditLogEntry("plans.assignment_updated", audience + "_plan", profileId.ToString(), AuditActorType.Admin, actor, reason.Trim(), new { Plan = before.Plan }, new { Plan = plan }, RequireReason: true));
-            return Result.Success();
-        }, cancellationToken);
-    }
+    // Assignments are intentionally disabled until paid plans are explicitly launched.
+    // Existing database rows are retained, but GetAsync always enforces Free for now.
+    public Task<Result> AssignAsync(Guid actor, string audience, Guid profileId, string plan, string? reason, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure(Error.Forbidden("Plans.AssignmentsDisabled", "Plan assignments are not available in the Free release.")));
 
     private async Task<Result> MutateAsync(Guid actor, Func<Task<Result>> action, CancellationToken ct)
     {
