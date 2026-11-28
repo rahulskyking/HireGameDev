@@ -8,6 +8,9 @@ using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Jobs;
 using HireGameDev.Application.Features.Studios;
 using HireGameDev.Domain.Enums;
+using HireGameDev.Infrastructure.Persistence;
+using HireGameDev.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using HireGameDev.Web.Controllers;
 using HireGameDev.Web.Models.Jobs;
 using Microsoft.AspNetCore.Http;
@@ -240,7 +243,10 @@ public sealed class StudioJobsControllerTests
             var studios = DispatchProxy.Create<IStudioProfileService, MembershipProxy>();
             ((MembershipProxy)(object)studios).Memberships = new[] { new StudioMembershipSummary(Studio, "Studio", "studio", null, role, StudioVerificationStatus.Verified, null) };
             var context = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, Actor.ToString()) }, "test")) };
-            Controller = new(Jobs, studios, DispatchProxy.Create<IReferenceDataService, LookupProxy>(), Checker)
+            var clock = new SystemClock();
+            var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, clock);
+            Controller = new(Jobs, studios, DispatchProxy.Create<IReferenceDataService, LookupProxy>(), Checker, db, clock)
             {
                 ControllerContext = new ControllerContext { HttpContext = context },
                 TempData = new TempDataDictionary(context, new EmptyTempDataProvider())
