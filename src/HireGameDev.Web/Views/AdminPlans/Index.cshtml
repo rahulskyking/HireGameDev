@@ -1,33 +1,26 @@
 @model HireGameDev.Web.Controllers.PlanAdminPage
-@{ ViewData["Title"] = "Application control panel"; }
-<section class="p-sg-stack">
-    <a asp-controller="Admin" asp-action="Index">← Admin console</a>
-    <header><h1>Application control panel</h1><p>Development-only controls for the Free release. Administrative changes require an audit reason.</p></header>
-    @if (TempData["PlanMessage"] is string message) { <p role="status">@message</p> }
-    <section class="c-card"><h2>Free allowances <span class="c-badge c-badge--success">Active</span></h2>
-        <p>Applications count successful submissions in a rolling 30 days, including withdrawals. Job slots count unexpired Active, Paused and Full jobs. Changing a limit does not delete existing jobs or applications; other safety controls still apply.</p>
-        @foreach (var limit in Model.Limits)
-        {
-            var label = limit.Audience == "candidate" ? "Candidate applications per 30 days" : "Studio occupied job slots";
-            <form asp-action="Limit" method="post" class="c-form">
-                <input type="hidden" name="audience" value="@limit.Audience" /><input type="hidden" name="plan" value="free" />
-                <label class="c-label" for="limit-@limit.Audience">@label</label><input class="c-input" id="limit-@limit.Audience" name="limit" type="number" min="1" max="10000" value="@limit.Limit" required />
-                <label class="c-label" for="reason-@limit.Audience">Reason</label><input class="c-input" id="reason-@limit.Audience" name="reason" maxlength="500" required />
-                <button class="c-btn c-btn--secondary" type="submit">Update @label</button>
-            </form>
-        }
+@{ ViewData["Title"] = "Plans & entitlements"; }
+@section Styles { <link rel="stylesheet" href="~/css/plan-admin.css" asp-append-version="true" /> }
+<div class="plans">
+    <a class="plans-back" asp-controller="Admin" asp-action="Index">← Admin console</a>
+    <header class="plans-header"><div><p class="plans-eyebrow">ADMIN / SUBSCRIPTIONS</p><h1>Plans &amp; entitlements<span>.</span></h1><p>Development-only controls to manage access, set allowances and assign a Studio tier.</p></div><span class="plans-status" data-on="@Model.PremiumEnabled.ToString().ToLowerInvariant()">● PREMIUM @(Model.PremiumEnabled ? "ON" : "OFF")</span></header>
+    @if (TempData["PlanMessage"] is string message) { <div class="plans-notice" role="status">@message</div> }
+    <section class="plans-panel plans-switch">
+        <div><p class="plans-eyebrow">GLOBAL CONTROL</p><h2>Premium switch</h2><p>Off: Free accounts have no subscription quotas. Safety, verification and privacy controls remain. A manually assigned Studio tier still applies.</p><p>On: configured Free allowances apply. Billing and automatic payment activation are not available yet.</p></div>
+        <form asp-action="Premium" method="post" class="plans-form"><label class="plans-toggle" for="premium-state"><input id="premium-state" type="checkbox" name="enabled" value="true" role="switch" checked="@Model.PremiumEnabled" /><span>Premium controls</span></label><input type="hidden" name="enabled" value="false" /><label for="premium-reason">Reason</label><input class="c-input" id="premium-reason" name="reason" maxlength="500" required /><button class="c-btn c-btn--primary" type="submit">Save switch</button></form>
     </section>
-    <section class="c-card"><h2>Daily searches <span class="c-badge c-badge--success">Active when configured</span></h2>
-        <p>Each new or changed filtered search counts once in a rolling 24 hours. Refresh and pagination of the current search do not count again. A Studio shares its allowance across members. Blank disables the quota for that account type; no numbers have been assumed.</p>
-        <p>Unfiltered browsing and signed-out public job searches do not count. Search quotas are not a replacement for abuse controls. Changes and audit entries are saved together.</p>
-        <form asp-action="SearchLimits" method="post" class="c-form">
-            <label class="c-label" for="candidateDaily">Candidate searches per 24 hours</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@(Model.SearchLimits.CandidateDaily)" placeholder="Disabled" />
-            <label class="c-label" for="studioDaily">Studio searches per 24 hours</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@(Model.SearchLimits.StudioDaily)" placeholder="Disabled" />
-            <label class="c-label" for="searchReason">Reason</label><input class="c-input" id="searchReason" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Update search limits</button>
-        </form>
-        @if (Model.SearchDraft is not null && (Model.SearchDraft.CandidateDaily.HasValue || Model.SearchDraft.StudioDaily.HasValue)) { <p>Earlier draft (not automatically activated): Candidate @(Model.SearchDraft.CandidateDaily?.ToString() ?? "not set"), Studio @(Model.SearchDraft.StudioDaily?.ToString() ?? "not set").</p> }
+    <section><div class="plans-section-head"><div><p class="plans-eyebrow">PLAN CONFIGURATION</p><h2>Four tiers. One place.</h2></div><a asp-action="Catalog">View all settings →</a></div><div class="plans-tier-grid">
+        @foreach (var tier in new[] { "free", "plus", "pro", "elite" }) { <a class="plans-tier" asp-action="Catalog" asp-fragment="@tier"><span>@tier.ToUpperInvariant()</span><strong>@(char.ToUpperInvariant(tier[0]) + tier.Substring(1))</strong><small>Candidate &amp; Studio settings ↗</small></a> }
+    </div><p class="plans-hint">Only implemented quotas are enforced. Analytics, boosts, featured placements and other Premium features remain in preparation; changing their values does not activate them.</p></section>
+    <section class="plans-panel"><div class="plans-section-head"><div><p class="plans-eyebrow">STUDIO OVERRIDES</p><h2>Assign a Studio tier</h2><p>Manual assignments apply even when Premium is off. This is not a purchase. Choose Free to remove an override.</p></div></div>
+        <form asp-action="Index" method="get" class="plans-search"><label for="studio-search">Find a Studio</label><input id="studio-search" name="q" value="@Model.Query" class="c-input" maxlength="100" placeholder="Search by name" /><button class="c-btn c-btn--secondary" type="submit">Search</button></form>
+        <p class="plans-hint">Showing up to 200 Studios. Search to narrow the list.</p>
+        <form asp-action="StudioAssignment" method="post" class="plans-form plans-assignment"><label for="studio-id">Studio</label><select class="c-select" id="studio-id" name="studioId" required><option value="">Choose a Studio</option>@foreach (var studio in Model.Studios) { <option value="@studio.Id">@studio.Name — @(Model.Assignments.TryGetValue(studio.Id, out var assigned) ? assigned : "Free / no override")</option> }</select><label for="studio-plan">Tier</label><select class="c-select" id="studio-plan" name="plan"><option value="free">Free (remove override)</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="elite">Elite</option></select><label for="studio-reason">Reason</label><input class="c-input" id="studio-reason" name="reason" maxlength="500" required /><button class="c-btn c-btn--primary" type="submit">Save assignment</button></form>
     </section>
-    <section class="c-card"><h2>Plan catalog</h2><p>Review and edit Candidate and Studio plans. Free Studio posting and seat allowances and Free Candidate saved-job allowance are active here; other catalog values remain proposals.</p><a class="c-btn c-btn--secondary" asp-action="Catalog">Open proposed plan catalog →</a></section>
-    <section class="c-card"><h2>Future plans <span class="c-badge c-badge--neutral">Not active</span></h2><p>Plus, Pro and Elite are reserved for a later release. No paid plan can be assigned or purchased, and paid placement is disabled. Existing stored assignments and schedules are retained but have no effect.</p></section>
-    <section class="c-card"><h2>Other controls</h2><p>Recommendation thresholds and privacy reviews have separate controls; they do not override the Free allowances.</p><div class="c-btn-group"><a class="c-btn c-btn--secondary" asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings</a><a class="c-btn c-btn--secondary" asp-controller="ErasureRequests" asp-action="Review">Review erasure requests</a></div></section>
-</section>
+    <section class="plans-panel"><p class="plans-eyebrow">FREE ALLOWANCES</p><h2>Current Free limits</h2><p>Used only while the Premium switch is on. Existing content is not removed when a limit changes.</p>
+        <div class="plans-two">@foreach (var limit in Model.Limits) { var label = limit.Audience == "candidate" ? "Applications / 30 days" : "Occupied job slots"; <form asp-action="Limit" method="post" class="plans-form"><input type="hidden" name="audience" value="@limit.Audience" /><input type="hidden" name="plan" value="free" /><label for="limit-@limit.Audience">@label</label><input class="c-input" id="limit-@limit.Audience" name="limit" type="number" min="1" max="10000" value="@limit.Limit" required /><label for="reason-@limit.Audience">Reason</label><input class="c-input" id="reason-@limit.Audience" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Update limit</button></form> }</div>
+        <h3>Filtered searches / rolling 24 hours</h3><p>Blank means no search quota. Studio usage is shared across members. Unfiltered browsing and signed-out job search remain open.</p>
+        <form asp-action="SearchLimits" method="post" class="plans-form plans-two"><div><label for="candidateDaily">Candidate searches</label><input class="c-input" id="candidateDaily" name="candidateDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.CandidateDaily" placeholder="No limit" /></div><div><label for="studioDaily">Studio searches</label><input class="c-input" id="studioDaily" name="studioDaily" type="number" min="1" max="10000" value="@Model.SearchLimits.StudioDaily" placeholder="No limit" /></div><div><label for="searchReason">Reason</label><input class="c-input" id="searchReason" name="reason" maxlength="500" required /></div><div><button class="c-btn c-btn--secondary" type="submit">Update search limits</button></div></form>
+    </section>
+    <div class="plans-footer"><a asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings →</a><a asp-controller="ErasureRequests" asp-action="Review">Privacy reviews →</a></div>
+</div>

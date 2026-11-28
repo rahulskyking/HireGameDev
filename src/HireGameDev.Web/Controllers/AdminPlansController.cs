@@ -26,14 +26,42 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         where u.Id == Actor && u.IsActive && u.DeletedAt == null && r.NormalizedName == HireGameDevRoleNames.Admin.ToUpperInvariant() select u.Id).AnyAsync(ct);
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(CancellationToken ct)
+    public async Task<IActionResult> Index(CancellationToken ct, string? q = null)
     {
         Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
         var limits = await plans!.GetLimitsAsync(ct);
         var draft = await searchDrafts!.GetAsync(ct);
-        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct), draft.IsSuccess ? draft.Value : null));
+        q = q?.Trim();
+        if (q?.Length > 100) return BadRequest();
+        var studios = await db.StudioProfiles.AsNoTracking().Where(s => s.DeletedAt == null && (string.IsNullOrEmpty(q) || EF.Functions.ILike(s.Name, "%" + q + "%")))
+            .OrderBy(s => s.Name).ThenBy(s => s.Id).Select(s => new StudioPlanOption(s.Id, s.Name)).Take(200).ToArrayAsync(ct);
+        var assignments = (await plans.GetManualStudioPlansAsync(ct)).ToDictionary(x => x.StudioId, x => x.Plan);
+        return View(new PlanAdminPage(limits.Where(x => x.Plan == "free").ToArray(), await searchQuotas!.GetSettingsAsync(ct), draft.IsSuccess ? draft.Value : null,
+            await plans.PremiumEnabledAsync(ct), studios, assignments, q));
     }
 
+
+    [HttpPost("premium"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> Premium(bool enabled, string reason, CancellationToken ct)
+    {
+        Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        var result = await plans!.SetPremiumEnabledAsync(Actor, enabled, reason, ct);
+        if (result.IsFailure) return BadRequest(result.Error.Message);
+        TempData["PlanMessage"] = enabled ? "Premium controls enabled. Billing remains unavailable." : "Premium controls disabled. Manual Studio assignments still apply.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("studio-assignment"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
+    public async Task<IActionResult> StudioAssignment(Guid studioId, string plan, string reason, CancellationToken ct)
+    {
+        Private(); if (!Enabled) return NotFound(); if (!await IsActiveAdmin(ct)) return Forbid();
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(reason)) return BadRequest();
+        var result = await plans!.AssignAsync(Actor, "studio", studioId, plan, reason, ct);
+        if (result.IsFailure) return BadRequest(result.Error.Message);
+        TempData["PlanMessage"] = plan == "free" ? "Manual Studio assignment removed." : "Studio tier assigned manually; no payment was recorded.";
+        return RedirectToAction(nameof(Index));
+    }
     [HttpPost("limit"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
     public async Task<IActionResult> Limit(string audience, string plan, int? limit, string? reason, CancellationToken ct)
     {
@@ -71,9 +99,7 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
         if (!ModelState.IsValid) return BadRequest();
         var result = await catalog.UpdateAsync(Actor, audience, plan, feature, value, version, reason, ct);
         if (result.IsFailure) return BadRequest(result.Error.Message);
-        TempData["CatalogMessage"] = plan == "free" && ((audience == "studio" && (feature == "postings" || feature == "seats")) || (audience == "candidate" && feature == "saved_jobs"))
-            ? "Free plan limit updated."
-            : "Proposed setting saved. Live limits are unchanged.";
+        TempData["CatalogMessage"] = "Setting saved. Only implemented quota features are enforced; other features remain planned.";
         return RedirectToAction(nameof(Catalog));
     }
     [HttpPost("search-draft"), ValidateAntiForgeryToken, EnableRateLimiting(RateLimitPolicies.CandidateSettingsWrite)]
@@ -88,4 +114,6 @@ public sealed class AdminPlansController(IWebHostEnvironment environment, IPorta
     }
 }
 
-public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft);
+public sealed record StudioPlanOption(Guid Id, string Name);
+public sealed record PlanAdminPage(IReadOnlyList<PlanLimit> Limits, SearchQuotaSettings SearchLimits, SearchAllowanceDraft? SearchDraft,
+    bool PremiumEnabled, IReadOnlyList<StudioPlanOption> Studios, IReadOnlyDictionary<Guid, string> Assignments, string? Query);

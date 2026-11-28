@@ -127,7 +127,7 @@ public sealed class StudioTeamService : IStudioTeamService
         if (_plans is not null)
         {
             var seats = await _plans.GetStudioSeatLimitAsync(studio.Id, cancellationToken);
-            if (currentMemberCount >= seats)
+            if (seats.HasValue && currentMemberCount >= seats.Value)
                 return Result.Failure<StudioTeamState>(Error.RateLimited("StudioTeam.PlanSeatLimit", $"Your Studio has reached its {seats}-seat plan allowance, including the owner. Existing members remain in place."));
         }
 

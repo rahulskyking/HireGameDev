@@ -29,47 +29,98 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock_shared({PolicyLock})", cancellationToken);
     }
 
+    public Task<IReadOnlyList<ManualStudioPlan>> GetManualStudioPlansAsync(CancellationToken cancellationToken = default) => WithConnectionAsync<IReadOnlyList<ManualStudioPlan>>(async () => {
+        await using var cmd = Command("SELECT studio_id, plan_code FROM manual_studio_plans");
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var items = new List<ManualStudioPlan>();
+        while (await reader.ReadAsync(cancellationToken)) items.Add(new(reader.GetGuid(0), reader.GetString(1)));
+        return items;
+    }, cancellationToken);
+
+    public Task<bool> PremiumEnabledAsync(CancellationToken cancellationToken = default) => WithConnectionAsync(async () => {
+        await using var cmd = Command("SELECT premium_enabled FROM subscription_controls WHERE id = 1");
+        var value = await cmd.ExecuteScalarAsync(cancellationToken);
+        return value is bool enabled ? enabled : throw new InvalidOperationException("Subscription control is missing.");
+    }, cancellationToken);
+
+    private async Task<(string Plan, bool Limited)> EffectivePlanAsync(string audience, Guid subject, CancellationToken ct)
+    {
+        if (!Valid(audience, "free") || subject == Guid.Empty) throw new ArgumentException("Invalid plan target.");
+        if (audience == "studio")
+        {
+            var assigned = await WithConnectionAsync(async () => {
+                await using var cmd = Command("SELECT plan_code FROM manual_studio_plans WHERE studio_id = @studio");
+                Add(cmd, "studio", subject); return (string?)await cmd.ExecuteScalarAsync(ct);
+            }, ct);
+            if (assigned is not null)
+            {
+                if (assigned is not ("plus" or "pro" or "elite")) throw new InvalidOperationException("Invalid Studio plan.");
+                return (assigned, true);
+            }
+        }
+        return ("free", await PremiumEnabledAsync(ct));
+    }
+
     public async Task<PlanEntitlement> GetAsync(string audience, Guid profileId, CancellationToken cancellationToken = default)
     {
-        if (!Valid(audience, "free") || profileId == Guid.Empty) throw new ArgumentException("Invalid plan target.");
-        // Free-only initial release: retain historical assignments but do not activate them.
-        const string sql = "SELECT p.code, p.quota_limit FROM plan_definitions p WHERE p.audience = @audience AND p.code = 'free'";
+        var effective = await EffectivePlanAsync(audience, profileId, cancellationToken);
+        if (!effective.Limited) return new PlanEntitlement(effective.Plan, null);
+        if (effective.Plan != "free")
+            return new PlanEntitlement(effective.Plan, await ReadCatalogLimitAsync(audience, effective.Plan, "active_jobs", false, cancellationToken));
         return await WithConnectionAsync(async () => {
-            await using var cmd = Command(sql); Add(cmd, "audience", audience);
-            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Plan definition is missing.");
-            var result = new PlanEntitlement(reader.GetString(0), reader.GetInt32(1));
-            if (result.Limit is < 1 or > 10000 || await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Invalid plan definition.");
-            return result;
+            await using var cmd = Command("SELECT quota_limit FROM plan_definitions WHERE audience = @audience AND code = 'free'");
+            Add(cmd, "audience", audience);
+            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+            return value is int limit && limit is >= 1 and <= 10000 ? new PlanEntitlement("free", limit) : throw new InvalidOperationException("Free plan limit is invalid.");
         }, cancellationToken);
     }
 
-    public async Task<int> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
-        (await GetCatalogLimitAsync("studio", "postings", studioId, false, cancellationToken))!.Value;
-
-    public async Task<int> GetStudioSeatLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
-        (await GetCatalogLimitAsync("studio", "seats", studioId, false, cancellationToken))!.Value;
-
+    public async Task<int?> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
+        await EffectiveCatalogLimitAsync("studio", studioId, "postings", false, cancellationToken);
+    public async Task<int?> GetStudioSeatLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
+        await EffectiveCatalogLimitAsync("studio", studioId, "seats", false, cancellationToken);
     public Task<int?> GetCandidateSavedJobLimitAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
-        GetCatalogLimitAsync("candidate", "saved_jobs", candidateId, true, cancellationToken);
+        EffectiveCatalogLimitAsync("candidate", candidateId, "saved_jobs", true, cancellationToken);
 
-    // Only known feature keys enter here. Null means explicitly unlimited, never missing.
-    private async Task<int?> GetCatalogLimitAsync(string audience, string feature, Guid subject, bool allowsUnlimited, CancellationToken ct)
+    public async Task<int?> GetSearchLimitAsync(string audience, Guid subject, CancellationToken cancellationToken = default)
     {
-        if (subject == Guid.Empty) throw new ArgumentException("Invalid plan subject.", nameof(subject));
+        var effective = await EffectivePlanAsync(audience, subject, cancellationToken);
+        if (!effective.Limited) return null;
+        if (effective.Plan != "free") return await ReadCatalogLimitAsync(audience, effective.Plan, "searches", false, cancellationToken);
         return await WithConnectionAsync(async () => {
-            await using var cmd = Command("SELECT value FROM plan_catalog_values WHERE audience = @audience AND plan_code = 'free' AND feature = @feature");
-            Add(cmd, "audience", audience); Add(cmd, "feature", feature);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Free plan limit is missing.");
-            var raw = reader.GetString(0);
-            int? limit;
-            if (allowsUnlimited && raw == "unlimited") limit = null;
-            else if (int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) && number is >= 0 and <= 10000) limit = number;
-            else throw new InvalidOperationException("Free plan limit is invalid.");
-            if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Duplicate Free plan limit.");
-            return limit;
-        }, ct);
+            await using var cmd = Command("SELECT daily_limit FROM search_quota_settings WHERE audience = @audience");
+            Add(cmd, "audience", audience); await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Search setting missing.");
+            return reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0);
+        }, cancellationToken);
+    }
+
+    private async Task<int?> EffectiveCatalogLimitAsync(string audience, Guid subject, string feature, bool allowsUnlimited, CancellationToken ct)
+    {
+        var effective = await EffectivePlanAsync(audience, subject, ct);
+        return effective.Limited ? await ReadCatalogLimitAsync(audience, effective.Plan, feature, allowsUnlimited, ct) : null;
+    }
+
+    private Task<int?> ReadCatalogLimitAsync(string audience, string plan, string feature, bool allowsUnlimited, CancellationToken ct) => WithConnectionAsync(async () => {
+        await using var cmd = Command("SELECT value FROM plan_catalog_values WHERE audience = @audience AND plan_code = @plan AND feature = @feature");
+        Add(cmd, "audience", audience); Add(cmd, "plan", plan); Add(cmd, "feature", feature);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Plan limit is missing.");
+        var raw = reader.GetString(0);
+        if (allowsUnlimited && raw == "unlimited") return (int?)null;
+        return int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) && number is >= 0 and <= 10000
+            ? number : throw new InvalidOperationException("Plan limit is invalid.");
+    }, ct);
+
+    public Task<Result> SetPremiumEnabledAsync(Guid actor, bool enabled, string reason, CancellationToken cancellationToken = default)
+    {
+        if (actor == Guid.Empty || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500) return Task.FromResult(Result.Failure(Invalid()));
+        return MutateAsync(actor, async () => {
+            var before = await PremiumEnabledAsync(cancellationToken);
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE subscription_controls SET premium_enabled = {enabled} WHERE id = 1", cancellationToken);
+            audit.Enqueue(new AuditLogEntry("plans.premium_switch_updated", "subscription_controls", "1", AuditActorType.Admin, actor, reason.Trim(), new { Enabled = before }, new { Enabled = enabled }, RequireReason: true));
+            return Result.Success();
+        }, cancellationToken);
     }
 
     public async Task<IReadOnlyList<PlanLimit>> GetLimitsAsync(CancellationToken cancellationToken = default) => await WithConnectionAsync(async () => {
@@ -92,10 +143,20 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         }, cancellationToken);
     }
 
-    // Assignments are intentionally disabled until paid plans are explicitly launched.
-    // Existing database rows are retained, but GetAsync always enforces Free for now.
-    public Task<Result> AssignAsync(Guid actor, string audience, Guid profileId, string plan, string? reason, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result.Failure(Error.Forbidden("Plans.AssignmentsDisabled", "Plan assignments are not available in the Free release.")));
+    public Task<Result> AssignAsync(Guid actor, string audience, Guid profileId, string plan, string? reason, CancellationToken cancellationToken = default)
+    {
+        if (actor == Guid.Empty || audience != "studio" || profileId == Guid.Empty || plan is not ("free" or "plus" or "pro" or "elite") || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500)
+            return Task.FromResult(Result.Failure(Invalid()));
+        return MutateAsync(actor, async () => {
+            var exists = await db.StudioProfiles.AsNoTracking().AnyAsync(s => s.Id == profileId && s.DeletedAt == null, cancellationToken);
+            if (!exists) return Result.Failure(Error.NotFound("Plans.StudioNotFound", "Studio not found."));
+            var before = await EffectivePlanAsync("studio", profileId, cancellationToken);
+            if (plan == "free") await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM manual_studio_plans WHERE studio_id = {profileId}", cancellationToken);
+            else await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO manual_studio_plans (studio_id, plan_code) VALUES ({profileId}, {plan}) ON CONFLICT (studio_id) DO UPDATE SET plan_code = EXCLUDED.plan_code, updated_at = now()", cancellationToken);
+            audit.Enqueue(new AuditLogEntry("plans.studio_manual_assignment", "studio_profile", profileId.ToString(), AuditActorType.Admin, actor, reason.Trim(), new { before.Plan, before.Limited }, new { Plan = plan, Manual = plan != "free" }, RequireReason: true));
+            return Result.Success();
+        }, cancellationToken);
+    }
 
     private async Task<Result> MutateAsync(Guid actor, Func<Task<Result>> action, CancellationToken ct)
     {

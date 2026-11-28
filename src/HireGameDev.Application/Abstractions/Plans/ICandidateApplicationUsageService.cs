@@ -10,9 +10,9 @@ public sealed class ApplicationQuotaOptions
     public int WindowDays { get; set; } = 30;
 }
 
-public sealed record CandidateApplicationUsage(int Used, int Limit, int WindowDays, DateTimeOffset? NextAvailableAt, string? Plan = null)
+public sealed record CandidateApplicationUsage(int Used, int? Limit, int WindowDays, DateTimeOffset? NextAvailableAt, string? Plan = null)
 {
-    public bool CanSubmit => Used < Limit;
+    public bool CanSubmit => !Limit.HasValue || Used < Limit.Value;
 }
 
 public interface ICandidateApplicationUsageService

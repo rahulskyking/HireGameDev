@@ -25,7 +25,7 @@ public sealed class JobSkillRow
     public bool IsRequired { get; set; }
     public SkillProficiency MinProficiency { get; set; } = SkillProficiency.Working;
 }
-public sealed record StudioPlanUsage(string Plan, int Occupied, int Limit, HireGameDev.Application.Abstractions.Plans.StudioPostingUsage? Postings);
+public sealed record StudioPlanUsage(string Plan, int Occupied, int? Limit, HireGameDev.Application.Abstractions.Plans.StudioPostingUsage? Postings);
 public sealed record JobListPage(StudioMembershipSummary Studio, IReadOnlyList<StudioMembershipSummary> Memberships,
     StudioJobList Jobs, JobStatus? Filter);
 public sealed record JobManagePage(JobSnapshot Job, bool CanWrite,

@@ -120,13 +120,14 @@ internal sealed class ApplicationSubmissionService : IApplicationSubmissionServi
                 return await AbortAsync(transaction, Error.Conflict("Applications.NotEligible", "You cannot submit a new application for this job."), cancellationToken);
             // The existing candidate row lock serializes submissions across jobs and web instances.
             // Use the authoritative successful application rows, including withdrawn ones.
-            var quota = _applicationQuota;
+            int? limit = _applicationQuota.Limit;
+            var window = _applicationQuota.WindowDays;
             if (_plans is not null)
             {
                 var entitlement = await _plans.GetAsync("candidate", candidate.Id, cancellationToken);
-                quota = new ApplicationQuotaOptions { Limit = entitlement.Limit, WindowDays = 30 };
+                limit = entitlement.Limit; window = 30;
             }
-            var usage = await CandidateApplicationQuota.ReadAsync(_db, candidate.Id, now, quota, cancellationToken);
+            var usage = await CandidateApplicationQuota.ReadAsync(_db, candidate.Id, now, limit, window, cancellationToken);
             if (!usage.CanSubmit)
                 return await AbortAsync(transaction, Error.RateLimited("Applications.RollingLimit", $"Application limit reached. You can apply again after {usage.NextAvailableAt:u}."), cancellationToken);
             var applicationId = Guid.NewGuid();

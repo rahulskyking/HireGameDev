@@ -1,37 +1,34 @@
 @model IReadOnlyList<HireGameDev.Application.Abstractions.Plans.PlanCatalogItem>
-@{ ViewData["Title"] = "Proposed plan catalog"; }
-<section class="p-sg-stack">
-    <a asp-action="Index">← Application control panel</a>
-    <h1>Proposed plan catalog</h1>
-    <p>The Free Studio posting and seat allowances and Free Candidate saved-job allowance are active in Development. All other catalog values are proposals only and do not change live quotas, enable features or activate paid plans. Use the application control panel for the other current Free limits. The existing 25-member technical safety cap also applies to Studio seats.</p>
-    @if (TempData["CatalogMessage"] is string message) { <p role="status">@message</p> }
-    @foreach (var group in Model.GroupBy(x => new { x.Audience, x.Plan }))
+@{ ViewData["Title"] = "Plan settings"; }
+@section Styles { <link rel="stylesheet" href="~/css/plan-admin.css" asp-append-version="true" /> }
+<div class="plans" id="top">
+    <a class="plans-back" asp-action="Index">← Plans &amp; entitlements</a>
+    <header class="plans-header"><div><p class="plans-eyebrow">ADMIN / PLAN CONFIGURATION</p><h1>Shape each tier<span>.</span></h1><p>Set exact values for Candidate and Studio plans. Each change requires a reason.</p></div></header>
+    @if (TempData["CatalogMessage"] is string message) { <div class="plans-notice" role="status">@message</div> }
+    <div class="plans-panel"><strong>What is active?</strong><p>Manually assigned Studio tiers enforce searches, occupied jobs, postings and seats. Free saved jobs, postings and seats apply only when the global switch is on. Free searches, applications and occupied slots are configured on the main control panel. Other values are planned and do not activate a feature. Safety limits still apply.</p><p>Billing, payment activation, Candidate paid assignments, visibility boosts and featured placement are not available yet.</p></div>
+    <nav class="plans-tabs" aria-label="Plan tiers">@foreach (var tier in new[] { "free", "plus", "pro", "elite" }) { <a href="#@tier">@tier.ToUpperInvariant()</a> }</nav>
+    @foreach (var tier in new[] { "free", "plus", "pro", "elite" })
     {
-        <section class="c-card">
-            <h2>@group.Key.Audience — @group.Key.Plan</h2>
-            @foreach (var item in group)
+        <section class="plans-tier-section" id="@tier"><div class="plans-section-head"><div><p class="plans-eyebrow">TIER / @tier.ToUpperInvariant()</p><h2>@(char.ToUpperInvariant(tier[0]) + tier.Substring(1))</h2></div><a href="#top">↑ Back to top</a></div>
+        <div class="plans-two">@foreach (var audience in new[] { "candidate", "studio" })
+        {
+            <div class="plans-panel"><h3>@(audience == "candidate" ? "Candidate" : "Studio")</h3>
+            @foreach (var item in Model.Where(x => x.Plan == tier && x.Audience == audience))
             {
-                var isLive = item.Plan == "free" && ((item.Audience == "studio" && (item.Feature == "postings" || item.Feature == "seats")) || (item.Audience == "candidate" && item.Feature == "saved_jobs"));
-                <form asp-action="CatalogValue" method="post" class="c-form">
-                    <input type="hidden" name="audience" value="@item.Audience" />
-                    <input type="hidden" name="plan" value="@item.Plan" />
-                    <input type="hidden" name="feature" value="@item.Feature" />
-                    <input type="hidden" name="version" value="@item.Version" />
-                    <label class="c-label">@item.Label @if (isLive) { <strong> (active)</strong> }
-                        @if (item.ValueType == "choice")
-                        {
-                            <select name="value" class="c-select">@foreach (var choice in item.AllowedValues) { <option value="@choice" selected="@(choice == item.Value)">@choice</option> }</select>
-                        }
-                        else
-                        {
-                            <input name="value" class="c-input" value="@item.Value" required maxlength="32" />
-                            <small>0–10000@(item.AllowsUnlimited ? ", or unlimited" : "")</small>
-                        }
-                    </label>
-                    <label class="c-label">Reason <input name="reason" class="c-input" required maxlength="500" /></label>
-                    <button class="c-btn c-btn--secondary" type="submit">@(isLive ? "Update live limit" : "Save proposed value")</button>
-                </form>
-            }
-        </section>
+                var isLive = tier == "free" ? ((audience == "studio" && (item.Feature == "postings" || item.Feature == "seats")) || (audience == "candidate" && item.Feature == "saved_jobs")) : audience == "studio" && (item.Feature == "postings" || item.Feature == "seats" || item.Feature == "active_jobs" || item.Feature == "searches");
+                var freeControl = tier == "free" && (item.Feature == "searches" || (audience == "candidate" && item.Feature == "applications") || (audience == "studio" && item.Feature == "active_jobs"));
+                if (freeControl)
+                {
+                    <div class="plans-setting"><span>@item.Label</span> <a asp-action="Index">Manage current Free limit →</a></div>
+                }
+                else
+                {
+                <details class="plans-setting"><summary><span>@item.Label <small>@(isLive ? (tier == "free" ? "APPLIES WHEN ON" : "MANUAL TIER QUOTA") : "PLANNED")</small></span><strong>@item.Value <span aria-hidden="true">⌄</span></strong></summary>
+                <form asp-action="CatalogValue" method="post" class="plans-form"><input type="hidden" name="audience" value="@item.Audience" /><input type="hidden" name="plan" value="@item.Plan" /><input type="hidden" name="feature" value="@item.Feature" /><input type="hidden" name="version" value="@item.Version" />
+                    <label>Value @if (item.ValueType == "choice") { <select name="value" class="c-select">@foreach (var choice in item.AllowedValues) { <option value="@choice" selected="@(choice == item.Value)">@choice</option> }</select> } else { <input name="value" class="c-input" value="@item.Value" required maxlength="32" /><small>0–10000@(item.AllowsUnlimited ? ", or unlimited" : "")</small> }</label>
+                    <label>Reason <input name="reason" class="c-input" required maxlength="500" /></label><button class="c-btn c-btn--secondary" type="submit">Save setting</button></form></details>
+                }
+            }</div>
+        }</div></section>
     }
-</section>
+</div>

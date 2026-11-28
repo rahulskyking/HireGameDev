@@ -61,11 +61,10 @@ internal sealed class SearchQuotaService(AppDbContext db, IClock clock, IPlanEnt
     public async Task<Result<SearchQuotaCheck>> CheckAsync(Guid actor, string audience, Guid? studioId, string fingerprint, Guid? runId, CancellationToken ct = default)
     {
         if (actor == Guid.Empty || !ValidAudience(audience) || !ValidFingerprint(fingerprint)) return Result.Failure<SearchQuotaCheck>(Denied());
-        var limits = await GetSettingsAsync(ct);
-        var limit = audience == "candidate" ? limits.CandidateDaily : limits.StudioDaily;
-        if (!limit.HasValue) return Result.Success(new SearchQuotaCheck(false, true, 0, null, null));
         var subject = await ResolveSubject(actor, audience, studioId, ct);
         if (!subject.HasValue) return Result.Failure<SearchQuotaCheck>(Denied());
+        var limit = await plans.GetSearchLimitAsync(audience, subject.Value, ct);
+        if (!limit.HasValue) return Result.Success(new SearchQuotaCheck(false, true, 0, null, null));
         return Result.Success(await ReadUsage(actor, audience, subject.Value, fingerprint, runId, limit.Value, clock.UtcNow.ToUniversalTime(), ct));
     }
 
@@ -83,8 +82,7 @@ internal sealed class SearchQuotaService(AppDbContext db, IClock clock, IPlanEnt
             else await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM studio_profiles WHERE id = {subject.Value} FOR UPDATE", ct);
             // Membership/account might have changed while waiting for the subject lock.
             if (await ResolveSubject(actor, audience, studioId, ct) != subject) return Result.Failure<SearchQuotaStart>(Denied());
-            var settings = await GetSettingsAsync(ct);
-            var limit = audience == "candidate" ? settings.CandidateDaily : settings.StudioDaily;
+            var limit = await plans.GetSearchLimitAsync(audience, subject.Value, ct);
             if (!limit.HasValue) { await tx.CommitAsync(ct); return Result.Success(new SearchQuotaStart(null, new(false, true, 0, null, null))); }
             var now = clock.UtcNow.ToUniversalTime();
             var duplicate = await FindIntent(actor, audience, subject.Value, fingerprint, intentId, now, ct);
@@ -97,7 +95,7 @@ internal sealed class SearchQuotaService(AppDbContext db, IClock clock, IPlanEnt
             }
             var usage = await ReadUsage(actor, audience, subject.Value, fingerprint, priorRun, limit.Value, now, ct);
             if (usage.AuthorizedRun) { await tx.CommitAsync(ct); return Result.Success(new SearchQuotaStart(priorRun, usage)); }
-            if (usage.Used >= limit.Value) return Result.Failure<SearchQuotaStart>(Error.RateLimited("Search.DailyLimit", $"Daily search limit reached. Next search becomes available at {usage.NextAvailableAt:u}."));
+            if (usage.Used >= limit.Value) return Result.Failure<SearchQuotaStart>(Error.RateLimited("Search.DailyLimit", usage.NextAvailableAt.HasValue ? $"Daily search limit reached. Next search becomes available at {usage.NextAvailableAt:u}." : "Search allowance is currently zero."));
             var run = Guid.NewGuid();
             if (audience == "candidate")
                 await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO search_usage_events (run_id, intent_id, audience, candidate_user_id, actor_id, fingerprint, occurred_at) VALUES ({run}, {intentId}, {audience}, {subject.Value}, {actor}, {fingerprint}, {now})", ct);
@@ -147,7 +145,7 @@ internal sealed class SearchQuotaService(AppDbContext db, IClock clock, IPlanEnt
         // After a limit reduction, more than one event may need to expire; obtain that time separately below.
         var authorized = reader.GetBoolean(2); await reader.DisposeAsync();
         DateTimeOffset? next = null;
-        if (count >= limit)
+        if (limit > 0 && count >= limit)
         {
             await using var nextCmd = Command($"SELECT occurred_at FROM search_usage_events WHERE audience = @audience AND {column} = @subject AND occurred_at > @since AND occurred_at <= @now ORDER BY occurred_at, sequence OFFSET @offset LIMIT 1");
             Add(nextCmd, "audience", audience); Add(nextCmd, "subject", subject); Add(nextCmd, "since", now.AddDays(-1)); Add(nextCmd, "now", now); Add(nextCmd, "offset", count - limit);

@@ -41,6 +41,7 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
             var check = await searchQuotas!.CheckAsync(ViewerUserId()!.Value, "candidate", null, SearchQuotaUi.Fingerprint(search), searchRun, cancellationToken);
             if (check.IsFailure) return Forbid();
             ViewData["SearchQuota"] = check.Value;
+            ViewData["SearchQuotaEnabled"] = check.Value.Enabled;
             if (SearchQuotaUi.IsFiltered(search) && check.Value.Enabled && !check.Value.AuthorizedRun)
             {
                 Response.Headers["Referrer-Policy"] = "no-referrer";
@@ -50,8 +51,6 @@ public sealed class PublicJobsController(IPublicJobQueryService jobs, IReference
         }
         if (quotaCandidate && searchQuotas is not null)
         {
-            var limits = await searchQuotas.GetSettingsAsync(cancellationToken);
-            ViewData["SearchQuotaEnabled"] = limits.CandidateDaily.HasValue;
             ViewData["SearchRun"] = searchRun;
         }
         if (!ModelState.IsValid)

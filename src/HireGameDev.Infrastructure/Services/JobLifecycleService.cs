@@ -438,7 +438,7 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         // Resuming/reopening an unexpired job does not consume another slot, including after a downgrade.
         var alreadyOccupiesSlot = JobLifecycleRules.ConsumesActiveSlot(job.Status) && job.ExpiresAt > now;
         var slotLimit = _plans is null ? _limits.FreeActiveJobs : (await _plans.GetAsync("studio", job.StudioId, ct)).Limit;
-        if (!alreadyOccupiesSlot && occupied >= slotLimit) return Error.RateLimited("Jobs.ActiveLimit", "Job slot limit reached. Existing jobs are unchanged.");
+        if (!alreadyOccupiesSlot && slotLimit.HasValue && occupied >= slotLimit.Value) return Error.RateLimited("Jobs.ActiveLimit", "Job slot limit reached. Existing jobs are unchanged.");
         var duplicate = await new JobDuplicateDetector(_db, _clock, Options.Create(_limits))
             .CheckAsync(new JobPublishContext(job.Id, job.StudioId, (await SnapshotAsync(job, ct)).Content), ct);
         if (duplicate is not null) return Error.Conflict(duplicate.Code, duplicate.Message);
@@ -449,7 +449,7 @@ internal sealed class JobLifecycleService : IJobLifecycleService
         {
             var postingLimit = await _plans.GetStudioPostingLimitAsync(job.StudioId, ct);
             var usage = await StudioPostingQuota.ReadAsync(_db, job.StudioId, postingLimit, now, ct);
-            if (usage.Used >= postingLimit)
+            if (postingLimit.HasValue && usage.Used >= postingLimit.Value)
             {
                 var next = usage.NextAvailableAt.HasValue ? $" Next available: {usage.NextAvailableAt.Value:u}." : "";
                 return Error.RateLimited("Jobs.MonthlyPostingLimit", "Your Studio has reached its job posting allowance for the last 30 days. Closing a job does not refund a posting." + next);

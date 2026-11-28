@@ -43,6 +43,7 @@ public sealed class StudioCandidatesController(IWebHostEnvironment environment, 
             var check = await searchQuotas.CheckAsync(Actor, "studio", studio.StudioId, SearchQuotaUi.Fingerprint(search), searchRun, ct);
             if (check.IsFailure) return Forbid();
             ViewData["SearchQuota"] = check.Value;
+            ViewData["SearchQuotaEnabled"] = check.Value.Enabled;
             if (SearchQuotaUi.IsFiltered(search) && check.Value.Enabled && !check.Value.AuthorizedRun)
                 return View("SearchQuotaConfirm", new SearchQuotaConfirmPage(Url.Action(nameof(StartSearch))!,
                     SearchQuotaUi.Fields(Request.Query, "studioId", "Keyword", "Category", "CityId", "SkillId", "MinimumYears", "RemoteOnly", "searchRun")
@@ -51,8 +52,6 @@ public sealed class StudioCandidatesController(IWebHostEnvironment environment, 
         }
         if (result.IsSuccess && searchQuotas is not null)
         {
-            var limits = await searchQuotas.GetSettingsAsync(ct);
-            ViewData["SearchQuotaEnabled"] = limits.StudioDaily.HasValue;
             ViewData["SearchRun"] = searchRun;
         }
         return View(new StudioCandidateDiscoveryViewModel(studio, memberships, search, result.IsSuccess ? result.Value : null,

@@ -27,17 +27,17 @@ internal sealed class StudioPostingUsageService(AppDbContext db, IClock clock, I
 
 internal static class StudioPostingQuota
 {
-    internal static async Task<StudioPostingUsage> ReadAsync(AppDbContext db, Guid studioId, int limit, DateTimeOffset now, CancellationToken ct)
+    internal static async Task<StudioPostingUsage> ReadAsync(AppDbContext db, Guid studioId, int? limit, DateTimeOffset now, CancellationToken ct)
     {
-        if (limit < 0) throw new InvalidOperationException("Invalid posting quota.");
+        if (limit.HasValue && limit.Value < 0) throw new InvalidOperationException("Invalid posting quota.");
         var since = now.AddDays(-30);
         var query = db.JobPublicationEvents.AsNoTracking().Where(x => x.StudioId == studioId && x.PublishedAt > since && x.PublishedAt <= now);
         var count = await query.CountAsync(ct);
         DateTimeOffset? next = null;
-        if (limit > 0 && count >= limit)
+        if (limit.HasValue && limit.Value > 0 && count >= limit.Value)
         {
             var release = await query.OrderBy(x => x.PublishedAt).ThenBy(x => x.Id)
-                .Skip(count - limit).Select(x => (DateTimeOffset?)x.PublishedAt).FirstOrDefaultAsync(ct);
+                .Skip(count - limit!.Value).Select(x => (DateTimeOffset?)x.PublishedAt).FirstOrDefaultAsync(ct);
             next = release?.AddDays(30);
         }
         return new StudioPostingUsage(count, limit, next);

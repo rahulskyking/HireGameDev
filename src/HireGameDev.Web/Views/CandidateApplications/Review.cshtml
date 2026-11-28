@@ -8,7 +8,7 @@
 @{ var match = HireGameDev.Application.Features.Applications.ApplicationSkillMatch.Create(Model.Offer.Snapshot.Candidate, Model.Offer.Snapshot.Job); }
 @if (fit is null && match is not null) { <partial name="_ApplicationSkillMatch" model="match" /> }
 <details class="ap-review-details" open><summary>Review the information you will share</summary><partial name="_ApplicationSnapshot" model="Model.Offer.Snapshot" /></details>
-@if (usage is not null) { <p class="ap-note">@usage.Used / @usage.Limit applications used in the last @usage.WindowDays days. This is checked again when you submit.@if (usage.NextAvailableAt.HasValue) { <span> Next available: @usage.NextAvailableAt.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC.</span> }</p> }
+@if (usage is not null) { <p class="ap-note">@usage.Used / @(usage.Limit?.ToString() ?? "unlimited") applications used in the last @usage.WindowDays days. This is checked again when you submit.@if (usage.NextAvailableAt.HasValue) { <span> Next available: @usage.NextAvailableAt.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm") UTC.</span> }</p> }
 <section class="ap-card"><h2>Consent</h2><p>@Model.Offer.ConsentText</p><p>Review expires at @Model.Offer.ExpiresAt.ToString("u"). If your profile or the job changes, you will need to review again.</p>
 <form asp-action="Submit" asp-route-jobId="@Model.JobId" method="post">
 <input type="hidden" name="jobSlug" value="@Model.JobSlug" /><input type="hidden" name="reviewToken" value="@Model.Offer.ReviewToken" />

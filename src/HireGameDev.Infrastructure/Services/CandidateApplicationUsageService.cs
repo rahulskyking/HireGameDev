@@ -21,29 +21,30 @@ internal sealed class CandidateApplicationUsageService(AppDbContext db, IClock c
             select (Guid?)c.Id).SingleOrDefaultAsync(cancellationToken);
         if (!candidate.HasValue) return Result.Failure<CandidateApplicationUsage>(Error.Forbidden("Applications.CandidateRequired", "An active Candidate account is required."));
         var entitlement = plans is null ? null : await plans.GetAsync("candidate", candidate.Value, cancellationToken);
-        var quota = entitlement is null ? options.Value : new ApplicationQuotaOptions { Limit = entitlement.Limit, WindowDays = 30 };
-        var usage = await CandidateApplicationQuota.ReadAsync(db, candidate.Value, clock.UtcNow.ToUniversalTime(), quota, cancellationToken);
+        var limit = entitlement is null ? options.Value.Limit : entitlement.Limit;
+        var window = entitlement is null ? options.Value.WindowDays : 30;
+        var usage = await CandidateApplicationQuota.ReadAsync(db, candidate.Value, clock.UtcNow.ToUniversalTime(), limit, window, cancellationToken);
         return Result.Success(usage with { Plan = entitlement?.Plan });
     }
 }
 
 internal static class CandidateApplicationQuota
 {
-    internal static async Task<CandidateApplicationUsage> ReadAsync(AppDbContext db, Guid candidateId, DateTimeOffset now, ApplicationQuotaOptions policy, CancellationToken ct)
+    internal static async Task<CandidateApplicationUsage> ReadAsync(AppDbContext db, Guid candidateId, DateTimeOffset now, int? limit, int windowDays, CancellationToken ct)
     {
-        if (policy.Limit < 1 || policy.WindowDays is < 1 or > 365)
+        if ((limit.HasValue && limit.Value < 1) || windowDays is < 1 or > 365)
             throw new InvalidOperationException("Invalid application quota configuration.");
-        var since = now.AddDays(-policy.WindowDays);
+        var since = now.AddDays(-windowDays);
         var query = db.Applications.AsNoTracking().Where(a => a.CandidateId == candidateId && a.SubmittedAt > since && a.SubmittedAt <= now);
         var count = await query.CountAsync(ct);
         DateTimeOffset? next = null;
-        if (count >= policy.Limit)
+        if (limit.HasValue && count >= limit.Value)
         {
             // Also handles a future plan downgrade where usage exceeds the new limit.
             var oldestReleasingSlot = await query.OrderBy(a => a.SubmittedAt).ThenBy(a => a.Id)
-                .Skip(count - policy.Limit).Select(a => (DateTimeOffset?)a.SubmittedAt).FirstOrDefaultAsync(ct);
-            next = oldestReleasingSlot?.AddDays(policy.WindowDays);
+                .Skip(count - limit!.Value).Select(a => (DateTimeOffset?)a.SubmittedAt).FirstOrDefaultAsync(ct);
+            next = oldestReleasingSlot?.AddDays(windowDays);
         }
-        return new CandidateApplicationUsage(count, policy.Limit, policy.WindowDays, next);
+        return new CandidateApplicationUsage(count, limit, windowDays, next);
     }
 }
