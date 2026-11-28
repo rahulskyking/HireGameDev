@@ -143,7 +143,8 @@ public sealed record StudioTeamState(
     string StudioSlug,
     StudioMemberRole CallerRole,
     bool CanManageTeam,
-    IReadOnlyList<StudioTeamMemberItem> Members);
+    IReadOnlyList<StudioTeamMemberItem> Members,
+    int? SeatLimit = null);
 
 public sealed record AddStudioMemberCommand(
     Guid ActorUserId,

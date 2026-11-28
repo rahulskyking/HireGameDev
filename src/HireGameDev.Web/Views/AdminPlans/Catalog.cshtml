@@ -3,7 +3,7 @@
 <section class="p-sg-stack">
     <a asp-action="Index">← Application control panel</a>
     <h1>Proposed plan catalog</h1>
-    <p>The Free Studio posting allowance is active in Development. All other catalog values are proposals only and do not change live quotas, enable features or activate paid plans. Use the application control panel for the other current Free limits.</p>
+    <p>The Free Studio posting and seat allowances and Free Candidate saved-job allowance are active in Development. All other catalog values are proposals only and do not change live quotas, enable features or activate paid plans. Use the application control panel for the other current Free limits. The existing 25-member technical safety cap also applies to Studio seats.</p>
     @if (TempData["CatalogMessage"] is string message) { <p role="status">@message</p> }
     @foreach (var group in Model.GroupBy(x => new { x.Audience, x.Plan }))
     {
@@ -11,12 +11,13 @@
             <h2>@group.Key.Audience — @group.Key.Plan</h2>
             @foreach (var item in group)
             {
+                var isLive = item.Plan == "free" && ((item.Audience == "studio" && (item.Feature == "postings" || item.Feature == "seats")) || (item.Audience == "candidate" && item.Feature == "saved_jobs"));
                 <form asp-action="CatalogValue" method="post" class="c-form">
                     <input type="hidden" name="audience" value="@item.Audience" />
                     <input type="hidden" name="plan" value="@item.Plan" />
                     <input type="hidden" name="feature" value="@item.Feature" />
                     <input type="hidden" name="version" value="@item.Version" />
-                    <label class="c-label">@item.Label @if (item.Audience == "studio" && item.Plan == "free" && item.Feature == "postings") { <strong> (active)</strong> }
+                    <label class="c-label">@item.Label @if (isLive) { <strong> (active)</strong> }
                         @if (item.ValueType == "choice")
                         {
                             <select name="value" class="c-select">@foreach (var choice in item.AllowedValues) { <option value="@choice" selected="@(choice == item.Value)">@choice</option> }</select>
@@ -28,7 +29,7 @@
                         }
                     </label>
                     <label class="c-label">Reason <input name="reason" class="c-input" required maxlength="500" /></label>
-                    <button class="c-btn c-btn--secondary" type="submit">@(item.Audience == "studio" && item.Plan == "free" && item.Feature == "postings" ? "Update live limit" : "Save proposed value")</button>
+                    <button class="c-btn c-btn--secondary" type="submit">@(isLive ? "Update live limit" : "Save proposed value")</button>
                 </form>
             }
         </section>

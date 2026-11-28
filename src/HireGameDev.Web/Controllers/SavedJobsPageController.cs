@@ -38,7 +38,7 @@ public sealed class SavedJobsPageController(ISavedJobService service, IJobCardFi
     {
         Private();
         var result = await service.SaveAsync(Actor(), jobId, cancellationToken);
-        TempData["SavedJobMessage"] = result.IsSuccess ? "Job saved to your private list." : "This job could not be saved. It may no longer be available.";
+        TempData["SavedJobMessage"] = result.IsSuccess ? "Job saved to your private list." : result.Error.Code == "SavedJobs.LimitReached" ? result.Error.Message : "This job could not be saved. It may no longer be available.";
         return SafeBrowseRedirect(returnUrl) ?? SafeJobRedirect(slug, browseReturnUrl);
     }
 

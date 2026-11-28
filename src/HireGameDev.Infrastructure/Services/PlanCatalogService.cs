@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HireGameDev.Infrastructure.Services;
 
-// Only Free Studio postings are connected to live enforcement; the rest remain proposals.
+// Only Free Studio postings and seats and Candidate saved jobs are live; the rest remain proposals.
 internal sealed class PlanCatalogService(AppDbContext db, IAuditLogger audit) : IPlanCatalogService
 {
     private const long PolicyLock = 487430901671L;

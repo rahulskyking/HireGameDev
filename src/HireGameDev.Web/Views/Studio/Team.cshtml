@@ -65,10 +65,10 @@
                 <div>
                     <h2 id="add-teammate-heading" style="font-size: 20px; margin: 0;">Add Teammate</h2>
                     <p class="c-hint" style="margin: 4px 0 0 0;">
-                        Add an existing HireGameDev user by their verified email address. If they currently only have a Candidate account, Studio access is enabled automatically.
+                        Add an existing active Studio account by its verified email address. The owner occupies one seat.
                     </p>
                 </div>
-                <span class="c-badge c-badge--neutral">@team.Members.Count / @StudioProfileRules.MaxTeamMembers seats</span>
+                <span class="c-badge c-badge--neutral">@team.Members.Count / @Math.Min(team.SeatLimit ?? StudioProfileRules.MaxTeamMembers, StudioProfileRules.MaxTeamMembers) seats</span>
             </div>
 
             <form asp-controller="Studio" asp-action="AddTeamMember" method="post" class="c-form" novalidate>

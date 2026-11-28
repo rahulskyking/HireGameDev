@@ -44,17 +44,32 @@ internal sealed class PlanEntitlementService(AppDbContext db, IAuditLogger audit
         }, cancellationToken);
     }
 
-    public async Task<int> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default)
+    public async Task<int> GetStudioPostingLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
+        (await GetCatalogLimitAsync("studio", "postings", studioId, false, cancellationToken))!.Value;
+
+    public async Task<int> GetStudioSeatLimitAsync(Guid studioId, CancellationToken cancellationToken = default) =>
+        (await GetCatalogLimitAsync("studio", "seats", studioId, false, cancellationToken))!.Value;
+
+    public Task<int?> GetCandidateSavedJobLimitAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
+        GetCatalogLimitAsync("candidate", "saved_jobs", candidateId, true, cancellationToken);
+
+    // Only known feature keys enter here. Null means explicitly unlimited, never missing.
+    private async Task<int?> GetCatalogLimitAsync(string audience, string feature, Guid subject, bool allowsUnlimited, CancellationToken ct)
     {
-        if (studioId == Guid.Empty) throw new ArgumentException("Invalid Studio.", nameof(studioId));
+        if (subject == Guid.Empty) throw new ArgumentException("Invalid plan subject.", nameof(subject));
         return await WithConnectionAsync(async () => {
-            await using var cmd = Command("SELECT value FROM plan_catalog_values WHERE audience = 'studio' AND plan_code = 'free' AND feature = 'postings'");
-            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken) || !int.TryParse(reader.GetString(0), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var limit) || limit is < 0 or > 10000)
-                throw new InvalidOperationException("Free Studio posting limit is missing or invalid.");
-            if (await reader.ReadAsync(cancellationToken)) throw new InvalidOperationException("Duplicate Studio posting limit.");
+            await using var cmd = Command("SELECT value FROM plan_catalog_values WHERE audience = @audience AND plan_code = 'free' AND feature = @feature");
+            Add(cmd, "audience", audience); Add(cmd, "feature", feature);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Free plan limit is missing.");
+            var raw = reader.GetString(0);
+            int? limit;
+            if (allowsUnlimited && raw == "unlimited") limit = null;
+            else if (int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) && number is >= 0 and <= 10000) limit = number;
+            else throw new InvalidOperationException("Free plan limit is invalid.");
+            if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Duplicate Free plan limit.");
             return limit;
-        }, cancellationToken);
+        }, ct);
     }
 
     public async Task<IReadOnlyList<PlanLimit>> GetLimitsAsync(CancellationToken cancellationToken = default) => await WithConnectionAsync(async () => {

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 #nullable disable
 namespace HireGameDev.Infrastructure.Persistence.Migrations;
 
-// Initial catalog. The Free Studio posting value is used by Development enforcement;
+// Initial catalog. Selected Free values are used by Development enforcement;
 // other values remain proposals and paid plans are not activated.
 [DbContext(typeof(AppDbContext))]
 [Migration("20261121090000_PlanCatalog")]

@@ -44,6 +44,7 @@ public sealed class SavedJobsController(ISavedJobService service) : Controller
     {
         ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden),
         ErrorType.NotFound => NotFound(),
+        ErrorType.RateLimited => StatusCode(StatusCodes.Status429TooManyRequests, new { error = error.Message }),
         _ => BadRequest(new { error = error.Message })
     };
 }

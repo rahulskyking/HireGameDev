@@ -1,6 +1,7 @@
 using HireGameDev.Application.Abstractions;
 using HireGameDev.Application.Abstractions.Audit;
 using HireGameDev.Application.Abstractions.Studios;
+using HireGameDev.Application.Abstractions.Plans;
 using HireGameDev.Application.Common;
 using HireGameDev.Application.Features.Audit;
 using HireGameDev.Application.Features.Studios;
@@ -20,15 +21,18 @@ public sealed class StudioTeamService : IStudioTeamService
     private readonly AppDbContext _dbContext;
     private readonly IAuditLogger _auditLogger;
     private readonly IClock _clock;
+    private readonly IPlanEntitlementService? _plans;
 
     public StudioTeamService(
         AppDbContext dbContext,
         IAuditLogger auditLogger,
-        IClock clock)
+        IClock clock,
+        IPlanEntitlementService? plans = null)
     {
         _dbContext = dbContext;
         _auditLogger = auditLogger;
         _clock = clock;
+        _plans = plans;
     }
 
     public async Task<Result<StudioTeamState>> GetTeamAsync(
@@ -79,6 +83,26 @@ public sealed class StudioTeamService : IStudioTeamService
         AddStudioMemberCommand command,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+        if (_plans is null) return await AddMemberCoreAsync(command, cancellationToken);
+        if (!_dbContext.Database.IsNpgsql() || _dbContext.Database.CurrentTransaction is not null || _dbContext.ChangeTracker.HasChanges())
+            return Result.Failure<StudioTeamState>(Error.Conflict("StudioTeam.TransactionUnavailable", "Unable to update the team right now. Please retry."));
+        await using var tx = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _plans.LockForConsumptionAsync(cancellationToken);
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM studio_profiles WHERE id = {command.StudioId} FOR UPDATE", cancellationToken);
+            var result = await AddMemberCoreAsync(command, cancellationToken);
+            if (result.IsSuccess) await tx.CommitAsync(cancellationToken); else await tx.RollbackAsync(cancellationToken);
+            _dbContext.ChangeTracker.Clear();
+            return result;
+        }
+        catch { await tx.RollbackAsync(CancellationToken.None); _dbContext.ChangeTracker.Clear(); throw; }
+    }
+
+    private async Task<Result<StudioTeamState>> AddMemberCoreAsync(
+        AddStudioMemberCommand command, CancellationToken cancellationToken)
+    {
         var emailValidation = StudioValidators.ValidateAddMemberCommand(command);
         if (emailValidation.IsFailure)
         {
@@ -99,6 +123,13 @@ public sealed class StudioTeamService : IStudioTeamService
         var currentMemberCount = await _dbContext.StudioMembers
             .AsNoTracking()
             .CountAsync(m => m.StudioId == studio.Id, cancellationToken);
+
+        if (_plans is not null)
+        {
+            var seats = await _plans.GetStudioSeatLimitAsync(studio.Id, cancellationToken);
+            if (currentMemberCount >= seats)
+                return Result.Failure<StudioTeamState>(Error.RateLimited("StudioTeam.PlanSeatLimit", $"Your Studio has reached its {seats}-seat plan allowance, including the owner. Existing members remain in place."));
+        }
 
         if (currentMemberCount >= StudioProfileRules.MaxTeamMembers)
         {
@@ -379,7 +410,8 @@ public sealed class StudioTeamService : IStudioTeamService
             StudioSlug: studioSlug,
             CallerRole: callerRole,
             CanManageTeam: StudioProfileRules.CanManageTeam(callerRole),
-            Members: items));
+            Members: items,
+            SeatLimit: _plans is null ? null : await _plans.GetStudioSeatLimitAsync(studioId, cancellationToken)));
     }
 
     private async Task EnsureUserHasStudioRoleAsync(Guid userId, CancellationToken cancellationToken)

@@ -27,7 +27,7 @@
         </form>
         @if (Model.SearchDraft is not null && (Model.SearchDraft.CandidateDaily.HasValue || Model.SearchDraft.StudioDaily.HasValue)) { <p>Earlier draft (not automatically activated): Candidate @(Model.SearchDraft.CandidateDaily?.ToString() ?? "not set"), Studio @(Model.SearchDraft.StudioDaily?.ToString() ?? "not set").</p> }
     </section>
-    <section class="c-card"><h2>Plan catalog</h2><p>Review and edit Candidate and Studio plans. Only the Free Studio posting allowance is active here; other catalog values remain proposals.</p><a class="c-btn c-btn--secondary" asp-action="Catalog">Open proposed plan catalog →</a></section>
+    <section class="c-card"><h2>Plan catalog</h2><p>Review and edit Candidate and Studio plans. Free Studio posting and seat allowances and Free Candidate saved-job allowance are active here; other catalog values remain proposals.</p><a class="c-btn c-btn--secondary" asp-action="Catalog">Open proposed plan catalog →</a></section>
     <section class="c-card"><h2>Future plans <span class="c-badge c-badge--neutral">Not active</span></h2><p>Plus, Pro and Elite are reserved for a later release. No paid plan can be assigned or purchased, and paid placement is disabled. Existing stored assignments and schedules are retained but have no effect.</p></section>
     <section class="c-card"><h2>Other controls</h2><p>Recommendation thresholds and privacy reviews have separate controls; they do not override the Free allowances.</p><div class="c-btn-group"><a class="c-btn c-btn--secondary" asp-controller="AdminRecommendationPolicy" asp-action="Index">Recommendation settings</a><a class="c-btn c-btn--secondary" asp-controller="ErasureRequests" asp-action="Review">Review erasure requests</a></div></section>
 </section>
