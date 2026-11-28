@@ -1,0 +1,26 @@
+@model HireGameDev.Web.Controllers.FeaturedJobsAdminPage
+@{ ViewData["Title"] = "Featured job placements"; }
+<section class="p-sg-stack">
+    <a asp-controller="Admin" asp-action="Index">← Admin console</a>
+    <header><h1>Featured job placements</h1><p>Manually schedule a Premium Studio's eligible job for up to 30 days. One clearly labelled placement may appear on the unfiltered first jobs page; it does not change match scores or organic ranking. This is not a billing system.</p></header>
+    @if (TempData["PlacementMessage"] is string message) { <p role="status">@message</p> }
+    <section class="c-card"><h2>Find a job</h2><form asp-action="Index" method="get" class="c-form"><label class="c-label" for="search">Job title, slug or Studio name</label><input class="c-input" name="search" id="search" value="@Model.Search" minlength="3" maxlength="100" required /><button class="c-btn c-btn--primary" type="submit">Search</button></form>
+        @if (Model.Search.Length >= 3 && Model.Results.Count == 0) { <p>No jobs found.</p> }
+        @if (Model.Results.Count > 0) { <p>Showing up to 25 results. Scheduling requires a currently active, unexpired job with capacity from a verified Premium Studio.</p> }
+        @foreach (var job in Model.Results)
+        {
+            <article><h3>@job.Title</h3><p>@job.Studio · @job.Status · @job.Id</p><form asp-action="Set" method="post" class="c-form"><input type="hidden" name="jobId" value="@job.Id" /><input type="hidden" name="enabled" value="true" />
+                <label class="c-label" for="days-@job.Id">Duration in days</label><input class="c-input" id="days-@job.Id" type="number" name="days" min="1" max="30" value="7" required />
+                <label class="c-label" for="reason-@job.Id">Reason</label><input class="c-input" id="reason-@job.Id" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Schedule or replace placement</button></form></article>
+        }
+    </section>
+    <section class="c-card"><h2>Scheduled placements</h2><p>Showing up to 100 most recently ending records, including expired ones. A schedule does not guarantee display: current job eligibility, Studio verification, Premium assignment and Candidate blocks are checked separately.</p>
+        @if (Model.Placements.Count == 0) { <p>No placements scheduled.</p> }
+        @foreach (var placement in Model.Placements)
+        {
+            <article><h3>@placement.Title</h3><p>@placement.StudioName · @placement.JobId · @placement.StartsAt.ToUniversalTime().ToString("dd MMM yyyy HH:mm") to @placement.EndsAt.ToUniversalTime().ToString("dd MMM yyyy HH:mm") UTC</p>
+                <form asp-action="Set" method="post" class="c-form"><input type="hidden" name="jobId" value="@placement.JobId" /><input type="hidden" name="enabled" value="false" /><input type="hidden" name="days" value="0" />
+                    <label class="c-label" for="remove-@placement.JobId">Reason for removal</label><input class="c-input" id="remove-@placement.JobId" name="reason" maxlength="500" required /><button class="c-btn c-btn--secondary" type="submit">Remove placement</button></form></article>
+        }
+    </section>
+</section>

@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Plans and limits"; }
 <section class="p-sg-stack">
     <a asp-controller="Admin" asp-action="Index">← Admin console</a>
-    <header><h1>Plans and limits</h1><p>Manage quota limits and assign Free or Premium manually. Changes require an audit reason. There is no billing or paid placement.</p></header>
+    <header><h1>Plans and limits</h1><p>Manage quota limits and assign Free or Premium manually. Changes require an audit reason. Billing is not implemented. Featured job placements are managed separately.</p></header>
     @if (TempData["PlanMessage"] is string message) { <p role="status">@message</p> }
     <section class="c-card"><h2>Plan limits</h2><p>Candidate limits count successful applications in a rolling 30 days, including withdrawals. Studio limits count unexpired Active, Paused and Full jobs. Other safety and posting limits still apply.</p>
         @foreach (var limit in Model.Limits)

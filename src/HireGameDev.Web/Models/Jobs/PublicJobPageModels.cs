@@ -11,7 +11,8 @@ public sealed record PublicJobBrowsePage(PublicJobSearch Search, PublicJobSearch
     string CanonicalUrl, string RegistrationUrl,
     IReadOnlyDictionary<Guid, HireGameDev.Application.Features.Applications.ApplicationFitScore>? FitScores = null,
     bool ShowMatches = false, IReadOnlySet<Guid>? SavedJobIds = null,
-    IReadOnlyDictionary<Guid, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState>? Applications = null);
+    IReadOnlyDictionary<Guid, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState>? Applications = null,
+    PublicJobCard? FeaturedJob = null);
 public sealed record PublicJobDetailPage(PublicJobDetail Job, string CanonicalUrl, string RegistrationUrl, bool? IsSaved = null, HireGameDev.Application.Features.Applications.ApplicationFitScore? FitScore = null, bool ShowFitUnavailable = false, HireGameDev.Application.Abstractions.Applications.CandidateJobApplicationState? Application = null, string? BrowseReturnUrl = null);
 
 public static class PublicJobUi

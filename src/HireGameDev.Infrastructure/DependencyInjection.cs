@@ -243,6 +243,7 @@ public static class DependencyInjection
         if (environment.IsDevelopment())
         {
             services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
+            services.AddScoped<IFeaturedJobPlacementService, FeaturedJobPlacementService>();
             services.AddScoped<IRecommendationPolicyService, RecommendationPolicyService>();
             services.AddScoped<ICandidateJobRecommendationService, CandidateJobRecommendationService>();
             services.AddScoped<IStudioCandidateRecommendationService, StudioCandidateRecommendationService>();

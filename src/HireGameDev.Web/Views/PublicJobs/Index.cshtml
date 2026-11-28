@@ -58,6 +58,17 @@
         <a asp-action="Index">Clear all</a>
     </div>
 }
+@if (Model.FeaturedJob is { } featured)
+{
+    <section class="jb-job jb-featured" aria-label="Promoted Premium placement">
+        <span class="jb-featured-label">Promoted · Premium placement</span>
+        <div class="jb-studio"><a asp-controller="PublicDirectory" asp-action="StudioProfile" asp-route-slug="@featured.Studio.Slug">@featured.Studio.Name</a><span class="jb-verified">✓ Verified Studio</span></div>
+        <h2><a asp-action="Detail" asp-route-slug="@featured.Slug">@featured.Title</a></h2>
+        <div class="jb-tags"><span>@PublicJobUi.Type(featured.JobType)</span><span>@featured.WorkMode</span><span>@PublicJobUi.Experience(featured)</span></div>
+        <p><strong>@PublicJobUi.Salary(featured)</strong> · <a asp-action="Detail" asp-route-slug="@featured.Slug">View job →</a></p>
+        <p class="jb-muted">A manually enabled Premium placement, separate from the results below. This does not affect match scores.</p>
+    </section>
+}
 <div class="jb-results-head"><h2 id="job-results-heading">@(results is null ? "Check your filters" : $"{results.TotalCount} open {(results.TotalCount == 1 ? "role" : "roles")}")</h2><span class="jb-muted">@(Model.Search.Sort switch { PublicJobSort.ClosingSoon => "Closing soon", PublicJobSort.HighestStartingPay => "Highest starting pay", _ => "Newest published first" })</span></div>
 @if (!ViewData.ModelState.IsValid) { <div class="jb-alert" role="alert"><strong>We couldn’t run that search.</strong><div asp-validation-summary="All"></div></div> }
 @if (results is not null && results.Items.Count == 0)
